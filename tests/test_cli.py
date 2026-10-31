@@ -22,7 +22,7 @@ def test_help_lists_commands_and_options() -> None:
     result = runner.invoke(app, ["--help"])
 
     assert result.exit_code == 0
-    for text in ("info", "--version", "--verbose", "--quiet", "--no-color"):
+    for text in ("info", "open", "serve", "--version", "--verbose", "--quiet", "--no-color"):
         assert text in plain(result.output)
 
 

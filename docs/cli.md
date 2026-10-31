@@ -34,6 +34,47 @@ CI fails if the file is out of date.
 
 ## Commands
 
+### `open [SOURCE]`
+
+Show the web UI in a native window (Windows). `SOURCE` is a folder with the built bundle, or an `http(s)` address that the window opens directly.
+
+```console
+$ cornea open web/dist
+$ cornea open web/dist --title "My App" --size 1200x800 --frameless --debug
+$ cornea open http://localhost:5173 --size 1280x800
+```
+
+An address opened this way is not served by Cornea, so it skips Cornea's security and needs the normal window frame (`--frameless` is an error).
+
+### `serve [SOURCE]`
+
+Serve the web UI without a window, for a browser or another program. It prints one JSON line to stdout and then serves until you press Ctrl+C:
+
+```console
+$ cornea serve web/dist
+{"event": "ready", "url": "http://127.0.0.1:52817/?t=...", "port": 52817, "window": false}
+Serving http://127.0.0.1:52817/?t=... - press Ctrl+C to stop
+```
+
+The JSON line is for other programs; the second line goes to stderr for people and is hidden by `--quiet`. Open the `url` in a browser once: it carries a one-time token that is exchanged for a session cookie. The window controls still answer from a stand-in window, and dialogs report that they are unavailable.
+
+### Choosing the web source
+
+Give exactly one of these (or the `SOURCE` argument, which is `--web-dist` for a folder and `--url` for an address):
+
+| Option | Source |
+| --- | --- |
+| `--web-dist FOLDER` | A built bundle. With none of these, Cornea looks for `web/dist` (or the bundle of `--package`). |
+| `--url ADDRESS` | An address opened directly. `open` only. |
+| `--asgi module:attr` | An ASGI app (FastAPI, Django ASGI) mounted on the server. |
+| `--wsgi module:attr` | A WSGI app (Flask, Django) mounted on the server. |
+
+`--app-dir` adds a folder to the import path for `--asgi` and `--wsgi`. `--package`, `--package-path`, `--spa/--no-spa` and `--hashed-prefix` only apply to a bundle.
+
+### Other options
+
+Every setting of the Python API has a flag, grouped in `--help`: server (`--host`, `--port`), security (`--allowed-host`, `--csp`, `--api-prefix`, `--token-ttl`, `--cookie-samesite`, `--public-path`, `--require-origin/--no-require-origin`), native actions (`--disable-action`) and, for `open`, the window (`--title`, `--size`, `--min-size`, `--position`, `--frameless`, `--resizable/--no-resizable`, `--on-top`, `--context-menu`, `--devtools`, `--debug`). Sizes look like `1200x800` and positions like `100,50`. The context menu and developer tools stay off unless you ask for them or use `--debug`. The command line never reads environment variables.
+
 ### `info`
 
 Show the tool version, the Python version and the platform in a table. Add `--json` for machine-readable output.
@@ -50,7 +91,7 @@ Show the tool version, the Python version and the platform in a table. Add `--js
 | Code | Meaning |
 | --- | --- |
 | `0` | Success. |
-| `1` | The command failed, for example an unexpected error. |
+| `1` | The command failed, for example a missing bundle, a setting that is not allowed, or an unexpected error. |
 | `2` | Invalid usage, such as an unknown option or conflicting options. |
 
 ## Errors

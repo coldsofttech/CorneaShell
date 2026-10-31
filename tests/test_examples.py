@@ -31,14 +31,18 @@ def test_docstring_examples_run(module: ModuleType) -> None:
 
 
 @pytest.mark.parametrize(("command", "example"), CLI_EXAMPLES)
-def test_cli_examples_run(command: str, example: str) -> None:
+def test_cli_examples_run(command: str, example: str, monkeypatch: pytest.MonkeyPatch) -> None:
     program, *args = shlex.split(example)
+    started: list[object] = []
+    # `open` and `serve` would start a server or show a window; here they only have to parse.
+    monkeypatch.setattr("cornea.cli.commands.run_shell", lambda *a, **k: started.append(a))
 
     result = runner.invoke(app, args)
 
     assert program == "cornea"
     assert result.exit_code == 0, result.output
     assert command in args or command == ""
+    assert bool(started) == (command in {"open", "serve"})
 
 
 def test_every_command_documents_examples() -> None:

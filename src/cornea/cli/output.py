@@ -33,7 +33,8 @@ def configure(*, no_color: bool, verbose: bool) -> None:
 
 def error(message: str) -> None:
     """Print an error message to stderr."""
-    err_console.print(Text(f"Error: {message}", style="bold red"))
+    # No wrapping: a message with a long path must stay on one line, whatever the terminal width.
+    err_console.print(Text(f"Error: {message}", style="bold red"), soft_wrap=True)
 
 
 def print_exception(exc: Exception) -> None:
