@@ -63,6 +63,47 @@ Example:
 Server(host='127.0.0.1', port=8080)
 ```
 
+## `Shell`
+
+```python
+Shell(
+    source: WebSource | str | PathLike[str] | None = None,
+    *,
+    routers: Iterable[APIRouter] = (),
+    security: Security | None = None,
+    server: Server | None = None,
+    window: Window | None = Window(),
+)
+```
+
+Runs the web UI on a secured local server.
+
+The server listens on the loopback address by default and picks a free port. The first URL,
+`url`, carries a one-time token that is exchanged for a session cookie. The window
+settings are kept for the native window, which is opened by a later release; until then
+`run` only serves.
+
+Properties:
+
+- `running`: Whether the server is accepting requests.
+- `port`: The port the server is bound to. Available after `start`.
+- `base_url`: The server's address without the token.
+- `url`: The first URL to open: it carries the one-time token.
+
+Methods:
+
+- `start() -> Self`: Bind the port and start serving in a background thread.
+- `stop() -> None`: Stop serving and release the port. Safe to call more than once.
+- `run() -> None`: Serve until interrupted (Ctrl+C) or `stop` is called, then clean up.
+
+Example:
+
+```pycon
+>>> with Shell(window=None) as shell:
+...     shell.url.startswith("http://127.0.0.1:")
+True
+```
+
 ## `Static`
 
 A built bundle (React, Vite, Next export, plain HTML) served by the shell.
@@ -199,3 +240,22 @@ Example:
 >>> app.state.security.api_prefix
 '/api'
 ```
+
+## `run`
+
+```python
+def run(
+    source: WebSource | str | PathLike[str] | None = None,
+    *,
+    routers: Iterable[APIRouter] = (),
+    security: Security | None = None,
+    server: Server | None = None,
+    window: Window | None = Window(),
+    title: str | None = None,
+    debug: bool | None = None,
+) -> None
+```
+
+Show the web UI: build a `Shell` and run it until it is closed.
+
+`title` and `debug` are shorthands for the same `window` settings.

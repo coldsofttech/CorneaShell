@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Added
 
 - `Server`, `Security` and `Window` settings, with the context menu and developer tools off unless enabled or in debug mode.
+- `Shell` and `run()` start the secured local server on a free port, print nothing that contains the start-up token, and release the port when stopped.
 - Web bundles are served with single-page-app routing, correct content types, caching for fingerprinted files, and protection against paths outside the bundle. `Static` can also find a bundle inside an installed package or in `web/dist`.
 - `create_app()` builds the secured local server app with your routers, a health check and the web source.
 - Local server security checks: Host and Origin validation, a one-time start-up link with a session cookie, and security response headers.

@@ -114,6 +114,12 @@ def render_dataclass(cls: type) -> list[str]:
             f"| `{field.name}` | `{escape(type_name(field.type))}` | "
             f"`{escape(default_text(field))}` | {escape(docs.get(field.name, ''))} |"
         )
+    return [*lines, *member_lines(cls), *render_example(cls), ""]
+
+
+def member_lines(cls: type) -> list[str]:
+    """The public properties and methods a class defines, as Markdown lists."""
+    lines: list[str] = []
     properties = [
         (name, member)
         for name, member in vars(cls).items()
@@ -133,7 +139,23 @@ def render_dataclass(cls: type) -> list[str]:
             f"- `{name}{signature_text(member)}`: {first_paragraph(member)}"
             for name, member in methods
         ]
-    return [*lines, *render_example(cls), ""]
+    return lines
+
+
+def render_class(cls: type) -> list[str]:
+    """A regular (non-dataclass) class: its constructor, description and members."""
+    return [
+        f"## `{cls.__name__}`",
+        "",
+        "```python",
+        signature_block(cls, prefix=""),
+        "```",
+        "",
+        body_text(cls),
+        *member_lines(cls),
+        *render_example(cls),
+        "",
+    ]
 
 
 def body_text(obj: object) -> str:
@@ -146,20 +168,31 @@ def body_text(obj: object) -> str:
     return markdown("\n".join(lines).strip())
 
 
-def signature_block(function: Any) -> str:
+def parameter_text(parameter: inspect.Parameter) -> str:
+    """One parameter; a dataclass default that is all defaults is shown as ``Name()``."""
+    text = tidy(str(parameter))
+    default = parameter.default
+    if dataclasses.is_dataclass(default) and not isinstance(default, type):
+        cls = type(default)
+        if default == cls():
+            text = text.replace(repr(default), f"{cls.__name__}()")
+    return text
+
+
+def signature_block(function: Any, prefix: str = "def ") -> str:
     """A ``def`` block with one parameter per line, module paths and quotes removed."""
     signature = inspect.signature(function)
-    params = [tidy(str(parameter)) for parameter in signature.parameters.values()]
+    params = [parameter_text(parameter) for parameter in signature.parameters.values()]
     kinds = [parameter.kind for parameter in signature.parameters.values()]
     if inspect.Parameter.KEYWORD_ONLY in kinds and inspect.Parameter.VAR_POSITIONAL not in kinds:
         params.insert(kinds.index(inspect.Parameter.KEYWORD_ONLY), "*")
     returns = ""
-    if signature.return_annotation is not inspect.Signature.empty:
+    if prefix and signature.return_annotation is not inspect.Signature.empty:
         returns = f" -> {tidy(type_name(signature.return_annotation))}"
     if not params:
-        return f"def {function.__name__}(){returns}"
+        return f"{prefix}{function.__name__}(){returns}"
     inner = ",\n".join(f"    {param}" for param in params)
-    return f"def {function.__name__}(\n{inner},\n){returns}"
+    return f"{prefix}{function.__name__}(\n{inner},\n){returns}"
 
 
 def render_callable(obj: Any) -> list[str]:
@@ -191,6 +224,8 @@ def render(module: ModuleType) -> str:
         obj = getattr(module, name)
         if inspect.isclass(obj) and dataclasses.is_dataclass(obj):
             lines += render_dataclass(obj)
+        elif inspect.isclass(obj):
+            lines += render_class(obj)
         elif callable(obj):
             lines += render_callable(obj)
     return "\n".join(lines).rstrip("\n") + "\n"
