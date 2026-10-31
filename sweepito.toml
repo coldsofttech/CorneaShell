@@ -3,8 +3,11 @@ profiles = ["python"]
 risk = "safe"
 
 [clean]
+# Opt in to build output from `uv build` (wheel and sdist, build metadata).
+enable = ["python.build", "python.dist", "python.eggs"]
 # Exclusions always win over cleanup rules. Keep the uv environment between commits.
 exclude = [".venv/"]
 
 [hook]
+risk = "safe"
 quiet = true

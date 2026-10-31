@@ -1,8 +1,8 @@
 # CorneaShell
 
 [![CI](https://github.com/coldsofttech/CorneaShell/actions/workflows/ci.yml/badge.svg)](https://github.com/coldsofttech/CorneaShell/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/CorneaShell)](https://pypi.org/project/CorneaShell/)
-[![Python versions](https://img.shields.io/pypi/pyversions/CorneaShell)](https://pypi.org/project/CorneaShell/)
+[![PyPI](https://img.shields.io/pypi/v/cornea-shell)](https://pypi.org/project/cornea-shell/)
+[![Python versions](https://img.shields.io/pypi/pyversions/cornea-shell)](https://pypi.org/project/cornea-shell/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License](https://img.shields.io/github/license/coldsofttech/CorneaShell)](LICENSE)
 
@@ -37,13 +37,13 @@ A ready-to-use starting point for public Python projects on GitHub. It includes 
 Requires Python 3.11 or newer.
 
 ```bash
-pip install CorneaShell
+pip install cornea-shell
 ```
 
 Or with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv add CorneaShell
+uv add cornea-shell
 ```
 
 To install the latest development version from source:
@@ -55,12 +55,11 @@ pip install git+https://github.com/coldsofttech/CorneaShell.git
 ## Usage
 
 ```python
-import example_package
+import cornea
 
-print(example_package.__version__)
+print(cornea.__version__)
 ```
 
-> After renaming the example package, update the import above. Once you have written your project's real API, replace this example with a short walkthrough of it.
 
 ## Development
 

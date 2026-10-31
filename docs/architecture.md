@@ -29,7 +29,7 @@ flowchart LR
 ## Source layout
 
 ```text
-src/example_package/   typed package (src layout, py.typed)
+src/cornea/            typed package (src layout, py.typed); core/ and cli/ subpackages
 tests/                 pytest unit tests with coverage (80% minimum)
 tests/integration/     tests marked `integration`: skipped by default and in pre-commit, run in CI
 pyproject.toml         metadata, dev dependencies and tool configuration

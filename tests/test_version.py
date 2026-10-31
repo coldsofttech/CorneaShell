@@ -1,5 +1,5 @@
-import example_package
+import cornea
 
 
 def test_version_is_defined() -> None:
-    assert isinstance(example_package.__version__, str)
+    assert isinstance(cornea.__version__, str)

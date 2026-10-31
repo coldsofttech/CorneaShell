@@ -40,3 +40,7 @@ dist/
 .coverage.*
 htmlcov/
 coverage.xml
+
+.temp/
+.claude/
+CLAUDE.md

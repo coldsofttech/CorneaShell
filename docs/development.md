@@ -3,17 +3,15 @@
 ## Layout
 
 ```text
-src/example_package/   package source (src layout, typed)
+src/cornea/            package source (src layout, typed)
+src/cornea/core/       server, security, sources, window and bridge
+src/cornea/cli/        command line interface (thin wrapper over the Python API)
 tests/                 pytest tests
 pyproject.toml         metadata, dependencies and tool configuration
 uv.lock                locked dependencies (commit this file)
 ```
 
-The package is named `example_package`. After creating a repo from this template:
-
-1. Rename `src/example_package/` to your import name.
-2. Update `[tool.hatch.version]`, `[tool.hatch.build.targets.wheel]` and `--cov=` in `pyproject.toml`, and the import in `tests/`.
-3. Set the description in `pyproject.toml`, then run `uv lock`.
+The distribution is named `cornea-shell`, the import is `cornea`, and the command is `cornea`.
 
 ## Tooling
 
