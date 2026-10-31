@@ -4,6 +4,26 @@
 
 Public names exported by `cornea`. Install with `pip install cornea-shell`.
 
+## `Asgi`
+
+An ASGI app (FastAPI, Django ASGI) mounted in-process on the shell's port.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `target` | `str \| Callable[...]` | `required` | ``module:attribute`` import string, or the app itself. |
+| `app_dir` | `Path \| str \| None` | `None` | Folder added to ``sys.path`` before importing, for example the project root. |
+
+Methods:
+
+- `load() -> Callable[...]`: Import the app if needed and return it.
+
+Example:
+
+```pycon
+>>> Asgi("myproject.asgi:application", app_dir=".").target
+'myproject.asgi:application'
+```
+
 ## `Security`
 
 Local server protections. The defaults are the strict ones.
@@ -16,6 +36,15 @@ Local server protections. The defaults are the strict ones.
 | `token_ttl` | `float` | `60.0` | Seconds the one-time bootstrap token stays valid. |
 | `cookie_samesite` | `Literal['strict', 'lax']` | `'strict'` | ``SameSite`` attribute of the session cookie. |
 
+Example:
+
+```pycon
+>>> Security(allowed_hosts=("App.Local",)).allowed_hosts
+('app.local',)
+>>> Security(csp="default-src 'self'; style-src 'self' 'unsafe-inline'").csp
+"default-src 'self'; style-src 'self' 'unsafe-inline'"
+```
+
 ## `Server`
 
 Where the local server listens. Port 0 picks a free port.
@@ -24,6 +53,57 @@ Where the local server listens. Port 0 picks a free port.
 | --- | --- | --- | --- |
 | `host` | `str` | `'127.0.0.1'` | Address to bind. Keep the loopback default unless the server must be reachable elsewhere. |
 | `port` | `int` | `0` | Port to bind. ``0`` picks a free port. |
+
+Example:
+
+```pycon
+>>> Server(port=8080)
+Server(host='127.0.0.1', port=8080)
+```
+
+## `Static`
+
+A built bundle (React, Vite, Next export, plain HTML) served by the shell.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `path` | `Path \| str` | `required` | Folder that contains ``index.html``. |
+
+Properties:
+
+- `directory`: The bundle folder as a :class:`~pathlib.Path`.
+
+Methods:
+
+- `resolve() -> Path`: Return the absolute bundle folder, or raise if it or its ``index.html`` is missing.
+
+Example:
+
+```pycon
+>>> Static("web/dist").directory.name
+'dist'
+```
+
+## `Url`
+
+An http or https server the window opens directly. The shell's security layer is skipped.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `url` | `str` | `required` | Address of the web UI, for example ``http://localhost:5173``. |
+| `mode` | `Literal['direct', 'proxy']` | `'direct'` | ``direct`` opens the address as is. ``proxy`` is planned for a later release. |
+
+Example:
+
+```pycon
+>>> Url("http://localhost:5173").mode
+'direct'
+```
+
+## `WebSource`
+
+Base class for everything that can supply the web layer.
+
 
 ## `Window`
 
@@ -46,3 +126,34 @@ Properties:
 
 - `context_menu_enabled`: Whether the right-click menu is available.
 - `devtools_enabled`: Whether the developer tools can be opened.
+
+Example:
+
+```pycon
+>>> Window(title="My App", frameless=True).title
+'My App'
+>>> Window().devtools_enabled
+False
+>>> Window(debug=True).devtools_enabled
+True
+```
+
+## `Wsgi`
+
+A WSGI app (Flask, Django WSGI) adapted to ASGI and mounted in-process.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `target` | `str \| Callable[...]` | `required` | ``module:attribute`` import string, or the app itself. |
+| `app_dir` | `Path \| str \| None` | `None` | Folder added to ``sys.path`` before importing, for example the project root. |
+
+Methods:
+
+- `load() -> Callable[...]`: Import the app if needed and return it wrapped as an ASGI app.
+
+Example:
+
+```pycon
+>>> Wsgi("myapp:app").target
+'myapp:app'
+```

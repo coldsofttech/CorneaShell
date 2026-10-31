@@ -20,7 +20,12 @@ def _check_size(name: str, size: Size) -> None:
 
 @dataclass(frozen=True, slots=True)
 class Server:
-    """Where the local server listens. Port 0 picks a free port."""
+    """Where the local server listens. Port 0 picks a free port.
+
+    Example:
+        >>> Server(port=8080)
+        Server(host='127.0.0.1', port=8080)
+    """
 
     host: str = "127.0.0.1"
     """Address to bind. Keep the loopback default unless the server must be reachable elsewhere."""
@@ -36,7 +41,14 @@ class Server:
 
 @dataclass(frozen=True, slots=True)
 class Security:
-    """Local server protections. The defaults are the strict ones."""
+    """Local server protections. The defaults are the strict ones.
+
+    Example:
+        >>> Security(allowed_hosts=("App.Local",)).allowed_hosts
+        ('app.local',)
+        >>> Security(csp="default-src 'self'; style-src 'self' 'unsafe-inline'").csp
+        "default-src 'self'; style-src 'self' 'unsafe-inline'"
+    """
 
     allowed_hosts: tuple[str, ...] = ()
     """Extra ``Host`` values to accept. The bound ``127.0.0.1:<port>`` is always allowed."""
@@ -66,7 +78,16 @@ class Security:
 
 @dataclass(frozen=True, slots=True)
 class Window:
-    """Native window options. The context menu and developer tools are off unless enabled."""
+    """Native window options. The context menu and developer tools are off unless enabled.
+
+    Example:
+        >>> Window(title="My App", frameless=True).title
+        'My App'
+        >>> Window().devtools_enabled
+        False
+        >>> Window(debug=True).devtools_enabled
+        True
+    """
 
     title: str = "Cornea Shell"
     """Window title."""

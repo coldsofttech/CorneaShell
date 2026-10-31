@@ -37,8 +37,14 @@ Homepage = "https://github.com/coldsofttech/CorneaShell"
 Issues = "https://github.com/coldsofttech/CorneaShell/issues"
 Changelog = "https://github.com/coldsofttech/CorneaShell/blob/main/CHANGELOG.md"
 
+[project.optional-dependencies]
+wsgi = [
+    "a2wsgi>=1.10.10",
+]
+
 [dependency-groups]
 dev = [
+  "a2wsgi>=1.10.10",
   "mypy>=1.13",
   "pre-commit>=4.0",
   "pytest>=8.3",

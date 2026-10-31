@@ -10,10 +10,23 @@ from rich.table import Table
 from cornea import __version__
 from cornea.cli import output
 
+EXAMPLES: dict[str, tuple[str, ...]] = {
+    "": ("cornea --version", "cornea --quiet info", "cornea --no-color info"),
+    "info": ("cornea info", "cornea info --json"),
+}
+"""Example invocations by command name (empty for the top level). Tested and used in the docs."""
+
+
+def _epilog(command: str) -> str:
+    """Help footer that lists the examples for ``command``."""
+    return "[bold]Examples[/bold]\n\n" + "\n\n".join(f"  $ {line}" for line in EXAMPLES[command])
+
+
 app = typer.Typer(
     name="cornea",
     help="Host a web UI in a native window with a secured local server.",
     no_args_is_help=True,
+    epilog=_epilog(""),
     rich_markup_mode="rich",
     # run() reports errors briefly; Typer's own traceback would show local variables.
     pretty_exceptions_enable=False,
@@ -69,7 +82,7 @@ def main(
     ctx.obj = State(verbose=verbose, quiet=quiet)
 
 
-@app.command()
+@app.command(epilog=_epilog("info"))
 def info(json_output: JsonOption = False) -> None:
     """Show version and environment details."""
     details = {

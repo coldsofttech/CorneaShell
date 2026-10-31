@@ -34,3 +34,20 @@ $ cornea info [OPTIONS]
 
 * `--json`: Output as JSON.
 * `--help`: Show this message and exit.
+
+## Examples
+
+### `cornea`
+
+```console
+$ cornea --version
+$ cornea --quiet info
+$ cornea --no-color info
+```
+
+### `cornea info`
+
+```console
+$ cornea info
+$ cornea info --json
+```

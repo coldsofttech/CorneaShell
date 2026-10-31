@@ -8,6 +8,7 @@ CI regenerates the file and fails if it differs from the committed copy.
 import ast
 import dataclasses
 import inspect
+import re
 import sys
 import textwrap
 from pathlib import Path
@@ -23,7 +24,15 @@ MAX_DEFAULT = 40
 def type_name(annotation: Any) -> str:
     if isinstance(annotation, type):
         return annotation.__name__
-    return str(annotation).replace("typing.", "")
+    text = re.sub(r"\b(?:typing|collections\.abc|pathlib)\.", "", str(annotation))
+    return re.sub(r"Callable\[.*\]", "Callable[...]", text)
+
+
+def signature_text(function: Any) -> str:
+    """Signature without ``self``, with module prefixes and long callables shortened."""
+    text = re.sub(r"\b(?:typing|collections\.abc|pathlib)\.", "", str(inspect.signature(function)))
+    text = re.sub(r"Callable\[.*\]", "Callable[...]", text)
+    return text.replace("(self, ", "(").replace("(self)", "()")
 
 
 def default_text(field: "dataclasses.Field[Any]") -> str:
@@ -54,6 +63,25 @@ def attribute_docs(cls: type) -> dict[str, str]:
     return docs
 
 
+def example_block(obj: object) -> list[str]:
+    """Lines of the docstring's ``Example:`` section, dedented, or an empty list."""
+    lines = (inspect.getdoc(obj) or "").splitlines()
+    for index, line in enumerate(lines):
+        if line.strip() in {"Example:", "Examples:"}:
+            block = []
+            for following in lines[index + 1 :]:
+                if following.strip() and not following.startswith(" "):
+                    break
+                block.append(following)
+            return textwrap.dedent("\n".join(block)).strip().splitlines()
+    return []
+
+
+def render_example(obj: object) -> list[str]:
+    example = example_block(obj)
+    return ["", "Example:", "", "```pycon", *example, "```"] if example else []
+
+
 def first_paragraph(obj: object) -> str:
     return " ".join((inspect.getdoc(obj) or "").split("\n\n")[0].split())
 
@@ -65,8 +93,10 @@ def escape(text: str) -> str:
 def render_dataclass(cls: type) -> list[str]:
     lines = [f"## `{cls.__name__}`", "", first_paragraph(cls), ""]
     docs = attribute_docs(cls)
-    lines += ["| Parameter | Type | Default | Description |", "| --- | --- | --- | --- |"]
-    for field in dataclasses.fields(cls):
+    fields = dataclasses.fields(cls)
+    if fields:
+        lines += ["| Parameter | Type | Default | Description |", "| --- | --- | --- | --- |"]
+    for field in fields:
         lines.append(
             f"| `{field.name}` | `{escape(type_name(field.type))}` | "
             f"`{escape(default_text(field))}` | {escape(docs.get(field.name, ''))} |"
@@ -79,12 +109,23 @@ def render_dataclass(cls: type) -> list[str]:
     if properties:
         lines += ["", "Properties:", ""]
         lines += [f"- `{name}`: {first_paragraph(member)}" for name, member in properties]
-    return [*lines, ""]
+    methods = [
+        (name, member)
+        for name, member in vars(cls).items()
+        if inspect.isfunction(member) and not name.startswith("_")
+    ]
+    if methods:
+        lines += ["", "Methods:", ""]
+        lines += [
+            f"- `{name}{signature_text(member)}`: {first_paragraph(member)}"
+            for name, member in methods
+        ]
+    return [*lines, *render_example(cls), ""]
 
 
 def render_callable(obj: Any) -> list[str]:
     name = obj.__name__
-    return [f"## `{name}{inspect.signature(obj)}`", "", first_paragraph(obj), ""]
+    return [f"## `{name}{signature_text(obj)}`", "", first_paragraph(obj), ""]
 
 
 def render(module: ModuleType) -> str:

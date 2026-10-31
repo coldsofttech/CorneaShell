@@ -22,7 +22,7 @@ jobs:
       - run: uv sync --locked
       - name: Check the generated CLI reference is up to date
         run: |
-          uv run typer cornea.cli utils docs --name cornea --output docs/cli-reference.md
+          uv run python scripts/gen_cli_reference.py
           git diff --exit-code docs/cli-reference.md
       - name: Check the generated API reference is up to date
         run: |

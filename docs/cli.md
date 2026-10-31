@@ -27,7 +27,7 @@ These go before the command name, for example `cornea --quiet info`.
 The full, generated list of commands and options is in [cli-reference.md](cli-reference.md). Regenerate it after changing a command:
 
 ```bash
-uv run typer cornea.cli utils docs --name cornea --output docs/cli-reference.md
+uv run python scripts/gen_cli_reference.py
 ```
 
 CI fails if the file is out of date.
