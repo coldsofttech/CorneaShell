@@ -6,7 +6,7 @@ import threading
 import time
 from collections.abc import Iterable
 from dataclasses import replace
-from types import TracebackType
+from types import ModuleType, TracebackType
 from typing import Self
 
 import uvicorn
@@ -14,7 +14,14 @@ from fastapi import APIRouter, FastAPI
 
 from cornea.core.app import allow_host, create_app
 from cornea.core.config import Security, Server, Window
-from cornea.core.sources import WebSource
+from cornea.core.sources import Url, WebSource, coerce_source
+from cornea.core.window import (
+    create_native_window,
+    load_webview,
+    require_webview2,
+    require_windows,
+    show_window,
+)
 
 DEFAULT_WINDOW = Window()
 START_TIMEOUT = 10.0
@@ -30,9 +37,13 @@ class Shell:
     """Runs the web UI on a secured local server.
 
     The server listens on the loopback address by default and picks a free port. The first URL,
-    :attr:`url`, carries a one-time token that is exchanged for a session cookie. The window
-    settings are kept for the native window, which is opened by a later release; until then
-    :meth:`run` only serves.
+    :attr:`url`, carries a one-time token that is exchanged for a session cookie. With a
+    ``window``, :meth:`run` opens a native window on that URL (Windows only, and on the main
+    thread) and stops the server when the window closes. With ``window=None`` it only serves.
+
+    A direct :class:`~cornea.core.sources.Url` source is different: the window opens that address
+    itself and no server is started, so it needs a window with the native frame (the page cannot
+    reach the window controls) and :attr:`url` is the address you gave.
 
     Example:
         >>> with Shell(window=None) as shell:
@@ -52,11 +63,16 @@ class Shell:
         self.security = security or Security()
         self.server = server or Server()
         self.window = window
-        self.app: FastAPI = create_app(source, routers=routers, security=self.security)
+        web_source = coerce_source(source) if source is not None else None
+        self._direct_url: str | None = web_source.url if isinstance(web_source, Url) else None
+        if self._direct_url is not None:
+            self._check_direct_window(window)
+        self.app: FastAPI = create_app(web_source, routers=routers, security=self.security)
         self._socket: socket.socket | None = None
         self._uvicorn: uvicorn.Server | None = None
         self._thread: threading.Thread | None = None
         self._error: BaseException | None = None
+        self._window_error: BaseException | None = None
 
     # ----- what the server is ---------------------------------------------------------------
 
@@ -68,6 +84,7 @@ class Shell:
     @property
     def port(self) -> int:
         """The port the server is bound to. Available after :meth:`start`."""
+        self._require_server()
         if self._socket is None:
             raise RuntimeError("the server has not been started")
         return int(self._socket.getsockname()[1])
@@ -79,13 +96,16 @@ class Shell:
 
     @property
     def url(self) -> str:
-        """The first URL to open: it carries the one-time token."""
+        """The first URL to open: with a token for the local server, or the direct address."""
+        if self._direct_url is not None:
+            return self._direct_url
         return f"{self.base_url}/?t={self.app.state.bootstrap_token}"
 
     # ----- lifecycle ------------------------------------------------------------------------
 
     def start(self) -> Self:
         """Bind the port and start serving in a background thread."""
+        self._require_server()
         if self._thread is not None:
             raise RuntimeError("the server was already started")
         family = socket.AF_INET6 if ":" in self.server.host else socket.AF_INET
@@ -115,16 +135,29 @@ class Shell:
             listener.close()
 
     def run(self) -> None:
-        """Serve until interrupted (Ctrl+C) or :meth:`stop` is called, then clean up."""
-        self.start()
+        """Show the window and wait until it closes, or just serve when there is no window.
+
+        Serving ends on Ctrl+C or :meth:`stop`. The server is stopped in every case.
+        """
+        webview = None
+        if self.window is not None:
+            # Check first, so nothing is started on a machine that cannot show a window.
+            require_windows()
+            require_webview2()
+            webview = load_webview()
+        if self._direct_url is None:
+            self.start()
         try:
-            # A timeout keeps Ctrl+C responsive on Windows, where a plain join() ignores it.
-            while self._thread is not None and self._thread.is_alive():
-                self._thread.join(0.2)
+            if webview is not None and self.window is not None:
+                self._show_window(webview, self.window)
+            else:
+                self._serve_until_stopped()
         except KeyboardInterrupt:
             pass
         finally:
             self.stop()
+        if self._window_error is not None:
+            raise RuntimeError("the window could not be set up") from self._window_error
 
     def __enter__(self) -> Self:
         return self.start()
@@ -138,6 +171,33 @@ class Shell:
         self.stop()
 
     # ----- internals ------------------------------------------------------------------------
+
+    def _require_server(self) -> None:
+        if self._direct_url is not None:
+            raise RuntimeError("a direct URL has no local server")
+
+    @staticmethod
+    def _check_direct_window(window: Window | None) -> None:
+        if window is None:
+            raise ValueError("a direct URL needs a window; there is nothing to serve without one")
+        if window.frameless:
+            raise ValueError(
+                "a direct URL cannot use a frameless window: the page cannot reach the window "
+                "controls. Use the native frame, or the proxy mode when it is available."
+            )
+
+    def _serve_until_stopped(self) -> None:
+        # A timeout keeps Ctrl+C responsive on Windows, where a plain join() ignores it.
+        while self._thread is not None and self._thread.is_alive():
+            self._thread.join(0.2)
+
+    def _show_window(self, webview: ModuleType, settings: Window) -> None:
+        _, controller = create_native_window(webview, self.url, settings, self._set_window_error)
+        self.app.state.window = controller
+        show_window(webview, settings)
+
+    def _set_window_error(self, error: BaseException) -> None:
+        self._window_error = error
 
     def _serve(self, server: uvicorn.Server, listener: socket.socket) -> None:
         try:

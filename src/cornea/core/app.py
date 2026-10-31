@@ -10,6 +10,7 @@ from cornea.core.config import Security
 from cornea.core.security import SecurityMiddleware, SessionGate, new_token
 from cornea.core.sources import Asgi, Static, WebSource, Wsgi, coerce_source
 from cornea.core.static import BundleFiles
+from cornea.core.window_routes import router as window_router
 
 _ALL_METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
@@ -46,11 +47,13 @@ def create_app(
     app.state.gate = gate
     app.state.security = security
     app.state.allowed_hosts = allowed_hosts
+    app.state.window = None  # set by the shell once a window exists
 
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    app.include_router(window_router, prefix=security.api_prefix)
     for router in routers:
         app.include_router(router, prefix=security.api_prefix)
     _reserve_api_prefix(app, security.api_prefix)

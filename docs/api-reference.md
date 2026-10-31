@@ -79,22 +79,26 @@ Shell(
 Runs the web UI on a secured local server.
 
 The server listens on the loopback address by default and picks a free port. The first URL,
-`url`, carries a one-time token that is exchanged for a session cookie. The window
-settings are kept for the native window, which is opened by a later release; until then
-`run` only serves.
+`url`, carries a one-time token that is exchanged for a session cookie. With a
+`window`, `run` opens a native window on that URL (Windows only, and on the main
+thread) and stops the server when the window closes. With `window=None` it only serves.
+
+A direct `cornea.core.sources.Url` source is different: the window opens that address
+itself and no server is started, so it needs a window with the native frame (the page cannot
+reach the window controls) and `url` is the address you gave.
 
 Properties:
 
 - `running`: Whether the server is accepting requests.
 - `port`: The port the server is bound to. Available after `start`.
 - `base_url`: The server's address without the token.
-- `url`: The first URL to open: it carries the one-time token.
+- `url`: The first URL to open: with a token for the local server, or the direct address.
 
 Methods:
 
 - `start() -> Self`: Bind the port and start serving in a background thread.
 - `stop() -> None`: Stop serving and release the port. Safe to call more than once.
-- `run() -> None`: Serve until interrupted (Ctrl+C) or `stop` is called, then clean up.
+- `run() -> None`: Show the window and wait until it closes, or just serve when there is no window.
 
 Example:
 
