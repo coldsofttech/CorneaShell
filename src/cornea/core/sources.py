@@ -1,6 +1,7 @@
 """Web sources: where the UI comes from. The app factory mounts whichever source is given."""
 
 import importlib
+import importlib.resources
 import os
 import re
 import sys
@@ -56,27 +57,68 @@ class WebSource:
 class Static(WebSource):
     """A built bundle (React, Vite, Next export, plain HTML) served by the shell.
 
+    The bundle folder is found in this order: ``path``, then ``package_path`` inside the installed
+    ``package``, then ``web/dist`` under the current folder (a source checkout). An explicit
+    ``path`` is never replaced by a later place.
+
     Example:
         >>> Static("web/dist").directory.name
         'dist'
+        >>> Static(package="myapp").package_path
+        'web/dist'
     """
 
-    path: Path | str
+    path: Path | str | None = None
     """Folder that contains ``index.html``."""
+    package: str | None = None
+    """Import name of an installed package that ships the bundle."""
+    package_path: str = "web/dist"
+    """Folder inside ``package`` that contains ``index.html``."""
+    spa: bool = True
+    """Serve ``index.html`` for unknown paths without a file extension (client-side routing)."""
+    hashed_prefixes: tuple[str, ...] = ("assets/",)
+    """Folders of fingerprinted files, cached for a year. Everything else is revalidated."""
+
+    def __post_init__(self) -> None:
+        if not self.package_path.strip() or ".." in Path(self.package_path).parts:
+            raise ValueError(
+                f"package_path must be a folder inside the package, got {self.package_path!r}"
+            )
+        for prefix in self.hashed_prefixes:
+            if not prefix.endswith("/") or prefix.startswith("/"):
+                raise ValueError(f"hashed_prefixes must look like 'assets/', got {prefix!r}")
 
     @property
-    def directory(self) -> Path:
-        """The bundle folder as a :class:`~pathlib.Path`."""
-        return Path(self.path)
+    def directory(self) -> Path | None:
+        """The explicit bundle folder as a :class:`~pathlib.Path`, or ``None`` if not given."""
+        return Path(self.path) if self.path is not None else None
 
     def resolve(self) -> Path:
         """Return the absolute bundle folder, or raise if it or its ``index.html`` is missing."""
-        directory = self.directory.resolve()
-        if not directory.is_dir():
-            raise FileNotFoundError(f"web bundle folder not found: {directory}")
-        if not (directory / "index.html").is_file():
-            raise FileNotFoundError(f"index.html not found in web bundle: {directory}")
-        return directory
+        if self.directory is not None:
+            directory = self.directory.resolve()
+            if not directory.is_dir():
+                raise FileNotFoundError(f"web bundle folder not found: {directory}")
+            if not (directory / "index.html").is_file():
+                raise FileNotFoundError(f"index.html not found in web bundle: {directory}")
+            return directory
+        tried: list[Path] = []
+        for candidate in self._fallback_folders():
+            tried.append(candidate)
+            if (candidate / "index.html").is_file():
+                return candidate.resolve()
+        places = ", ".join(str(place) for place in tried) or "no place to look"
+        raise FileNotFoundError(f"web bundle not found; looked in: {places}")
+
+    def _fallback_folders(self) -> Iterable[Path]:
+        if self.package is not None:
+            try:
+                root = importlib.resources.files(self.package)
+            except ModuleNotFoundError:
+                pass
+            else:
+                yield Path(str(root.joinpath(*Path(self.package_path).parts)))
+        yield Path.cwd() / "web" / "dist"
 
 
 @dataclass(frozen=True, slots=True)

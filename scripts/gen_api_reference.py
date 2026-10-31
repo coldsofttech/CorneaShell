@@ -104,7 +104,7 @@ def escape(text: str) -> str:
 
 
 def render_dataclass(cls: type) -> list[str]:
-    lines = [f"## `{cls.__name__}`", "", first_paragraph(cls), ""]
+    lines = [f"## `{cls.__name__}`", "", body_text(cls), ""]
     docs = attribute_docs(cls)
     fields = dataclasses.fields(cls)
     if fields:

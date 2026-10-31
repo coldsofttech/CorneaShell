@@ -2,6 +2,7 @@ import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
+from urllib.parse import unquote
 
 
 @dataclass
@@ -43,23 +44,27 @@ class AsgiClient:
         host: str | None = "127.0.0.1:8000",
         origin: str | None = None,
         cookie: str | None = None,
+        headers: dict[str, str] | None = None,
     ) -> Response:
-        headers = [(b"host", host.encode())] if host is not None else []
+        raw_headers = [(b"host", host.encode())] if host is not None else []
         if origin is not None:
-            headers.append((b"origin", origin.encode()))
+            raw_headers.append((b"origin", origin.encode()))
         if cookie is not None:
-            headers.append((b"cookie", cookie.encode()))
+            raw_headers.append((b"cookie", cookie.encode()))
+        for name, value in (headers or {}).items():
+            raw_headers.append((name.lower().encode(), value.encode()))
         scope = {
             "type": "http",
             "asgi": {"version": "3.0"},
             "http_version": "1.1",
             "method": method,
             "scheme": "http",
-            "path": path,
+            # Servers percent-decode the path before the app sees it.
+            "path": unquote(path),
             "raw_path": path.encode(),
             "query_string": query.encode(),
             "root_path": "",
-            "headers": headers,
+            "headers": raw_headers,
             "client": ("127.0.0.1", 1),
             "server": ("127.0.0.1", 8000),
         }

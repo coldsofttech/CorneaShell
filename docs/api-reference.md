@@ -67,13 +67,21 @@ Server(host='127.0.0.1', port=8080)
 
 A built bundle (React, Vite, Next export, plain HTML) served by the shell.
 
+The bundle folder is found in this order: `path`, then `package_path` inside the installed
+`package`, then `web/dist` under the current folder (a source checkout). An explicit
+`path` is never replaced by a later place.
+
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `path` | `Path \| str` | `required` | Folder that contains `index.html`. |
+| `path` | `Path \| str \| None` | `None` | Folder that contains `index.html`. |
+| `package` | `str \| None` | `None` | Import name of an installed package that ships the bundle. |
+| `package_path` | `str` | `'web/dist'` | Folder inside `package` that contains `index.html`. |
+| `spa` | `bool` | `True` | Serve `index.html` for unknown paths without a file extension (client-side routing). |
+| `hashed_prefixes` | `tuple[str, ...]` | `('assets/',)` | Folders of fingerprinted files, cached for a year. Everything else is revalidated. |
 
 Properties:
 
-- `directory`: The bundle folder as a `pathlib.Path`.
+- `directory`: The explicit bundle folder as a `pathlib.Path`, or `None` if not given.
 
 Methods:
 
@@ -84,6 +92,8 @@ Example:
 ```pycon
 >>> Static("web/dist").directory.name
 'dist'
+>>> Static(package="myapp").package_path
+'web/dist'
 ```
 
 ## `Url`
@@ -143,6 +153,8 @@ True
 ## `Wsgi`
 
 A WSGI app (Flask, Django WSGI) adapted to ASGI and mounted in-process.
+
+Needs the `wsgi` extra: `pip install cornea-shell[wsgi]`.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |

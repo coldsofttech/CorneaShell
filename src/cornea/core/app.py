@@ -5,11 +5,11 @@ from collections.abc import Iterable
 
 from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
-from starlette.staticfiles import StaticFiles
 
 from cornea.core.config import Security
 from cornea.core.security import SecurityMiddleware, SessionGate, new_token
 from cornea.core.sources import Asgi, Static, WebSource, Wsgi, coerce_source
+from cornea.core.static import BundleFiles
 
 _ALL_METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
@@ -78,7 +78,10 @@ def _reserve_api_prefix(app: FastAPI, prefix: str) -> None:
 
 def _mount_source(app: FastAPI, source: WebSource | None) -> None:
     if isinstance(source, Static):
-        app.mount("/", StaticFiles(directory=source.resolve(), html=True))
+        bundle = BundleFiles(
+            str(source.resolve()), spa=source.spa, hashed_prefixes=source.hashed_prefixes
+        )
+        app.mount("/", bundle)
     elif isinstance(source, Asgi | Wsgi):
         app.mount("/", source.load())
     # Url (direct) has nothing to mount: the window opens the address itself.
