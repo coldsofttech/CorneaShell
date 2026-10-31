@@ -7,6 +7,8 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Added
 
 - `Server`, `Security` and `Window` settings, with the context menu and developer tools off unless enabled or in debug mode.
+- Example projects for plain HTML, React, FastAPI, Flask, Django and Node.js, a rewritten README, and a new architecture guide.
+- The window state tells a page whether the window is frameless, so it can draw its own title bar only when needed.
 - `cornea open` shows a web bundle, address or app in a window, and `cornea serve` serves it without one, printing the address as a JSON line. Every setting has a flag.
 - Native actions your page can call: choose a folder or file, choose where to save, open a link in the browser, and platform info. Register your own with `@shell.action`, and switch individual ones off with `Bridge(disabled=...)`.
 - Running without a window (`window=None`) keeps the window controls working against a stand-in window, so a frameless page can be tried in a normal browser. `run(on_ready=...)` and `ready_line()` let tools learn the address.

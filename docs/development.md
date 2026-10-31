@@ -45,6 +45,6 @@ The `ci` workflow runs four jobs: `lint` (pre-commit, including Ruff and mypy), 
 Publishing uses [trusted publishing](https://docs.pypi.org/trusted-publishers/), so no API token is stored.
 
 1. On PyPI, add a trusted publisher for this repository: workflow `release.yml`, environment `pypi`.
-2. Create an environment named `pypi`. The settings script does this and restricts it to `v*` tags.
+2. Create an environment named `pypi` in the repository settings and restrict its deployment branches and tags to `v*` tags.
 3. Bump `__version__` in `src/<package>/__init__.py` and update `CHANGELOG.md`.
 4. Publish a GitHub release tagged `v<version>`. The workflow fails if the tag and version differ.

@@ -58,6 +58,7 @@ def test_simulated_window_starts_idle() -> None:
         "maximized": False,
         "minimized": False,
         "closed": False,
+        "frameless": False,
     }
 
 

@@ -109,6 +109,7 @@ class NativeWindow:
     def __init__(self, window: Any, settings: Window, webview: ModuleType | None = None) -> None:
         self._window = window
         self._webview = webview
+        self._frameless = settings.frameless
         self._title = settings.title
         self._maximized = False
         self._minimized = False
@@ -157,6 +158,7 @@ class NativeWindow:
             "maximized": self._maximized,
             "minimized": self._minimized,
             "closed": self._closed,
+            "frameless": self._frameless,
         }
 
     def dialog(
@@ -226,6 +228,7 @@ class SimulatedWindow:
             "maximized": self._maximized,
             "minimized": self._minimized,
             "closed": self._closed,
+            "frameless": False,
         }
 
     def dialog(

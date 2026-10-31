@@ -236,7 +236,13 @@ def test_close_happens_after_the_answer(monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_state_follows_the_window_events() -> None:
     controller, fake = make_controller("Main")
-    idle = {"title": "Main", "maximized": False, "minimized": False, "closed": False}
+    idle = {
+        "title": "Main",
+        "maximized": False,
+        "minimized": False,
+        "closed": False,
+        "frameless": False,
+    }
     assert controller.state() == idle
 
     fake.events.maximized.fire()
@@ -385,7 +391,13 @@ def test_the_page_can_control_the_window_over_http(webview: FakeWebview, bundle:
 
     assert results["state"] == (
         200,
-        {"title": "Cornea Shell", "maximized": False, "minimized": False, "closed": False},
+        {
+            "title": "Cornea Shell",
+            "maximized": False,
+            "minimized": False,
+            "closed": False,
+            "frameless": False,
+        },
     )
     for action in ("minimize", "maximize", "restore", "title", "close"):
         assert results[action] == (200, {"ok": True})
@@ -534,3 +546,11 @@ def test_a_direct_url_still_checks_the_environment(
         Shell(Url("http://localhost:5173")).run()
 
     assert webview.windows == []
+
+
+def test_the_state_says_whether_the_window_is_frameless() -> None:
+    plain = NativeWindow(FakeWindow("t", "u"), Window())
+    frameless = NativeWindow(FakeWindow("t", "u"), Window(frameless=True))
+
+    assert plain.state()["frameless"] is False
+    assert frameless.state()["frameless"] is True

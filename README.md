@@ -1,4 +1,4 @@
-# CorneaShell
+# Cornea Shell
 
 [![CI](https://github.com/coldsofttech/CorneaShell/actions/workflows/ci.yml/badge.svg)](https://github.com/coldsofttech/CorneaShell/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/cornea-shell)](https://pypi.org/project/cornea-shell/)
@@ -6,35 +6,25 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License](https://img.shields.io/github/license/coldsofttech/CorneaShell)](LICENSE)
 
-A ready-to-use starting point for public Python projects on GitHub. It includes a typed package layout, automated testing on Python 3.11 to 3.15, linting, one-step releases to PyPI, and the community and security files a public repository needs.
+Show a web UI in a native Windows window, backed by a secured local server. You bring the UI, whether it is plain HTML, a React build, a Flask or Django site, or a page from a Node server. Cornea handles the window, the local security and the bridge to native features.
 
 ## What you get
 
-- A typed `src` package with tests and a coverage minimum
-- Fast, reproducible setup with [uv](https://docs.astral.sh/uv/)
-- Linting, formatting and type checking before every commit and in CI
-- Automated tests on Python 3.11 to 3.15 (Ubuntu) and 3.11 (Windows and macOS)
-- Publishing to PyPI when you create a GitHub release, with no stored tokens
-- Contribution, conduct, support and security-reporting guidelines
-- Issue forms, a pull request template and automated dependency updates
+- **A native window** on the Microsoft Edge WebView2 engine, with an optional frameless mode so your page draws its own title bar.
+- **A secured local server.** Only your window can use it: other programs and web pages on the same machine are kept out.
+- **Any web UI.** A folder of built files, a Python web app, or an address you already run.
+- **Your own Python routes** next to the UI, called with ordinary `fetch()`.
+- **Native actions your page can call:** choose a folder or file, choose where to save, open a link in the browser, read platform info, and your own.
+- **A command line and a Python API** that do the same things.
 
-## Getting started
+## Requirements
 
-1. Click **Use this template** on GitHub and create your new repository.
-2. Run the **Init** workflow from the Actions tab and merge the pull request it opens. This fills in your owner and repository name.
-3. Rename the example package and set your project description. See the [development guide](docs/development.md).
-4. Add your contact details in `CODE_OF_CONDUCT.md`, delete `.github/workflows/init.yml`, and replace this description.
-5. Apply the repository protections by following the [setup guide](docs/repo-setup.md).
-6. Install dependencies and commit checks:
+- Windows 10 or 11 with the [Microsoft Edge WebView2 runtime](https://developer.microsoft.com/microsoft-edge/webview2/) (most up-to-date Windows installs already have it)
+- Python 3.11 or newer
 
-   ```bash
-   uv sync
-   uv run pre-commit install --hook-type pre-commit --hook-type post-commit
-   ```
+Other platforms are not supported yet.
 
 ## Installation
-
-Requires Python 3.11 or newer.
 
 ```bash
 pip install cornea-shell
@@ -46,20 +36,102 @@ Or with [uv](https://docs.astral.sh/uv/):
 uv add cornea-shell
 ```
 
-To install the latest development version from source:
+To run Flask or Django apps (WSGI), add the extra: `pip install "cornea-shell[wsgi]"`.
+
+## Quick start
+
+Show a folder of web files in a window:
 
 ```bash
-pip install git+https://github.com/coldsofttech/CorneaShell.git
+cornea open path/to/your/web/folder
 ```
 
-## Usage
+The folder needs an `index.html`. For a React, Vue, Svelte or similar project, give Cornea the folder your build produces (often `dist`).
+
+From Python, with your own routes and a native action:
 
 ```python
-import cornea
+from fastapi import APIRouter
+from cornea import Shell, Static, Window
 
-print(cornea.__version__)
+router = APIRouter()
+
+
+@router.get("/greeting")
+def greeting(name: str = "world") -> dict[str, str]:
+    return {"message": f"Hello, {name}!"}
+
+
+shell = Shell(Static("web/dist"), routers=[router], window=Window(title="My App"))
+
+
+@shell.action("shout")
+def shout(text: str) -> str:
+    return text.upper()
+
+
+shell.run()  # opens the window and returns when it is closed
 ```
 
+Your page reaches the route at `/api/greeting` and the action with `POST /api/bridge/shout`. Both are plain `fetch()` calls to the same address the page came from.
+
+## Choosing what to show
+
+| You have | Give Cornea |
+| --- | --- |
+| Plain HTML, CSS and JavaScript | the folder: `cornea open web` |
+| A React, Vue, Svelte, Angular or similar project | the build folder: `cornea open dist` |
+| A dev server that is already running (Vite, Next.js, Node) | the address: `cornea open http://localhost:5173` |
+| A FastAPI or Django (ASGI) app | `cornea open --asgi myproject.asgi:application --app-dir .` |
+| A Flask or Django (WSGI) app | `cornea open --wsgi myapp:app --app-dir .` |
+
+An address you already run is shown as it is. Cornea does not serve it, so it is not behind Cornea's security, and it needs the normal window frame.
+
+Every one of these is a small, runnable project in [examples](examples).
+
+## A frameless window with your own title bar
+
+Run with `--frameless` and draw the title bar in your page. The buttons call Cornea:
+
+```javascript
+await fetch("/api/window/minimize", { method: "POST" });
+await fetch("/api/window/maximize", { method: "POST" });
+await fetch("/api/window/close", { method: "POST" });
+```
+
+Give the empty part of your bar the class `pywebview-drag-region` so it drags the window. `GET /api/window` tells your page whether the window is frameless, so it can draw the bar only when needed.
+
+## Trying your page in a browser
+
+```bash
+cornea serve path/to/your/web/folder
+```
+
+prints one line of JSON with an address. Open that address in a browser to try the page without a window. The window buttons still answer, and dialogs report that they are unavailable.
+
+## Security in short
+
+- The server listens on your own machine only, on a free port.
+- The first address carries a one-time token. The window exchanges it for a session cookie, and nothing else can reach the server without that cookie.
+- Requests from other sites, and requests that change something without the right `Origin`, are refused.
+- The page can only use a short list of native actions, plus any you add yourself. The built-in ones never read or write files: a dialog only returns the path you chose.
+- The right-click menu and developer tools are off. Turn them on with `--devtools`, `--context-menu`, or `--debug` for both.
+
+## Command line
+
+```bash
+cornea open --help     # show a window
+cornea serve --help    # serve without a window
+```
+
+See the [command line guide](docs/cli.md) for every option.
+
+## More
+
+- [Examples](examples)
+- [Command line guide](docs/cli.md) and [reference](docs/cli-reference.md)
+- [Python API reference](docs/api-reference.md)
+- [How it works](docs/architecture.md)
 
 ## Development
 

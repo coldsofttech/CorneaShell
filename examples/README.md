@@ -1,0 +1,33 @@
+# Examples
+
+Small projects, each showing one way to give Cornea a web UI. Run them from the repository root after `uv sync`. Each one is also run by the test suite (except React, which needs a build).
+
+| Example | What it shows | Run it |
+| --- | --- | --- |
+| [static_html](static_html) | Plain HTML, CSS and JavaScript, with your own title bar in a frameless window | `uv run cornea open examples/static_html --frameless` |
+| [react_vite](react_vite) | A React project built with Vite | `npm install && npm run build` in the folder, then `uv run cornea open examples/react_vite/dist --frameless` |
+| [fastapi_app](fastapi_app) | A FastAPI backend with its own routes and a native action | `uv run python examples/fastapi_app/main.py` |
+| [flask_app](flask_app) | A Flask app mounted in the same process | `uv run cornea open --wsgi flask_example:app --app-dir examples/flask_app` |
+| [django_app](django_app) | A one-file Django site mounted in the same process | `uv run cornea open --asgi django_example:application --app-dir examples/django_app` |
+| [node_server](node_server) | A Node.js server that Cornea does not run, opened by address | `node examples/node_server/server.js`, then `uv run cornea open http://127.0.0.1:3000` |
+
+## Trying one in a browser first
+
+Add `serve` instead of `open` to see a page without a window. For example:
+
+```bash
+uv run cornea serve examples/static_html
+```
+
+It prints a line of JSON with an address. Open that address in a browser.
+
+## Things the examples show
+
+- **The strict security policy.** The page may load scripts and styles from its own files only. There are no inline `<script>` blocks or `style=` attributes in the bundle and app examples. The Node example is not served by Cornea, so it is not covered by that policy.
+- **Same-origin calls.** The pages reach Cornea and their own backends with plain `fetch()` calls to the address they were loaded from. No CORS setup is needed.
+- **What belongs to Cornea.** Under `/api` and at `/health`, Cornea answers. Your Flask or Django routes can be anywhere else.
+- **A custom title bar** appears only when `GET /api/window` says the window is frameless.
+
+## Other frameworks
+
+Anything that builds to a folder of static files works like the React example: give Cornea the build folder. That includes Vue, Svelte, Angular, Astro, and a Next.js static export. Any other ASGI or WSGI framework (Starlette, Quart, Bottle, Pyramid) works like the FastAPI, Flask and Django examples, and any dev server you already run works like the Node example.

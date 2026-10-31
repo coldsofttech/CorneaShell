@@ -44,3 +44,7 @@ coverage.xml
 .temp/
 .claude/
 CLAUDE.md
+# Example projects
+examples/react_vite/node_modules/
+examples/react_vite/dist/
+examples/react_vite/package-lock.json
