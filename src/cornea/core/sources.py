@@ -12,9 +12,9 @@ from urllib.parse import urlsplit
 
 Scope = MutableMapping[str, Any]
 Message = MutableMapping[str, Any]
-AsgiApp = Callable[
-    [Scope, Callable[[], Awaitable[Message]], Callable[[Message], Awaitable[None]]], Awaitable[None]
-]
+Receive = Callable[[], Awaitable[Message]]
+Send = Callable[[Message], Awaitable[None]]
+AsgiApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 WsgiApp = Callable[..., Iterable[bytes]]
 
 _IMPORT_STRING = re.compile(r"^[A-Za-z_][\w.]*:[A-Za-z_][\w.]*$")

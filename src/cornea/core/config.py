@@ -60,6 +60,10 @@ class Security:
     """Seconds the one-time bootstrap token stays valid."""
     cookie_samesite: Literal["strict", "lax"] = "strict"
     """``SameSite`` attribute of the session cookie."""
+    public_paths: tuple[str, ...] = ("/health",)
+    """Paths reachable without a session. An entry ending in ``/`` matches everything below it."""
+    require_origin: bool = True
+    """Reject POST, PUT, PATCH and DELETE requests that send no ``Origin`` header."""
 
     def __post_init__(self) -> None:
         hosts = tuple(host.strip().lower() for host in self.allowed_hosts)
@@ -74,6 +78,8 @@ class Security:
             )
         if self.token_ttl <= 0:
             raise ValueError(f"token_ttl must be positive, got {self.token_ttl}")
+        if not all(path.startswith("/") for path in self.public_paths):
+            raise ValueError(f"public_paths must start with '/', got {self.public_paths!r}")
 
 
 @dataclass(frozen=True, slots=True)

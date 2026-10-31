@@ -35,6 +35,8 @@ Local server protections. The defaults are the strict ones.
 | `api_prefix` | `str` | `'/api'` | Path prefix the host app's routers are mounted under. |
 | `token_ttl` | `float` | `60.0` | Seconds the one-time bootstrap token stays valid. |
 | `cookie_samesite` | `Literal['strict', 'lax']` | `'strict'` | ``SameSite`` attribute of the session cookie. |
+| `public_paths` | `tuple[str, ...]` | `('/health',)` | Paths reachable without a session. An entry ending in ``/`` matches everything below it. |
+| `require_origin` | `bool` | `True` | Reject POST, PUT, PATCH and DELETE requests that send no ``Origin`` header. |
 
 Example:
 
