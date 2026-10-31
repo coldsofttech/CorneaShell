@@ -7,6 +7,7 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Added
 
 - `Server`, `Security` and `Window` settings, with the context menu and developer tools off unless enabled or in debug mode.
+- Native actions your page can call: choose a folder or file, choose where to save, open a link in the browser, and platform info. Register your own with `@shell.action`, and switch individual ones off with `Bridge(disabled=...)`.
 - Running without a window (`window=None`) keeps the window controls working against a stand-in window, so a frameless page can be tried in a normal browser. `run(on_ready=...)` and `ready_line()` let tools learn the address.
 - A web address (`Url`) opens in the window directly, with your size, title and other window settings; use the normal window frame with it.
 - A native window on Windows (pywebview is installed with the package): frameless option, window controls for your own title bar, and the context menu and developer tools off unless you turn them on or use debug mode.

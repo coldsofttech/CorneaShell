@@ -24,6 +24,21 @@ Example:
 'myproject.asgi:application'
 ```
 
+## `Bridge`
+
+Which built-in native actions the page may call. All of them are on by default.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `disabled` | `tuple[str, ...]` | `()` | Built-in actions to switch off. A disabled action answers like an unknown one. |
+
+Example:
+
+```pycon
+>>> Bridge(disabled=("open_external",)).disabled
+('open_external',)
+```
+
 ## `Security`
 
 Local server protections. The defaults are the strict ones.
@@ -73,6 +88,7 @@ Shell(
     security: Security | None = None,
     server: Server | None = None,
     window: Window | None = Window(),
+    bridge: Bridge | None = None,
 )
 ```
 
@@ -91,6 +107,7 @@ reach the window controls) and `url` is the address you gave.
 
 Properties:
 
+- `actions`: The native actions the page can call. Register your own with `action`.
 - `is_direct`: Whether the window opens a `Url` itself, with no local server.
 - `running`: Whether the server is accepting requests.
 - `port`: The port the server is bound to. Available after `start`.
@@ -99,6 +116,7 @@ Properties:
 
 Methods:
 
+- `action(name: str) -> Callable[...]`: Register a function as a native action: `@shell.action("pick_report")`.
 - `start() -> Self`: Bind the port and start serving in a background thread.
 - `stop() -> None`: Stop serving and release the port. Safe to call more than once.
 - `run(on_ready: Callable[...] | None = None) -> None`: Show the window and wait until it closes, or just serve when there is no window.
@@ -228,6 +246,7 @@ def create_app(
     *,
     routers: Iterable[APIRouter] = (),
     security: Security | None = None,
+    bridge: Bridge | None = None,
     bootstrap_token: str | None = None,
 ) -> FastAPI
 ```
@@ -276,6 +295,7 @@ def run(
     security: Security | None = None,
     server: Server | None = None,
     window: Window | None = Window(),
+    bridge: Bridge | None = None,
     title: str | None = None,
     debug: bool | None = None,
     on_ready: Callable[[Shell], None] | None = None,

@@ -6,7 +6,9 @@ from collections.abc import Iterable
 from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
 
-from cornea.core.config import Security
+from cornea.core.bridge import ActionRegistry
+from cornea.core.bridge_routes import router as bridge_router
+from cornea.core.config import Bridge, Security
 from cornea.core.security import SecurityMiddleware, SessionGate, new_token
 from cornea.core.sources import Asgi, Static, WebSource, Wsgi, coerce_source
 from cornea.core.static import BundleFiles
@@ -20,6 +22,7 @@ def create_app(
     *,
     routers: Iterable[APIRouter] = (),
     security: Security | None = None,
+    bridge: Bridge | None = None,
     bootstrap_token: str | None = None,
 ) -> FastAPI:
     """Build the FastAPI app that the shell serves.
@@ -48,12 +51,14 @@ def create_app(
     app.state.security = security
     app.state.allowed_hosts = allowed_hosts
     app.state.window = None  # set by the shell once a window exists
+    app.state.actions = ActionRegistry((bridge or Bridge()).disabled)
 
     @app.get("/health")
     def health() -> dict[str, str]:
         return {"status": "ok"}
 
     app.include_router(window_router, prefix=security.api_prefix)
+    app.include_router(bridge_router, prefix=security.api_prefix)
     for router in routers:
         app.include_router(router, prefix=security.api_prefix)
     _reserve_api_prefix(app, security.api_prefix)

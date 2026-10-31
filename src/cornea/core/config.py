@@ -83,6 +83,19 @@ class Security:
 
 
 @dataclass(frozen=True, slots=True)
+class Bridge:
+    """Which built-in native actions the page may call. All of them are on by default.
+
+    Example:
+        >>> Bridge(disabled=("open_external",)).disabled
+        ('open_external',)
+    """
+
+    disabled: tuple[str, ...] = ()
+    """Built-in actions to switch off. A disabled action answers like an unknown one."""
+
+
+@dataclass(frozen=True, slots=True)
 class Window:
     """Native window options. The context menu and developer tools are off unless enabled.
 

@@ -4,9 +4,9 @@ import importlib
 import logging
 import sys
 import threading
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from types import ModuleType
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from cornea.core.config import Window
 
@@ -18,8 +18,20 @@ CLOSE_DELAY = 0.05
 """Seconds between answering a close request and closing, so the answer can be sent."""
 
 
+DialogKind = Literal["folder", "open", "save"]
+
+
+class Unavailable(Exception):
+    """Raised for something that needs a real window when there is none."""
+
+
 class WindowController(Protocol):
     """What the window routes call. The native window and the headless stand-in both fit."""
+
+    @property
+    def headless(self) -> bool:
+        """Whether this is a stand-in with no real window behind it."""
+        ...
 
     def minimize(self) -> None: ...
     def maximize(self) -> None: ...
@@ -27,6 +39,15 @@ class WindowController(Protocol):
     def close(self) -> None: ...
     def set_title(self, title: str) -> None: ...
     def state(self) -> dict[str, Any]: ...
+    def dialog(
+        self,
+        kind: DialogKind,
+        *,
+        directory: str | None = None,
+        filename: str | None = None,
+        file_types: Sequence[str] = (),
+        multiple: bool = False,
+    ) -> list[str] | None: ...
 
 
 # ----- the environment ------------------------------------------------------------------------
@@ -85,8 +106,9 @@ def load_webview() -> ModuleType:
 class NativeWindow:
     """Controls one pywebview window and remembers whether it is maximized or minimized."""
 
-    def __init__(self, window: Any, settings: Window) -> None:
+    def __init__(self, window: Any, settings: Window, webview: ModuleType | None = None) -> None:
         self._window = window
+        self._webview = webview
         self._title = settings.title
         self._maximized = False
         self._minimized = False
@@ -107,6 +129,10 @@ class NativeWindow:
 
     def _on_closed(self) -> None:
         self._closed = True
+
+    @property
+    def headless(self) -> bool:
+        return False
 
     def minimize(self) -> None:
         self._window.minimize()
@@ -133,6 +159,28 @@ class NativeWindow:
             "closed": self._closed,
         }
 
+    def dialog(
+        self,
+        kind: DialogKind,
+        *,
+        directory: str | None = None,
+        filename: str | None = None,
+        file_types: Sequence[str] = (),
+        multiple: bool = False,
+    ) -> list[str] | None:
+        """Show a native file or folder dialog. ``None`` means it was cancelled."""
+        if self._webview is None:
+            raise Unavailable("There is no window to show a dialog in.")
+        kinds = self._webview.FileDialog
+        chosen = self._window.create_file_dialog(
+            {"folder": kinds.FOLDER, "open": kinds.OPEN, "save": kinds.SAVE}[kind],
+            directory=directory or "",
+            allow_multiple=multiple,
+            save_filename=filename or "",
+            file_types=tuple(file_types),
+        )
+        return [str(path) for path in chosen] if chosen else None
+
 
 class SimulatedWindow:
     """A window that only exists in memory, for running without one.
@@ -152,6 +200,10 @@ class SimulatedWindow:
         self._maximized = False
         self._minimized = False
         self._closed = False
+
+    @property
+    def headless(self) -> bool:
+        return True
 
     def minimize(self) -> None:
         self._minimized = True
@@ -175,6 +227,17 @@ class SimulatedWindow:
             "minimized": self._minimized,
             "closed": self._closed,
         }
+
+    def dialog(
+        self,
+        kind: DialogKind,
+        *,
+        directory: str | None = None,
+        filename: str | None = None,
+        file_types: Sequence[str] = (),
+        multiple: bool = False,
+    ) -> list[str] | None:
+        raise Unavailable("Dialogs need a window; this is running without one.")
 
 
 # ----- opening a window -----------------------------------------------------------------------
@@ -236,7 +299,7 @@ def create_native_window(
             window.destroy()
 
     window.events.loaded += narrow_settings
-    return window, NativeWindow(window, settings)
+    return window, NativeWindow(window, settings, webview)
 
 
 def show_window(webview: ModuleType, settings: Window) -> None:

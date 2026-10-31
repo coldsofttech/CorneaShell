@@ -8,13 +8,14 @@ import time
 from collections.abc import Callable, Iterable
 from dataclasses import replace
 from types import ModuleType, TracebackType
-from typing import Self
+from typing import Any, Self
 
 import uvicorn
 from fastapi import APIRouter, FastAPI
 
 from cornea.core.app import allow_host, create_app
-from cornea.core.config import Security, Server, Window
+from cornea.core.bridge import ActionRegistry
+from cornea.core.config import Bridge, Security, Server, Window
 from cornea.core.sources import Url, WebSource, coerce_source
 from cornea.core.window import (
     SimulatedWindow,
@@ -63,6 +64,7 @@ class Shell:
         security: Security | None = None,
         server: Server | None = None,
         window: Window | None = DEFAULT_WINDOW,
+        bridge: Bridge | None = None,
     ) -> None:
         self.security = security or Security()
         self.server = server or Server()
@@ -71,7 +73,9 @@ class Shell:
         self._direct_url: str | None = web_source.url if isinstance(web_source, Url) else None
         if self._direct_url is not None:
             self._check_direct_window(window)
-        self.app: FastAPI = create_app(web_source, routers=routers, security=self.security)
+        self.app: FastAPI = create_app(
+            web_source, routers=routers, security=self.security, bridge=bridge
+        )
         if window is None:
             self.app.state.window = SimulatedWindow(DEFAULT_WINDOW.title)
         self._socket: socket.socket | None = None
@@ -81,6 +85,20 @@ class Shell:
         self._window_error: BaseException | None = None
 
     # ----- what the server is ---------------------------------------------------------------
+
+    @property
+    def actions(self) -> ActionRegistry:
+        """The native actions the page can call. Register your own with :meth:`action`."""
+        registry: ActionRegistry = self.app.state.actions
+        return registry
+
+    def action(self, name: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+        """Register a function as a native action: ``@shell.action("pick_report")``.
+
+        The page calls it with ``POST {api_prefix}/bridge/pick_report`` and a JSON body of named
+        arguments; the return value comes back as ``{"available": true, "result": ...}``.
+        """
+        return self.actions.action(name)
 
     @property
     def is_direct(self) -> bool:
@@ -259,6 +277,7 @@ def run(
     security: Security | None = None,
     server: Server | None = None,
     window: Window | None = DEFAULT_WINDOW,
+    bridge: Bridge | None = None,
     title: str | None = None,
     debug: bool | None = None,
     on_ready: Callable[[Shell], None] | None = None,
@@ -277,5 +296,7 @@ def run(
             title=window.title if title is None else title,
             debug=window.debug if debug is None else debug,
         )
-    shell = Shell(source, routers=routers, security=security, server=server, window=window)
+    shell = Shell(
+        source, routers=routers, security=security, server=server, window=window, bridge=bridge
+    )
     shell.run(on_ready=on_ready)
