@@ -10,8 +10,8 @@ An ASGI app (FastAPI, Django ASGI) mounted in-process on the shell's port.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `target` | `str \| Callable[...]` | `required` | ``module:attribute`` import string, or the app itself. |
-| `app_dir` | `Path \| str \| None` | `None` | Folder added to ``sys.path`` before importing, for example the project root. |
+| `target` | `str \| Callable[...]` | `required` | `module:attribute` import string, or the app itself. |
+| `app_dir` | `Path \| str \| None` | `None` | Folder added to `sys.path` before importing, for example the project root. |
 
 Methods:
 
@@ -30,13 +30,13 @@ Local server protections. The defaults are the strict ones.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `allowed_hosts` | `tuple[str, ...]` | `()` | Extra ``Host`` values to accept. The bound ``127.0.0.1:<port>`` is always allowed. |
-| `csp` | `str` | `"default-src 'self'; script-src 'self';…` | ``Content-Security-Policy`` value. Relax it explicitly, for example ``style-src``. |
+| `allowed_hosts` | `tuple[str, ...]` | `()` | Extra `Host` values to accept. The bound `127.0.0.1:<port>` is always allowed. |
+| `csp` | `str` | `"default-src 'self'; script-src 'self';…` | `Content-Security-Policy` value. Relax it explicitly, for example `style-src`. |
 | `api_prefix` | `str` | `'/api'` | Path prefix the host app's routers are mounted under. |
 | `token_ttl` | `float` | `60.0` | Seconds the one-time bootstrap token stays valid. |
-| `cookie_samesite` | `Literal['strict', 'lax']` | `'strict'` | ``SameSite`` attribute of the session cookie. |
-| `public_paths` | `tuple[str, ...]` | `('/health',)` | Paths reachable without a session. An entry ending in ``/`` matches everything below it. |
-| `require_origin` | `bool` | `True` | Reject POST, PUT, PATCH and DELETE requests that send no ``Origin`` header. |
+| `cookie_samesite` | `Literal['strict', 'lax']` | `'strict'` | `SameSite` attribute of the session cookie. |
+| `public_paths` | `tuple[str, ...]` | `('/health',)` | Paths reachable without a session. An entry ending in `/` matches everything below it. |
+| `require_origin` | `bool` | `True` | Reject POST, PUT, PATCH and DELETE requests that send no `Origin` header. |
 
 Example:
 
@@ -54,7 +54,7 @@ Where the local server listens. Port 0 picks a free port.
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `host` | `str` | `'127.0.0.1'` | Address to bind. Keep the loopback default unless the server must be reachable elsewhere. |
-| `port` | `int` | `0` | Port to bind. ``0`` picks a free port. |
+| `port` | `int` | `0` | Port to bind. `0` picks a free port. |
 
 Example:
 
@@ -69,15 +69,15 @@ A built bundle (React, Vite, Next export, plain HTML) served by the shell.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `path` | `Path \| str` | `required` | Folder that contains ``index.html``. |
+| `path` | `Path \| str` | `required` | Folder that contains `index.html`. |
 
 Properties:
 
-- `directory`: The bundle folder as a :class:`~pathlib.Path`.
+- `directory`: The bundle folder as a `pathlib.Path`.
 
 Methods:
 
-- `resolve() -> Path`: Return the absolute bundle folder, or raise if it or its ``index.html`` is missing.
+- `resolve() -> Path`: Return the absolute bundle folder, or raise if it or its `index.html` is missing.
 
 Example:
 
@@ -92,8 +92,8 @@ An http or https server the window opens directly. The shell's security layer is
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `url` | `str` | `required` | Address of the web UI, for example ``http://localhost:5173``. |
-| `mode` | `Literal['direct', 'proxy']` | `'direct'` | ``direct`` opens the address as is. ``proxy`` is planned for a later release. |
+| `url` | `str` | `required` | Address of the web UI, for example `http://localhost:5173`. |
+| `mode` | `Literal['direct', 'proxy']` | `'direct'` | `direct` opens the address as is. `proxy` is planned for a later release. |
 
 Example:
 
@@ -116,7 +116,7 @@ Native window options. The context menu and developer tools are off unless enabl
 | `title` | `str` | `'Cornea Shell'` | Window title. |
 | `size` | `tuple[int, int]` | `(1024, 768)` | Initial width and height in pixels. |
 | `min_size` | `tuple[int, int]` | `(400, 300)` | Smallest width and height the user can resize to. |
-| `position` | `tuple[int, int] \| None` | `None` | Top-left corner on screen; ``None`` lets the system place the window. |
+| `position` | `tuple[int, int] \| None` | `None` | Top-left corner on screen; `None` lets the system place the window. |
 | `frameless` | `bool` | `False` | Hide the native title bar; the web UI draws its own. |
 | `resizable` | `bool` | `True` | Let the user resize the window. |
 | `on_top` | `bool` | `False` | Keep the window above other windows. |
@@ -146,8 +146,8 @@ A WSGI app (Flask, Django WSGI) adapted to ASGI and mounted in-process.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
-| `target` | `str \| Callable[...]` | `required` | ``module:attribute`` import string, or the app itself. |
-| `app_dir` | `Path \| str \| None` | `None` | Folder added to ``sys.path`` before importing, for example the project root. |
+| `target` | `str \| Callable[...]` | `required` | `module:attribute` import string, or the app itself. |
+| `app_dir` | `Path \| str \| None` | `None` | Folder added to `sys.path` before importing, for example the project root. |
 
 Methods:
 
@@ -158,4 +158,32 @@ Example:
 ```pycon
 >>> Wsgi("myapp:app").target
 'myapp:app'
+```
+
+## `create_app`
+
+```python
+def create_app(
+    source: WebSource | str | PathLike[str] | None = None,
+    *,
+    routers: Iterable[APIRouter] = (),
+    security: Security | None = None,
+    bootstrap_token: str | None = None,
+) -> FastAPI
+```
+
+Build the FastAPI app that the shell serves.
+
+`source` is where the UI comes from; `None` gives an API-only app. The host's `routers`
+are mounted under `security.api_prefix`. The shell's own routes (the API prefix and
+`/health`) always win over the source. The bootstrap token and the allowed-host set are on
+`app.state` for the shell; add the bound address with `allow_host` once the port is
+known.
+
+Example:
+
+```pycon
+>>> app = create_app()
+>>> app.state.security.api_prefix
+'/api'
 ```

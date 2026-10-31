@@ -65,8 +65,15 @@ class AsgiClient:
         }
         sent: list[dict[str, Any]] = []
 
+        requests = [{"type": "http.request", "body": b"", "more_body": False}]
+
         async def receive() -> dict[str, Any]:
-            return {"type": "http.request", "body": b"", "more_body": False}
+            if requests:
+                return requests.pop()
+            # Like a real client: nothing more arrives, so waiters (file responses) stay parked
+            # until the response finishes and they are cancelled.
+            await asyncio.sleep(3600)
+            return {"type": "http.disconnect"}
 
         async def send(message: dict[str, Any]) -> None:
             sent.append(message)

@@ -59,7 +59,8 @@ def attribute_docs(cls: type) -> dict[str, str]:
             and isinstance(following.value, ast.Constant)
             and isinstance(following.value.value, str)
         ):
-            docs[current.target.id] = " ".join(inspect.cleandoc(following.value.value).split())
+            text = " ".join(inspect.cleandoc(following.value.value).split())
+            docs[current.target.id] = markdown(text)
     return docs
 
 
@@ -82,8 +83,20 @@ def render_example(obj: object) -> list[str]:
     return ["", "Example:", "", "```pycon", *example, "```"] if example else []
 
 
+def tidy(text: str) -> str:
+    """Drop module prefixes (``fastapi.routing.APIRouter`` -> ``APIRouter``) and string quotes."""
+    text = re.sub(r"\b(?:[a-z_][a-z_0-9]*\.)+(?=[A-Z])", "", text)
+    return text
+
+
+def markdown(text: str) -> str:
+    """Turn the docstring's reStructuredText inline markup into Markdown."""
+    text = re.sub(r":\w+:`~?([^`]+)`", r"`\1`", text)
+    return re.sub(r"``([^`]+)``", r"`\1`", text)
+
+
 def first_paragraph(obj: object) -> str:
-    return " ".join((inspect.getdoc(obj) or "").split("\n\n")[0].split())
+    return markdown(" ".join((inspect.getdoc(obj) or "").split("\n\n")[0].split()))
 
 
 def escape(text: str) -> str:
@@ -123,9 +136,44 @@ def render_dataclass(cls: type) -> list[str]:
     return [*lines, *render_example(cls), ""]
 
 
+def body_text(obj: object) -> str:
+    """The docstring without its ``Example:`` section, as Markdown."""
+    lines = (inspect.getdoc(obj) or "").splitlines()
+    for index, line in enumerate(lines):
+        if line.strip() in {"Example:", "Examples:"}:
+            lines = lines[:index]
+            break
+    return markdown("\n".join(lines).strip())
+
+
+def signature_block(function: Any) -> str:
+    """A ``def`` block with one parameter per line, module paths and quotes removed."""
+    signature = inspect.signature(function)
+    params = [tidy(str(parameter)) for parameter in signature.parameters.values()]
+    kinds = [parameter.kind for parameter in signature.parameters.values()]
+    if inspect.Parameter.KEYWORD_ONLY in kinds and inspect.Parameter.VAR_POSITIONAL not in kinds:
+        params.insert(kinds.index(inspect.Parameter.KEYWORD_ONLY), "*")
+    returns = ""
+    if signature.return_annotation is not inspect.Signature.empty:
+        returns = f" -> {tidy(type_name(signature.return_annotation))}"
+    if not params:
+        return f"def {function.__name__}(){returns}"
+    inner = ",\n".join(f"    {param}" for param in params)
+    return f"def {function.__name__}(\n{inner},\n){returns}"
+
+
 def render_callable(obj: Any) -> list[str]:
-    name = obj.__name__
-    return [f"## `{name}{signature_text(obj)}`", "", first_paragraph(obj), ""]
+    return [
+        f"## `{obj.__name__}`",
+        "",
+        "```python",
+        signature_block(obj),
+        "```",
+        "",
+        body_text(obj),
+        *render_example(obj),
+        "",
+    ]
 
 
 def render(module: ModuleType) -> str:

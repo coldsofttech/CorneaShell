@@ -7,6 +7,7 @@ from typer.testing import CliRunner
 
 from cornea.cli import app
 from cornea.cli.commands import EXAMPLES
+from cornea.core import app as app_module
 from cornea.core import config, sources
 
 runner = CliRunner()
@@ -16,7 +17,9 @@ CLI_EXAMPLES = [
 ]
 
 
-@pytest.mark.parametrize("module", [config, sources], ids=lambda module: module.__name__)
+@pytest.mark.parametrize(
+    "module", [app_module, config, sources], ids=lambda module: module.__name__
+)
 def test_docstring_examples_run(module: ModuleType) -> None:
     result = doctest.testmod(module)
 

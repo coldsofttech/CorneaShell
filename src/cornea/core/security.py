@@ -129,12 +129,16 @@ class SecurityMiddleware:
         security: Security | None = None,
         allowed_hosts: Iterable[str] = (),
     ) -> None:
+        """Guard ``app``. A ``set`` passed as ``allowed_hosts`` is shared, so additions count."""
         self.app = app
         self.gate = gate
         self.security = security or Security()
-        self.allowed_hosts: set[str] = {
-            host.lower() for host in (*self.security.allowed_hosts, *allowed_hosts)
-        }
+        hosts = allowed_hosts if isinstance(allowed_hosts, set) else set(allowed_hosts)
+        hosts.update((*hosts, *self.security.allowed_hosts))
+        lowered = {host.lower() for host in hosts}
+        hosts.clear()
+        hosts.update(lowered)
+        self.allowed_hosts: set[str] = hosts
 
     def allow_host(self, host: str) -> None:
         """Accept requests whose ``Host`` is ``host``, for example ``127.0.0.1:8765``."""

@@ -169,7 +169,7 @@ class Wsgi(WebSource):
         return WSGIMiddleware(app)  # type: ignore[return-value]
 
 
-def coerce_source(value: "WebSource | str | os.PathLike[str]") -> WebSource:
+def coerce_source(value: WebSource | str | os.PathLike[str]) -> WebSource:
     """Turn the shorthand forms into a source: http(s) strings are ``Url``, paths are ``Static``."""
     if isinstance(value, WebSource):
         return value
