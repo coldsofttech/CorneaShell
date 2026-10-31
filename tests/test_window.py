@@ -56,7 +56,11 @@ class FakeWindow:
         self.calls: list[str] = []
         self.options_object = FakeWebViewOptions()
         self.events = SimpleNamespace(
-            maximized=FakeEvent(), minimized=FakeEvent(), restored=FakeEvent(), loaded=FakeEvent()
+            maximized=FakeEvent(),
+            minimized=FakeEvent(),
+            restored=FakeEvent(),
+            loaded=FakeEvent(),
+            closed=FakeEvent(),
         )
         core = SimpleNamespace(Settings=self.options_object)
         self.native = SimpleNamespace(webview=SimpleNamespace(CoreWebView2=core))
@@ -232,17 +236,20 @@ def test_close_happens_after_the_answer(monkeypatch: pytest.MonkeyPatch) -> None
 
 def test_state_follows_the_window_events() -> None:
     controller, fake = make_controller("Main")
-    assert controller.state() == {"title": "Main", "maximized": False, "minimized": False}
+    idle = {"title": "Main", "maximized": False, "minimized": False, "closed": False}
+    assert controller.state() == idle
 
     fake.events.maximized.fire()
     assert controller.state()["maximized"] is True
     fake.events.minimized.fire()
-    assert controller.state() == {"title": "Main", "maximized": True, "minimized": True}
+    assert controller.state() == {**idle, "maximized": True, "minimized": True}
     fake.events.restored.fire()
-    assert controller.state() == {"title": "Main", "maximized": False, "minimized": False}
+    assert controller.state() == idle
 
     controller.set_title("Other")
     assert controller.state()["title"] == "Other"
+    fake.events.closed.fire()
+    assert controller.state()["closed"] is True
 
 
 def test_the_native_window_fits_the_controller_protocol() -> None:
@@ -378,7 +385,7 @@ def test_the_page_can_control_the_window_over_http(webview: FakeWebview, bundle:
 
     assert results["state"] == (
         200,
-        {"title": "Cornea Shell", "maximized": False, "minimized": False},
+        {"title": "Cornea Shell", "maximized": False, "minimized": False, "closed": False},
     )
     for action in ("minimize", "maximize", "restore", "title", "close"):
         assert results[action] == (200, {"ok": True})

@@ -90,9 +90,11 @@ class NativeWindow:
         self._title = settings.title
         self._maximized = False
         self._minimized = False
+        self._closed = False
         window.events.maximized += self._on_maximized
         window.events.minimized += self._on_minimized
         window.events.restored += self._on_restored
+        window.events.closed += self._on_closed
 
     def _on_maximized(self) -> None:
         self._maximized, self._minimized = True, False
@@ -102,6 +104,9 @@ class NativeWindow:
 
     def _on_restored(self) -> None:
         self._maximized, self._minimized = False, False
+
+    def _on_closed(self) -> None:
+        self._closed = True
 
     def minimize(self) -> None:
         self._window.minimize()
@@ -121,7 +126,55 @@ class NativeWindow:
         self._window.set_title(title)
 
     def state(self) -> dict[str, Any]:
-        return {"title": self._title, "maximized": self._maximized, "minimized": self._minimized}
+        return {
+            "title": self._title,
+            "maximized": self._maximized,
+            "minimized": self._minimized,
+            "closed": self._closed,
+        }
+
+
+class SimulatedWindow:
+    """A window that only exists in memory, for running without one.
+
+    The page can still call the window routes, which makes a frameless UI testable in a normal
+    browser. Closing only marks the window closed; the server keeps serving.
+
+    Example:
+        >>> window = SimulatedWindow("Demo")
+        >>> window.maximize()
+        >>> window.state()["maximized"]
+        True
+    """
+
+    def __init__(self, title: str) -> None:
+        self._title = title
+        self._maximized = False
+        self._minimized = False
+        self._closed = False
+
+    def minimize(self) -> None:
+        self._minimized = True
+
+    def maximize(self) -> None:
+        self._maximized, self._minimized = True, False
+
+    def restore(self) -> None:
+        self._maximized, self._minimized = False, False
+
+    def close(self) -> None:
+        self._closed = True
+
+    def set_title(self, title: str) -> None:
+        self._title = title
+
+    def state(self) -> dict[str, Any]:
+        return {
+            "title": self._title,
+            "maximized": self._maximized,
+            "minimized": self._minimized,
+            "closed": self._closed,
+        }
 
 
 # ----- opening a window -----------------------------------------------------------------------

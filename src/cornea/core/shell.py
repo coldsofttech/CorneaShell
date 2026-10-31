@@ -1,10 +1,11 @@
 """The shell: runs the secured local server that hosts the web UI."""
 
+import json
 import os
 import socket
 import threading
 import time
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import replace
 from types import ModuleType, TracebackType
 from typing import Self
@@ -16,6 +17,7 @@ from cornea.core.app import allow_host, create_app
 from cornea.core.config import Security, Server, Window
 from cornea.core.sources import Url, WebSource, coerce_source
 from cornea.core.window import (
+    SimulatedWindow,
     create_native_window,
     load_webview,
     require_webview2,
@@ -39,7 +41,9 @@ class Shell:
     The server listens on the loopback address by default and picks a free port. The first URL,
     :attr:`url`, carries a one-time token that is exchanged for a session cookie. With a
     ``window``, :meth:`run` opens a native window on that URL (Windows only, and on the main
-    thread) and stops the server when the window closes. With ``window=None`` it only serves.
+    thread) and stops the server when the window closes. With ``window=None`` it only serves, and
+    the window routes answer from a :class:`~cornea.core.window.SimulatedWindow`, so the page can
+    be tried in a normal browser.
 
     A direct :class:`~cornea.core.sources.Url` source is different: the window opens that address
     itself and no server is started, so it needs a window with the native frame (the page cannot
@@ -68,6 +72,8 @@ class Shell:
         if self._direct_url is not None:
             self._check_direct_window(window)
         self.app: FastAPI = create_app(web_source, routers=routers, security=self.security)
+        if window is None:
+            self.app.state.window = SimulatedWindow(DEFAULT_WINDOW.title)
         self._socket: socket.socket | None = None
         self._uvicorn: uvicorn.Server | None = None
         self._thread: threading.Thread | None = None
@@ -75,6 +81,11 @@ class Shell:
         self._window_error: BaseException | None = None
 
     # ----- what the server is ---------------------------------------------------------------
+
+    @property
+    def is_direct(self) -> bool:
+        """Whether the window opens a ``Url`` itself, with no local server."""
+        return self._direct_url is not None
 
     @property
     def running(self) -> bool:
@@ -134,10 +145,12 @@ class Shell:
         if listener is not None:
             listener.close()
 
-    def run(self) -> None:
+    def run(self, on_ready: Callable[["Shell"], None] | None = None) -> None:
         """Show the window and wait until it closes, or just serve when there is no window.
 
-        Serving ends on Ctrl+C or :meth:`stop`. The server is stopped in every case.
+        ``on_ready`` is called with the shell once it is serving, before the window is shown. Use
+        it to announce the address, for example with :func:`ready_line`. Serving ends on Ctrl+C
+        or :meth:`stop`. The server is stopped in every case.
         """
         webview = None
         if self.window is not None:
@@ -148,6 +161,8 @@ class Shell:
         if self._direct_url is None:
             self.start()
         try:
+            if on_ready is not None:
+                on_ready(self)
             if webview is not None and self.window is not None:
                 self._show_window(webview, self.window)
             else:
@@ -220,6 +235,23 @@ class Shell:
             time.sleep(0.01)
 
 
+def ready_line(shell: Shell) -> str:
+    """A one-line JSON message that says where the UI is, for tools that start the shell.
+
+    Example:
+        >>> with Shell(window=None) as shell:
+        ...     json.loads(ready_line(shell))["event"]
+        'ready'
+    """
+    message = {
+        "event": "ready",
+        "url": shell.url,
+        "port": None if shell.is_direct else shell.port,
+        "window": shell.window is not None,
+    }
+    return json.dumps(message)
+
+
 def run(
     source: WebSource | str | os.PathLike[str] | None = None,
     *,
@@ -229,10 +261,12 @@ def run(
     window: Window | None = DEFAULT_WINDOW,
     title: str | None = None,
     debug: bool | None = None,
+    on_ready: Callable[[Shell], None] | None = None,
 ) -> None:
     """Show the web UI: build a :class:`Shell` and run it until it is closed.
 
-    ``title`` and ``debug`` are shorthands for the same ``window`` settings.
+    ``title`` and ``debug`` are shorthands for the same ``window`` settings. ``on_ready`` is
+    called once the shell is serving; see :meth:`Shell.run`.
     """
     if window is None:
         if title is not None or debug is not None:
@@ -243,4 +277,5 @@ def run(
             title=window.title if title is None else title,
             debug=window.debug if debug is None else debug,
         )
-    Shell(source, routers=routers, security=security, server=server, window=window).run()
+    shell = Shell(source, routers=routers, security=security, server=server, window=window)
+    shell.run(on_ready=on_ready)

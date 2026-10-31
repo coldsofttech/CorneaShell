@@ -81,7 +81,9 @@ Runs the web UI on a secured local server.
 The server listens on the loopback address by default and picks a free port. The first URL,
 `url`, carries a one-time token that is exchanged for a session cookie. With a
 `window`, `run` opens a native window on that URL (Windows only, and on the main
-thread) and stops the server when the window closes. With `window=None` it only serves.
+thread) and stops the server when the window closes. With `window=None` it only serves, and
+the window routes answer from a `cornea.core.window.SimulatedWindow`, so the page can
+be tried in a normal browser.
 
 A direct `cornea.core.sources.Url` source is different: the window opens that address
 itself and no server is started, so it needs a window with the native frame (the page cannot
@@ -89,6 +91,7 @@ reach the window controls) and `url` is the address you gave.
 
 Properties:
 
+- `is_direct`: Whether the window opens a `Url` itself, with no local server.
 - `running`: Whether the server is accepting requests.
 - `port`: The port the server is bound to. Available after `start`.
 - `base_url`: The server's address without the token.
@@ -98,7 +101,7 @@ Methods:
 
 - `start() -> Self`: Bind the port and start serving in a background thread.
 - `stop() -> None`: Stop serving and release the port. Safe to call more than once.
-- `run() -> None`: Show the window and wait until it closes, or just serve when there is no window.
+- `run(on_ready: Callable[...] | None = None) -> None`: Show the window and wait until it closes, or just serve when there is no window.
 
 Example:
 
@@ -245,6 +248,24 @@ Example:
 '/api'
 ```
 
+## `ready_line`
+
+```python
+def ready_line(
+    shell: Shell,
+) -> str
+```
+
+A one-line JSON message that says where the UI is, for tools that start the shell.
+
+Example:
+
+```pycon
+>>> with Shell(window=None) as shell:
+...     json.loads(ready_line(shell))["event"]
+'ready'
+```
+
 ## `run`
 
 ```python
@@ -257,9 +278,11 @@ def run(
     window: Window | None = Window(),
     title: str | None = None,
     debug: bool | None = None,
+    on_ready: Callable[[Shell], None] | None = None,
 ) -> None
 ```
 
 Show the web UI: build a `Shell` and run it until it is closed.
 
-`title` and `debug` are shorthands for the same `window` settings.
+`title` and `debug` are shorthands for the same `window` settings. `on_ready` is
+called once the shell is serving; see `Shell.run`.

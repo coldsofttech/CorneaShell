@@ -298,8 +298,9 @@ class Recorder:
         self.ran = False
         Recorder.instances.append(self)
 
-    def run(self) -> None:
+    def run(self, on_ready: Any = None) -> None:
         self.ran = True
+        self.on_ready = on_ready
 
 
 @pytest.fixture
