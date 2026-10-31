@@ -4,7 +4,7 @@
 [![PyPI](https://img.shields.io/pypi/v/cornea-shell)](https://pypi.org/project/cornea-shell/)
 [![Python versions](https://img.shields.io/pypi/pyversions/cornea-shell)](https://pypi.org/project/cornea-shell/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![License](https://img.shields.io/github/license/coldsofttech/CorneaShell)](LICENSE)
+[![License](https://img.shields.io/github/license/coldsofttech/CorneaShell)](https://github.com/coldsofttech/CorneaShell/blob/main/LICENSE)
 
 Show a web UI in a native Windows window, backed by a secured local server. You bring the UI, whether it is plain HTML, a React build, a Flask or Django site, or a page from a Node server. Cornea handles the window, the local security and the bridge to native features.
 
@@ -87,7 +87,7 @@ Your page reaches the route at `/api/greeting` and the action with `POST /api/br
 
 An address you already run is shown as it is. Cornea does not serve it, so it is not behind Cornea's security, and it needs the normal window frame.
 
-Every one of these is a small, runnable project in [examples](examples).
+Every one of these is a small, runnable project in [examples](https://github.com/coldsofttech/CorneaShell/tree/main/examples).
 
 ## A frameless window with your own title bar
 
@@ -124,14 +124,14 @@ cornea open --help     # show a window
 cornea serve --help    # serve without a window
 ```
 
-See the [command line guide](docs/cli.md) for every option.
+See the [command line guide](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli.md) for every option.
 
 ## More
 
-- [Examples](examples)
-- [Command line guide](docs/cli.md) and [reference](docs/cli-reference.md)
-- [Python API reference](docs/api-reference.md)
-- [How it works](docs/architecture.md)
+- [Examples](https://github.com/coldsofttech/CorneaShell/tree/main/examples)
+- [Command line guide](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli.md) and [reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli-reference.md)
+- [Python API reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/api-reference.md)
+- [How it works](https://github.com/coldsofttech/CorneaShell/blob/main/docs/architecture.md)
 
 ## Development
 
@@ -142,12 +142,12 @@ uv sync
 uv run pytest
 ```
 
-See the [development guide](docs/development.md) for linting, type checking and releasing.
+See the [development guide](https://github.com/coldsofttech/CorneaShell/blob/main/docs/development.md) for linting, type checking and releasing.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Please report security issues privately as described in [SECURITY.md](SECURITY.md).
+See [CONTRIBUTING.md](https://github.com/coldsofttech/CorneaShell/blob/main/CONTRIBUTING.md). Please report security issues privately as described in [SECURITY.md](https://github.com/coldsofttech/CorneaShell/blob/main/SECURITY.md).
 
 ## License
 
-Released under the [MIT License](LICENSE).
+Released under the [MIT License](https://github.com/coldsofttech/CorneaShell/blob/main/LICENSE).

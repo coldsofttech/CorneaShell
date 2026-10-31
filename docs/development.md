@@ -38,7 +38,13 @@ Tests under `tests/integration/` are marked `integration` automatically by that 
 
 ## Continuous integration
 
-The `ci` workflow runs four jobs: `lint` (pre-commit, including Ruff and mypy), `test` (unit tests), `integration` (tests marked `integration`) and `build` (build and `twine check`). The `test` and `integration` jobs run on Python 3.11 to 3.15 on Ubuntu, and on 3.11 on Windows and macOS. A final `ci` job gates on all four and is the single required check in the branch ruleset.
+The `ci` workflow runs four jobs. `lint` runs on Linux: pre-commit (Ruff and mypy among others) and the checks that the generated references are up to date. It also shows that the package imports without pywebview. `test` (unit tests with coverage), `integration` (tests marked `integration`, which run real processes and a real window) and `build` (build, `twine check`, and a smoke test of the built wheel in a clean environment) run on Windows, because that is where Cornea shows a window. `test` and `integration` run on Python 3.11 to 3.15, and install without the `hooks` dependency group (pre-commit and its PyYAML), which they do not use and which can lack a Windows build for the newest Python. A plain `uv sync` installs it. A final `ci` job gates on all four and is the single required check in the branch ruleset.
+
+The real-window test skips itself when the runner has no WebView2 runtime; `-rs` lists skipped tests in the log. The weekly `audit` workflow also runs on Windows, so it checks the Windows-only dependencies (pywebview and pythonnet) too.
+
+## Examples
+
+The projects in `examples/` are run by the unit tests, except the React one, which needs `npm install && npm run build` first. Flask and Django are development dependencies only, for those tests.
 
 ## Releasing to PyPI
 

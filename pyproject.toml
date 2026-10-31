@@ -13,14 +13,20 @@ license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "coldsofttech" }]
 classifiers = [
+  "Development Status :: 3 - Alpha",
   "Environment :: Console",
-  "Operating System :: Microsoft :: Windows",
+  "Environment :: Win32 (MS Windows)",
+  "Framework :: FastAPI",
+  "Intended Audience :: Developers",
+  "Operating System :: Microsoft :: Windows :: Windows 10",
+  "Operating System :: Microsoft :: Windows :: Windows 11",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
   "Programming Language :: Python :: 3.15",
+  "Topic :: Software Development :: User Interfaces",
   "Topic :: Utilities",
   "Typing :: Typed",
 ]
@@ -39,6 +45,7 @@ cornea = "cornea.cli:run"
 Homepage = "https://github.com/coldsofttech/CorneaShell"
 Issues = "https://github.com/coldsofttech/CorneaShell/issues"
 Changelog = "https://github.com/coldsofttech/CorneaShell/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/coldsofttech/CorneaShell/tree/main/docs"
 
 [project.optional-dependencies]
 wsgi = [
@@ -51,12 +58,19 @@ dev = [
   "django>=5.2.18",
   "flask>=3.1.3",
   "mypy>=1.13",
-  "pre-commit>=4.0",
   "pytest>=8.3",
   "pytest-cov>=6.0",
   "pytest-xdist>=3.6",
   "ruff>=0.8",
 ]
+hooks = [
+  "pre-commit>=4.7.0",
+]
+
+[tool.uv]
+# `uv sync` installs both. CI test jobs skip `hooks`: pre-commit needs PyYAML, which can lack a
+# Windows wheel for the newest Python, and they do not run the hooks.
+default-groups = ["dev", "hooks"]
 
 [tool.hatch.version]
 path = "src/cornea/__init__.py"
