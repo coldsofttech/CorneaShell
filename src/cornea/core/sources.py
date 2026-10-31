@@ -123,25 +123,32 @@ class Static(WebSource):
 
 @dataclass(frozen=True, slots=True)
 class Url(WebSource):
-    """An http or https server the window opens directly. The shell's security layer is skipped.
+    """A page from a server you already run, such as a dev server.
+
+    In ``direct`` mode the window opens the address itself: the page is not served by Cornea, so it
+    skips Cornea's security, needs the native window frame and cannot use the window controls.
+
+    In ``proxy`` mode Cornea fetches the pages and serves them from its own address, so they get
+    Cornea's security, the window controls and the frameless window, and hot reload keeps
+    working. It needs the ``proxy`` extra: ``pip install "cornea-shell[proxy]"``.
 
     Example:
         >>> Url("http://localhost:5173").mode
         'direct'
+        >>> Url("http://localhost:5173", mode="proxy").mode
+        'proxy'
     """
 
     url: str
     """Address of the web UI, for example ``http://localhost:5173``."""
     mode: Literal["direct", "proxy"] = "direct"
-    """``direct`` opens the address as is. ``proxy`` is planned for a later release."""
+    """``direct`` opens the address as it is. ``proxy`` serves it through Cornea."""
 
     def __post_init__(self) -> None:
         parts = urlsplit(self.url)
         if parts.scheme not in {"http", "https"} or not parts.netloc:
             raise ValueError(f"url must be an absolute http or https address, got {self.url!r}")
-        if self.mode == "proxy":
-            raise ValueError("proxy mode is not available yet; use mode='direct'")
-        if self.mode != "direct":
+        if self.mode not in {"direct", "proxy"}:
             raise ValueError(f"mode must be 'direct' or 'proxy', got {self.mode!r}")
 
 

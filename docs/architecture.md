@@ -17,10 +17,10 @@ One process does everything. A background thread runs a small web server on the 
         /health | /api/window | /api/bridge | your routers | rest of /api -> 404
                                  |
                       the web source at "/"
-        Static bundle | ASGI app | WSGI app (adapted) | nothing (direct address)
+        Static bundle | ASGI app | WSGI app (adapted) | proxy to another server
 ```
 
-A direct `Url` source skips all of this: no server is started and the window opens the address itself.
+A direct `Url` source skips all of this: no server is started and the window opens the address itself. A proxied one (`Url(..., mode="proxy")`) is served like any other source, by forwarding to the other server.
 
 ## Source layout
 
@@ -30,6 +30,7 @@ src/cornea/core/config.py    Server, Security, Bridge and Window settings (froze
 src/cornea/core/sources.py   Static, Url, Asgi, Wsgi and the shorthand rules
 src/cornea/core/security.py  the ASGI middleware and the one-time-token session gate
 src/cornea/core/static.py    bundle serving: page fallback, caching, content types
+src/cornea/core/proxy.py     the reverse proxy for another server's pages (optional `proxy` extra)
 src/cornea/core/app.py       create_app(): puts the pieces above into one FastAPI app
 src/cornea/core/shell.py     Shell and run(): the server thread, the window, shutdown
 src/cornea/core/window.py    pywebview window, window controller, environment checks
@@ -61,7 +62,7 @@ All of it lives in one ASGI middleware, so it guards a mounted Flask or Django a
 
 1. **Host.** The `Host` header must be on the allow-list: the bound `127.0.0.1:<port>` plus any `allowed_hosts`. This stops DNS-rebinding attacks.
 2. **Origin.** `POST`, `PUT`, `PATCH` and `DELETE` must carry an `Origin` that matches an allowed host. A missing one is refused unless `require_origin` is turned off. WebSocket handshakes get the same check.
-3. **Start-up token.** `?t=<token>` on a `GET` is exchanged for a session. The token is single use, compared in constant time, and expires after `token_ttl` seconds. The answer is a `303` to the same path without the token, with an `HttpOnly`, `SameSite=Strict` session cookie that lasts until the window closes.
+3. **Start-up token.** `?cornea_token=<token>` on a `GET` is exchanged for a session. The token is single use, compared in constant time, and expires after `token_ttl` seconds. The answer is a `303` to the same path without the token, with an `HttpOnly`, `SameSite=Strict` session cookie that lasts until the window closes. The parameter has a long name on purpose: a short one such as `t` collides with what other apps use (Vite adds `?t=<timestamp>` to hot-reloaded files).
 4. **Session.** Every other request needs that cookie, except the `public_paths` (default `/health`).
 5. **Headers** on every response, including the refusals: a strict `Content-Security-Policy` (an app's own policy is kept), `X-Content-Type-Options`, `Referrer-Policy`, and the cross-origin opener and resource policies. API responses are `no-store`.
 
@@ -79,6 +80,19 @@ Routes are registered in this order, and the first match wins:
 
 So a mounted app can never shadow `/api`, `/health`, the window controls or the bridge. Static bundles get single-page-app routing (a path without a file extension falls back to `index.html`), a one-year cache for files under `assets/`, `no-cache` for the rest, and content types set by Cornea itself, because a Windows registry can call `.js` plain text.
 
+## Proxying another server
+
+`ProxyApp` forwards HTTP and WebSocket traffic to a fixed upstream address, so the page is served from Cornea's own address and goes through the same security layer. The upstream address comes from configuration and is never read from a request. What it changes on the way:
+
+- **Cornea's session cookie is removed** from the `Cookie` header, so the upstream never sees it. Other cookies pass through, and `Domain=` is dropped from the cookies the upstream sets, since the browser only knows Cornea's address.
+- **`Host`, `Origin` and `Referer`** are rewritten to the upstream's own, so a dev server's host check or an app's CSRF check accepts the request.
+- **Redirects** to the upstream's address become relative, and are passed on rather than followed.
+- **Bodies are streamed** in both directions and stay compressed as the client asked, so event streams and large uploads are not buffered. The upstream's `Date` and `Server` headers are dropped, because Cornea's server adds its own.
+- **WebSockets** (hot reload) are accepted, connected to the upstream with the same sub-protocols, and pumped both ways. A refused or unreachable upstream closes the socket.
+- **Proxy settings in the environment are ignored**, so a corporate proxy cannot catch local traffic. An unreachable upstream answers a 502 page that names it.
+
+The default content security policy blocks the inline scripts and styles that dev servers inject. `DEV_CSP` (`--csp-profile dev`) adds exactly those two permissions and changes nothing else. It is for development only.
+
 ## The window and the bridge
 
 pywebview ties the context menu, developer tools, shortcut keys and status bar to one debug switch. Cornea starts in debug mode when any of them is wanted and then sets each WebView2 option to exactly what the `Window` settings ask for; if that fails the window closes rather than leave tools on. The window is private (nothing survives a restart) and pywebview needs the main thread, so `run()` with a window must be called from it.
@@ -95,4 +109,4 @@ The bridge is one route, `POST {api_prefix}/bridge/{action}`. Built-in actions a
 
 ## Not yet
 
-Proxy mode (serving another server's pages through Cornea so its security and window controls apply) and a source that starts a dev-server command for you are planned for 0.2. Other platforms are not supported.
+A source that starts a dev-server command for you (and stops it with the window) is planned for 0.2. Other platforms are not supported.

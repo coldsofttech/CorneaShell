@@ -19,11 +19,13 @@ EXAMPLES: dict[str, tuple[str, ...]] = {
         "cornea open web/dist",
         'cornea open web/dist --title "My App" --size 1200x800 --frameless --debug',
         "cornea open http://localhost:5173 --size 1280x800",
+        "cornea open http://localhost:5173 --mode proxy --csp-profile dev --frameless",
     ),
     "serve": (
         "cornea serve web/dist",
         "cornea serve --asgi myproject.asgi:application --app-dir .",
         "cornea serve web/dist --port 8765 --public-path /health --public-path /status",
+        "cornea serve http://localhost:5173 --mode proxy --csp-profile dev",
     ),
 }
 """Example invocations by command name (empty for the top level). Tested and used in the docs."""
@@ -74,7 +76,15 @@ WebDist = Annotated[
 ]
 UrlFlag = Annotated[
     str | None,
-    _flag("--url", help="Open an address directly (needs a window, no security).", panel=WEB),
+    _flag("--url", help="Show a page from a server you already run.", panel=WEB),
+]
+ModeFlag = Annotated[
+    options.UrlMode | None,
+    _flag(
+        "--mode",
+        help="For an address: direct (default) or proxy (serve it through Cornea).",
+        panel=WEB,
+    ),
 ]
 AsgiFlag = Annotated[
     str | None, _flag("--asgi", help="Mount an ASGI app, as module:attribute.", panel=WEB)
@@ -113,6 +123,14 @@ AllowedHost = Annotated[
 Csp = Annotated[
     str | None,
     _flag("--csp", help="Content-Security-Policy to send (default: strict).", panel=SECURITY),
+]
+CspProfileFlag = Annotated[
+    options.CspProfile | None,
+    _flag(
+        "--csp-profile",
+        help="strict (default), or dev, which allows what dev servers need. For development only.",
+        panel=SECURITY,
+    ),
 ]
 ApiPrefix = Annotated[
     str | None, _flag("--api-prefix", help="Path prefix of the API (default /api).", panel=SECURITY)
@@ -277,6 +295,7 @@ def open_window(
     source: SourceArgument = None,
     web_dist: WebDist = None,
     url: UrlFlag = None,
+    mode: ModeFlag = None,
     asgi: AsgiFlag = None,
     wsgi: WsgiFlag = None,
     app_dir: AppDir = None,
@@ -288,6 +307,7 @@ def open_window(
     port: Port = None,
     allowed_host: AllowedHost = None,
     csp: Csp = None,
+    csp_profile: CspProfileFlag = None,
     api_prefix: ApiPrefix = None,
     token_ttl: TokenTtl = None,
     cookie_samesite: CookieSameSite = None,
@@ -318,6 +338,7 @@ def open_window(
             package_path=package_path,
             spa=spa,
             hashed_prefix=hashed_prefix,
+            mode=mode,
         )
         window = options.build_window(
             title=title,
@@ -340,6 +361,7 @@ def open_window(
             cookie_samesite=cookie_samesite,
             public_path=public_path,
             require_origin=require_origin,
+            csp_profile=csp_profile,
         )
         bridge = options.build_bridge(disable_action=disable_action)
     except ValueError as exc:
@@ -354,6 +376,7 @@ def serve(
     source: SourceArgument = None,
     web_dist: WebDist = None,
     url: UrlFlag = None,
+    mode: ModeFlag = None,
     asgi: AsgiFlag = None,
     wsgi: WsgiFlag = None,
     app_dir: AppDir = None,
@@ -365,6 +388,7 @@ def serve(
     port: Port = None,
     allowed_host: AllowedHost = None,
     csp: Csp = None,
+    csp_profile: CspProfileFlag = None,
     api_prefix: ApiPrefix = None,
     token_ttl: TokenTtl = None,
     cookie_samesite: CookieSameSite = None,
@@ -389,6 +413,7 @@ def serve(
             package_path=package_path,
             spa=spa,
             hashed_prefix=hashed_prefix,
+            mode=mode,
         )
         server = options.build_server(host=host, port=port)
         security = options.build_security(
@@ -399,6 +424,7 @@ def serve(
             cookie_samesite=cookie_samesite,
             public_path=public_path,
             require_origin=require_origin,
+            csp_profile=csp_profile,
         )
         bridge = options.build_bridge(disable_action=disable_action)
     except ValueError as exc:

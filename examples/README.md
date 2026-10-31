@@ -9,7 +9,20 @@ Small projects, each showing one way to give Cornea a web UI. Run them from the 
 | [fastapi_app](fastapi_app) | A FastAPI backend with its own routes and a native action | `uv run python examples/fastapi_app/main.py` |
 | [flask_app](flask_app) | A Flask app mounted in the same process | `uv run cornea open --wsgi flask_example:app --app-dir examples/flask_app` |
 | [django_app](django_app) | A one-file Django site mounted in the same process | `uv run cornea open --asgi django_example:application --app-dir examples/django_app` |
-| [node_server](node_server) | A Node.js server that Cornea does not run, opened by address | `node examples/node_server/server.js`, then `uv run cornea open http://127.0.0.1:3000` |
+| [node_server](node_server) | A Node.js server that Cornea does not run, opened by address, directly or through Cornea | `node examples/node_server/server.js`, then `uv run cornea open http://127.0.0.1:3000` (direct) or add `--mode proxy` (needs `cornea-shell[proxy]`) |
+
+## A dev server through Cornea
+
+The React project also runs as a dev server with hot reload. Cornea can serve it from its own address (proxy mode), so the page gets the security layer, the window controls and a frameless window:
+
+```bash
+cd examples/react_vite
+npm run dev                  # Vite listens on http://localhost:5173
+# in another terminal, from the repository root:
+uv run cornea open http://localhost:5173 --mode proxy --csp-profile dev --frameless
+```
+
+Edit `src/App.jsx` and the window updates without reloading. `--csp-profile dev` is needed because Vite injects inline scripts and styles; it is for development only. Proxy mode needs `pip install "cornea-shell[proxy]"` (or `uv sync --extra proxy` in this repository).
 
 ## Trying one in a browser first
 

@@ -92,9 +92,8 @@ def test_url_rejects_non_http_addresses(url: str) -> None:
         Url(url)
 
 
-def test_url_proxy_mode_is_not_available_yet() -> None:
-    with pytest.raises(ValueError, match="not available yet"):
-        Url("http://localhost:5173", mode="proxy")
+def test_url_can_be_proxied() -> None:
+    assert Url("http://localhost:5173", mode="proxy").mode == "proxy"
 
 
 def test_url_rejects_unknown_mode() -> None:

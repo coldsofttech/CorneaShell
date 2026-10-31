@@ -34,7 +34,7 @@ class Signed:
     def __init__(self, shell: Shell) -> None:
         self.shell = shell
         connection = http.client.HTTPConnection("127.0.0.1", shell.port, timeout=5)
-        connection.request("GET", f"/?t={shell.app.state.bootstrap_token}")
+        connection.request("GET", f"/?cornea_token={shell.app.state.bootstrap_token}")
         self.cookie = (connection.getresponse().getheader("Set-Cookie") or "").split(";")[0]
         connection.close()
 
@@ -171,3 +171,38 @@ def test_the_node_example_serves_its_own_page() -> None:
         process.wait(timeout=10)
 
     assert body["message"].startswith("Hello, Zed, from Node.js v")
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_the_node_example_can_be_proxied_through_cornea() -> None:
+    from cornea import Url
+
+    node = shutil.which("node")
+    assert node is not None
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    process = subprocess.Popen(
+        [node, str(EXAMPLES / "node_server" / "server.js")],
+        env={
+            "PORT": str(port),
+            "PATH": str(Path(sys.executable).parent),
+            "SystemRoot": r"C:\Windows",
+        },
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        assert process.stdout is not None
+        process.stdout.readline()
+        # Through Cornea the page gets Cornea's security, window controls and frameless window.
+        with Shell(Url(f"http://127.0.0.1:{port}", mode="proxy"), window=None) as shell:
+            browser = Signed(shell)
+
+            assert "Hello from Node.js" in browser.request("/")[2]
+            hello = json.loads(browser.request("/hello?name=Zed")[2])
+            assert hello["message"].startswith("Hello, Zed, from Node.js v")
+            assert json.loads(browser.request("/api/window")[2])["title"] == "Cornea Shell"
+    finally:
+        process.terminate()
+        process.wait(timeout=10)

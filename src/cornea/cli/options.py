@@ -7,7 +7,7 @@ from typing import Any
 
 import typer
 
-from cornea import Asgi, Bridge, Security, Server, Static, Url, WebSource, Window, Wsgi
+from cornea import DEV_CSP, Asgi, Bridge, Security, Server, Static, Url, WebSource, Window, Wsgi
 
 _URL = re.compile(r"^https?://", re.IGNORECASE)
 
@@ -17,6 +17,20 @@ class SameSite(enum.StrEnum):
 
     strict = "strict"
     lax = "lax"
+
+
+class UrlMode(enum.StrEnum):
+    """The values ``--mode`` accepts."""
+
+    direct = "direct"
+    proxy = "proxy"
+
+
+class CspProfile(enum.StrEnum):
+    """The values ``--csp-profile`` accepts."""
+
+    strict = "strict"
+    dev = "dev"
 
 
 def parse_pair(text: str, flag: str, separator: str) -> tuple[int, int]:
@@ -42,6 +56,7 @@ def build_source(
     package_path: str | None,
     spa: bool | None,
     hashed_prefix: list[str] | None,
+    mode: UrlMode | None = None,
 ) -> WebSource:
     """The one web source the flags describe. Anything that does not fit is an error."""
     if argument is not None:
@@ -67,10 +82,12 @@ def build_source(
     set_bundle = [flag for flag, value in bundle_options.items() if value is not None]
     if app_dir is not None and not (asgi or wsgi):
         raise typer.BadParameter("--app-dir only applies to --asgi and --wsgi")
+    if mode is not None and url is None:
+        raise typer.BadParameter("--mode only applies to an address (--url)")
     if set_bundle and chosen and chosen[0] != "--web-dist":
         raise typer.BadParameter(f"{', '.join(set_bundle)} only apply to a web bundle")
     if url is not None:
-        return Url(url)
+        return Url(url, mode=mode.value if mode else "direct")
     if asgi is not None:
         return Asgi(asgi, app_dir=app_dir)
     if wsgi is not None:
@@ -110,11 +127,14 @@ def build_security(
     cookie_samesite: SameSite | None,
     public_path: list[str] | None,
     require_origin: bool | None,
+    csp_profile: CspProfile | None = None,
 ) -> Security:
+    if csp is not None and csp_profile is not None:
+        raise typer.BadParameter("give --csp or --csp-profile, not both")
     return Security(
         **_given(
             allowed_hosts=tuple(allowed_host) if allowed_host else None,
-            csp=csp,
+            csp=DEV_CSP if csp_profile is CspProfile.dev else csp,
             api_prefix=api_prefix,
             token_ttl=token_ttl,
             cookie_samesite=cookie_samesite.value if cookie_samesite else None,

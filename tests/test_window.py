@@ -141,7 +141,7 @@ def request(
 def sign_in(shell: Shell) -> str:
     connection = http.client.HTTPConnection("127.0.0.1", shell.port, timeout=5)
     try:
-        connection.request("GET", f"/?t={shell.app.state.bootstrap_token}")
+        connection.request("GET", f"/?cornea_token={shell.app.state.bootstrap_token}")
         return (connection.getresponse().getheader("Set-Cookie") or "").split(";")[0]
     finally:
         connection.close()
@@ -417,7 +417,8 @@ def test_window_routes_without_a_window_answer_409() -> None:
     allow_host(app, "127.0.0.1:8000")
     client = AsgiClient(app)
     cookie = (
-        client.request("/", query=f"t={app.state.bootstrap_token}").header("set-cookie") or ""
+        client.request("/", query=f"cornea_token={app.state.bootstrap_token}").header("set-cookie")
+        or ""
     ).split(";")[0]
 
     response = client.request(

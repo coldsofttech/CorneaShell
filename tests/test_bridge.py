@@ -44,7 +44,7 @@ def session_cookie(shell: Shell) -> str:
     token = shell.app.state.bootstrap_token
     if token not in COOKIES:
         connection = http.client.HTTPConnection("127.0.0.1", shell.port, timeout=5)
-        connection.request("GET", f"/?t={token}")
+        connection.request("GET", f"/?cornea_token={token}")
         COOKIES[token] = (connection.getresponse().getheader("Set-Cookie") or "").split(";")[0]
         connection.close()
     return COOKIES[token]
@@ -451,7 +451,8 @@ def test_the_bridge_without_a_window_object_says_unavailable() -> None:
     allow_host(app, "127.0.0.1:8000")
     client = AsgiClient(app)
     cookie = (
-        client.request("/", query=f"t={app.state.bootstrap_token}").header("set-cookie") or ""
+        client.request("/", query=f"cornea_token={app.state.bootstrap_token}").header("set-cookie")
+        or ""
     ).split(";")[0]
 
     response = client.request(

@@ -1,7 +1,8 @@
 """The application factory: security, the host's routers, ``/health`` and the web source."""
 
 import os
-from collections.abc import Iterable
+from collections.abc import AsyncIterator, Iterable
+from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
 from fastapi.responses import JSONResponse
@@ -9,8 +10,9 @@ from fastapi.responses import JSONResponse
 from cornea.core.bridge import ActionRegistry
 from cornea.core.bridge_routes import router as bridge_router
 from cornea.core.config import Bridge, Security
+from cornea.core.proxy import ProxyApp
 from cornea.core.security import SecurityMiddleware, SessionGate, new_token
-from cornea.core.sources import Asgi, Static, WebSource, Wsgi, coerce_source
+from cornea.core.sources import Asgi, Static, Url, WebSource, Wsgi, coerce_source
 from cornea.core.static import BundleFiles
 from cornea.core.window_routes import router as window_router
 
@@ -45,7 +47,7 @@ def create_app(
     allowed_hosts: set[str] = set()
 
     # The interactive docs are off: they would be one more surface on every mounted app.
-    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=_lifespan)
     app.state.bootstrap_token = token
     app.state.gate = gate
     app.state.security = security
@@ -84,6 +86,14 @@ def _reserve_api_prefix(app: FastAPI, prefix: str) -> None:
         return JSONResponse({"error": "Not Found"}, status_code=404)
 
 
+@asynccontextmanager
+async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
+    yield
+    proxy: ProxyApp | None = getattr(app.state, "proxy", None)
+    if proxy is not None:
+        await proxy.aclose()
+
+
 def _mount_source(app: FastAPI, source: WebSource | None) -> None:
     if isinstance(source, Static):
         bundle = BundleFiles(
@@ -92,4 +102,8 @@ def _mount_source(app: FastAPI, source: WebSource | None) -> None:
         app.mount("/", bundle)
     elif isinstance(source, Asgi | Wsgi):
         app.mount("/", source.load())
-    # Url (direct) has nothing to mount: the window opens the address itself.
+    elif isinstance(source, Url) and source.mode == "proxy":
+        proxy = ProxyApp(source.url)
+        app.state.proxy = proxy
+        app.mount("/", proxy)
+    # A direct Url has nothing to mount: the window opens the address itself.

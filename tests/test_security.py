@@ -431,3 +431,15 @@ def test_other_scopes_pass_through(clock: Clock) -> None:
     asyncio.run(middleware({"type": "lifespan"}, None, None))  # type: ignore[arg-type]
 
     assert seen == ["lifespan"]
+
+
+def test_a_plain_t_parameter_is_not_the_start_up_token(
+    make_client: Callable[..., AsgiClient],
+) -> None:
+    """Dev servers add `?t=<timestamp>` to files; only `cornea_token` means anything to Cornea."""
+    client = make_client()
+    cookie = sign_in(client)
+
+    assert BOOTSTRAP_PARAM == "cornea_token"
+    assert client.request("/main.jsx", query="t=1793482450924", cookie=cookie).status == 200
+    assert client.request("/main.jsx", query="t=1793482450924").status == 401

@@ -2,7 +2,7 @@ import dataclasses
 
 import pytest
 
-from cornea import Security, Server, Window
+from cornea import DEV_CSP, Security, Server, Window
 from cornea.core.config import DEFAULT_CSP
 
 
@@ -86,3 +86,21 @@ def test_window_debug_enables_both() -> None:
 def test_window_rejects_non_positive_size(field: str) -> None:
     with pytest.raises(ValueError, match=field):
         Window(**{field: (0, 100)})  # type: ignore[arg-type]
+
+
+def test_the_dev_csp_loosens_only_what_dev_servers_need() -> None:
+    strict = {part.split()[0]: part for part in DEFAULT_CSP.split("; ")}
+    dev = {part.split()[0]: part for part in DEV_CSP.split("; ")}
+
+    loosened = {name for name in strict if strict[name] != dev[name]}
+    assert loosened == {"script-src", "style-src"}
+    assert set(dev) == set(strict)
+    for kept in ("default-src", "object-src", "base-uri", "frame-ancestors", "form-action"):
+        assert dev[kept] == strict[kept]
+
+
+def test_the_dev_csp_is_never_the_default() -> None:
+    assert Security().csp == DEFAULT_CSP
+    assert Security().csp != DEV_CSP
+    assert "'unsafe-inline'" in DEV_CSP
+    assert Security(csp=DEV_CSP).csp == DEV_CSP

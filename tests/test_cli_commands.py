@@ -9,7 +9,7 @@ import typer
 from typer.main import get_command
 from typer.testing import CliRunner
 
-from cornea import Asgi, Bridge, Security, Server, Shell, Static, Url, Window, Wsgi
+from cornea import DEV_CSP, Asgi, Bridge, Security, Server, Shell, Static, Url, Window, Wsgi
 from cornea.cli import app, options
 from cornea.core import window as window_module
 
@@ -68,6 +68,7 @@ FLAGS: dict[type, dict[str, str]] = {
         "debug": "--debug",
     },
     Bridge: {"disabled": "--disable-action"},
+    Url: {"url": "--url", "mode": "--mode"},
     Static: {
         "path": "--web-dist",
         "package": "--package",
@@ -235,6 +236,45 @@ def test_open_with_an_address_opens_it_directly(calls: Calls) -> None:
     assert calls.last["source"] == Url("https://example.com")
 
 
+def test_an_address_can_be_proxied(calls: Calls) -> None:
+    invoke("open", "http://localhost:5173", "--mode", "proxy")
+    assert calls.last["source"] == Url("http://localhost:5173", mode="proxy")
+
+    invoke("open", "--url", "http://localhost:5173", "--mode", "direct")
+    assert calls.last["source"] == Url("http://localhost:5173", mode="direct")
+
+
+def test_a_proxied_address_may_be_frameless(calls: Calls) -> None:
+    result = invoke("open", "http://localhost:5173", "--mode", "proxy", "--frameless")
+
+    assert result.exit_code == 0
+    assert calls.last["window"] == Window(frameless=True)
+
+
+def test_serve_can_proxy_an_address(calls: Calls) -> None:
+    result = invoke("serve", "http://localhost:5173", "--mode", "proxy")
+
+    assert result.exit_code == 0
+    assert calls.last["source"] == Url("http://localhost:5173", mode="proxy")
+    assert calls.last["window"] is None
+
+
+def test_the_dev_csp_profile_is_opt_in(calls: Calls) -> None:
+    invoke("open", "web/dist")
+    assert calls.last["security"].csp == Security().csp
+
+    invoke("open", "web/dist", "--csp-profile", "dev")
+    assert calls.last["security"].csp == DEV_CSP
+
+    invoke("open", "web/dist", "--csp-profile", "strict")
+    assert calls.last["security"].csp == Security().csp
+
+
+def test_the_csp_profile_has_a_flag() -> None:
+    assert "--csp-profile" in option_names("open")
+    assert "--csp-profile" in option_names("serve")
+
+
 def test_open_with_apps(calls: Calls) -> None:
     invoke("open", "--asgi", "proj.asgi:application", "--app-dir", "src")
     assert calls.last["source"] == Asgi("proj.asgi:application", app_dir=Path("src"))
@@ -276,7 +316,7 @@ def test_serve_is_headless_and_announces_itself(
     message = json.loads(lines[0])
     assert message["event"] == "ready"
     assert message["window"] is False
-    assert message["url"].startswith(f"http://127.0.0.1:{message['port']}/?t=")
+    assert message["url"].startswith(f"http://127.0.0.1:{message['port']}/?cornea_token=")
     assert "Serving http://127.0.0.1:" in result.stderr
     assert "Ctrl+C" in result.stderr
 
@@ -333,6 +373,11 @@ def test_serve_with_an_address_explains_that_it_needs_a_window() -> None:
         ["open", "web/dist", "--position", "10x20"],
         ["open", "web/dist", "--cookie-samesite", "none"],
         ["open", "web/dist", "--port", "high"],
+        ["open", "web/dist", "--mode", "proxy"],
+        ["open", "--asgi", "a:b", "--mode", "proxy"],
+        ["open", "http://x.test", "--mode", "other"],
+        ["open", "web/dist", "--csp", "default-src 'none'", "--csp-profile", "dev"],
+        ["open", "web/dist", "--csp-profile", "loose"],
     ],
 )
 def test_bad_combinations_are_usage_errors(args: list[str], calls: Calls) -> None:

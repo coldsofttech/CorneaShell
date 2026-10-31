@@ -64,7 +64,7 @@ def test_start_binds_loopback_and_a_free_port(shell: Shell) -> None:
     assert shell.running
     assert shell.port > 0
     assert shell.base_url == f"http://127.0.0.1:{shell.port}"
-    assert shell.url == f"{shell.base_url}/?t={shell.app.state.bootstrap_token}"
+    assert shell.url == f"{shell.base_url}/?cornea_token={shell.app.state.bootstrap_token}"
 
 
 def test_start_returns_the_shell(shell: Shell) -> None:
@@ -74,7 +74,7 @@ def test_start_returns_the_shell(shell: Shell) -> None:
 def test_serves_the_ui_after_the_sign_in(shell: Shell) -> None:
     shell.start()
 
-    response, _ = get(shell, f"/?t={shell.app.state.bootstrap_token}")
+    response, _ = get(shell, f"/?cornea_token={shell.app.state.bootstrap_token}")
     cookie = (response.getheader("Set-Cookie") or "").split(";")[0]
 
     assert response.status == 303
@@ -94,7 +94,7 @@ def test_the_ui_is_closed_without_the_cookie(shell: Shell) -> None:
 
 def test_the_token_works_only_once(shell: Shell) -> None:
     shell.start()
-    path = f"/?t={shell.app.state.bootstrap_token}"
+    path = f"/?cornea_token={shell.app.state.bootstrap_token}"
 
     assert get(shell, path)[0].status == 303
     assert get(shell, path)[0].status == 403
@@ -110,7 +110,7 @@ def test_the_token_is_not_printed(shell: Shell, capfd: pytest.CaptureFixture[str
     shell.start()
     token = shell.app.state.bootstrap_token
 
-    get(shell, f"/?t={token}")
+    get(shell, f"/?cornea_token={token}")
     shell.stop()
 
     captured = capfd.readouterr()
@@ -130,7 +130,7 @@ def test_routers_and_settings_reach_the_app(bundle: Path) -> None:
         Static(bundle), routers=[router], security=Security(api_prefix="/v1"), window=None
     )
     with instance:
-        response, _ = get(instance, f"/?t={instance.app.state.bootstrap_token}")
+        response, _ = get(instance, f"/?cornea_token={instance.app.state.bootstrap_token}")
         cookie = (response.getheader("Set-Cookie") or "").split(";")[0]
 
         assert get(instance, "/v1/ping", cookie=cookie)[1] == b'{"pong":"yes"}'

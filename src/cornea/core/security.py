@@ -17,7 +17,7 @@ from cornea.core.config import Security
 from cornea.core.sources import AsgiApp, Message, Receive, Scope, Send
 
 SESSION_COOKIE = "cornea_session"
-BOOTSTRAP_PARAM = "t"
+BOOTSTRAP_PARAM = "cornea_token"
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 POLICY_VIOLATION = 1008
 """WebSocket close code for a refused handshake."""

@@ -3,11 +3,12 @@
 __version__ = "0.1.0"
 
 from cornea.core.app import create_app
-from cornea.core.config import Bridge, Security, Server, Window
+from cornea.core.config import DEV_CSP, Bridge, Security, Server, Window
 from cornea.core.shell import Shell, ready_line, run
 from cornea.core.sources import Asgi, Static, Url, WebSource, Wsgi
 
 __all__ = [
+    "DEV_CSP",
     "Asgi",
     "Bridge",
     "Security",

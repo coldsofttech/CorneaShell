@@ -234,7 +234,7 @@ def test_static_settings_are_validated() -> None:
 
 
 def sign_in(client: AsgiClient, token: str) -> str:
-    response = client.request("/", query=f"t={token}")
+    response = client.request("/", query=f"cornea_token={token}")
     return (response.header("set-cookie") or "").split(";")[0]
 
 

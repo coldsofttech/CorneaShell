@@ -33,7 +33,7 @@ def build(*args: Any, **kwargs: Any) -> tuple[Starlette, AsgiClient]:
 
 
 def sign_in(app: Starlette, client: AsgiClient) -> str:
-    response = client.request("/", query=f"t={app.state.bootstrap_token}")
+    response = client.request("/", query=f"cornea_token={app.state.bootstrap_token}")
     assert response.status == 303
     return (response.header("set-cookie") or "").split(";")[0]
 
@@ -104,7 +104,7 @@ def test_security_settings_are_applied() -> None:
     app, client = build(security=Security(public_paths=("/ping",), cookie_samesite="lax"))
 
     assert client.request("/health").status == 401
-    response = client.request("/", query=f"t={app.state.bootstrap_token}")
+    response = client.request("/", query=f"cornea_token={app.state.bootstrap_token}")
     assert "SameSite=Lax" in (response.header("set-cookie") or "")
 
 
@@ -117,7 +117,7 @@ def test_token_ttl_comes_from_settings() -> None:
     app, client = build(security=Security(token_ttl=0.001))
     time.sleep(0.02)
 
-    assert client.request("/", query=f"t={app.state.bootstrap_token}").status == 403
+    assert client.request("/", query=f"cornea_token={app.state.bootstrap_token}").status == 403
 
 
 def test_no_cors_headers() -> None:

@@ -70,7 +70,9 @@ class Shell:
         self.server = server or Server()
         self.window = window
         web_source = coerce_source(source) if source is not None else None
-        self._direct_url: str | None = web_source.url if isinstance(web_source, Url) else None
+        self._direct_url: str | None = None
+        if isinstance(web_source, Url) and web_source.mode == "direct":
+            self._direct_url = web_source.url
         if self._direct_url is not None:
             self._check_direct_window(window)
         self.app: FastAPI = create_app(
@@ -128,7 +130,7 @@ class Shell:
         """The first URL to open: with a token for the local server, or the direct address."""
         if self._direct_url is not None:
             return self._direct_url
-        return f"{self.base_url}/?t={self.app.state.bootstrap_token}"
+        return f"{self.base_url}/?cornea_token={self.app.state.bootstrap_token}"
 
     # ----- lifecycle ------------------------------------------------------------------------
 

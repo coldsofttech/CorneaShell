@@ -36,7 +36,7 @@ Or with [uv](https://docs.astral.sh/uv/):
 uv add cornea-shell
 ```
 
-To run Flask or Django apps (WSGI), add the extra: `pip install "cornea-shell[wsgi]"`.
+Two optional extras: `pip install "cornea-shell[wsgi]"` to run Flask or Django apps (WSGI), and `pip install "cornea-shell[proxy]"` to serve a page from another server through Cornea (see below).
 
 ## Quick start
 
@@ -81,13 +81,25 @@ Your page reaches the route at `/api/greeting` and the action with `POST /api/br
 | --- | --- |
 | Plain HTML, CSS and JavaScript | the folder: `cornea open web` |
 | A React, Vue, Svelte, Angular or similar project | the build folder: `cornea open dist` |
-| A dev server that is already running (Vite, Next.js, Node) | the address: `cornea open http://localhost:5173` |
+| A dev server that is already running (Vite, Next.js, Node) | the address: `cornea open http://localhost:5173 --mode proxy --csp-profile dev` |
 | A FastAPI or Django (ASGI) app | `cornea open --asgi myproject.asgi:application --app-dir .` |
 | A Flask or Django (WSGI) app | `cornea open --wsgi myapp:app --app-dir .` |
 
-An address you already run is shown as it is. Cornea does not serve it, so it is not behind Cornea's security, and it needs the normal window frame.
+Each of these is a small, runnable project in [examples](https://github.com/coldsofttech/CorneaShell/tree/main/examples).
 
-Every one of these is a small, runnable project in [examples](https://github.com/coldsofttech/CorneaShell/tree/main/examples).
+### A page from a server you already run
+
+There are two ways to show an address such as a Vite dev server:
+
+- **Direct** (the default): the window opens the address as it is. Cornea does not serve it, so it is not behind Cornea's security, it needs the normal window frame, and the page cannot use the window controls.
+- **Proxy** (`--mode proxy`, needs the `proxy` extra): Cornea fetches the pages and serves them from its own address. The page gets Cornea's security, the window controls and the frameless window, and hot reload keeps working.
+
+Dev servers inject inline scripts and styles, which Cornea's strict content security policy blocks. For development, add `--csp-profile dev`, which allows exactly that and nothing else. Never use it for something you ship.
+
+```bash
+npm run dev   # in your project; Vite listens on http://localhost:5173
+cornea open http://localhost:5173 --mode proxy --csp-profile dev --frameless
+```
 
 ## A frameless window with your own title bar
 

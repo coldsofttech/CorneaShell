@@ -4,6 +4,22 @@
 
 Public names exported by `cornea`. Install with `pip install cornea-shell`.
 
+## `DEV_CSP`
+
+The default policy plus inline scripts and styles, which development servers such as Vite inject for hot reload. Nothing else is loosened. It is for development only and is never the default. Use it with `Security(csp=DEV_CSP)` or `--csp-profile dev`.
+
+```text
+default-src 'self';
+script-src 'self' 'unsafe-inline';
+style-src 'self' 'unsafe-inline';
+img-src 'self' data:;
+connect-src 'self';
+object-src 'none';
+base-uri 'none';
+frame-ancestors 'none';
+form-action 'self'
+```
+
 ## `Asgi`
 
 An ASGI app (FastAPI, Django ASGI) mounted in-process on the shell's port.
@@ -164,18 +180,27 @@ Example:
 
 ## `Url`
 
-An http or https server the window opens directly. The shell's security layer is skipped.
+A page from a server you already run, such as a dev server.
+
+In `direct` mode the window opens the address itself: the page is not served by Cornea, so it
+skips Cornea's security, needs the native window frame and cannot use the window controls.
+
+In `proxy` mode Cornea fetches the pages and serves them from its own address, so they get
+Cornea's security, the window controls and the frameless window, and hot reload keeps
+working. It needs the `proxy` extra: `pip install "cornea-shell[proxy]"`.
 
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `url` | `str` | `required` | Address of the web UI, for example `http://localhost:5173`. |
-| `mode` | `Literal['direct', 'proxy']` | `'direct'` | `direct` opens the address as is. `proxy` is planned for a later release. |
+| `mode` | `Literal['direct', 'proxy']` | `'direct'` | `direct` opens the address as it is. `proxy` serves it through Cornea. |
 
 Example:
 
 ```pycon
 >>> Url("http://localhost:5173").mode
 'direct'
+>>> Url("http://localhost:5173", mode="proxy").mode
+'proxy'
 ```
 
 ## `WebSource`

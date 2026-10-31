@@ -54,7 +54,8 @@ $ cornea open [OPTIONS] [SOURCE]
 **Options**:
 
 * `--web-dist <path>`: Folder with the built web bundle.
-* `--url <str>`: Open an address directly (needs a window, no security).
+* `--url <str>`: Show a page from a server you already run.
+* `--mode <direct|proxy>`: For an address: direct (default) or proxy (serve it through Cornea).
 * `--asgi <str>`: Mount an ASGI app, as module:attribute.
 * `--wsgi <str>`: Mount a WSGI app, as module:attribute.
 * `--app-dir <path>`: Folder to import --asgi/--wsgi apps from.
@@ -66,6 +67,7 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--port <int>`: Port to bind (default: a free one).
 * `--allowed-host <str>`: Extra Host header to accept. Repeatable.
 * `--csp <str>`: Content-Security-Policy to send (default: strict).
+* `--csp-profile <strict|dev>`: strict (default), or dev, which allows what dev servers need. For development only.
 * `--api-prefix <str>`: Path prefix of the API (default /api).
 * `--token-ttl <float>`: Seconds the start-up link works (default 60).
 * `--cookie-samesite <strict|lax>`: SameSite of the session cookie.
@@ -104,7 +106,8 @@ $ cornea serve [OPTIONS] [SOURCE]
 **Options**:
 
 * `--web-dist <path>`: Folder with the built web bundle.
-* `--url <str>`: Open an address directly (needs a window, no security).
+* `--url <str>`: Show a page from a server you already run.
+* `--mode <direct|proxy>`: For an address: direct (default) or proxy (serve it through Cornea).
 * `--asgi <str>`: Mount an ASGI app, as module:attribute.
 * `--wsgi <str>`: Mount a WSGI app, as module:attribute.
 * `--app-dir <path>`: Folder to import --asgi/--wsgi apps from.
@@ -116,6 +119,7 @@ $ cornea serve [OPTIONS] [SOURCE]
 * `--port <int>`: Port to bind (default: a free one).
 * `--allowed-host <str>`: Extra Host header to accept. Repeatable.
 * `--csp <str>`: Content-Security-Policy to send (default: strict).
+* `--csp-profile <strict|dev>`: strict (default), or dev, which allows what dev servers need. For development only.
 * `--api-prefix <str>`: Path prefix of the API (default /api).
 * `--token-ttl <float>`: Seconds the start-up link works (default 60).
 * `--cookie-samesite <strict|lax>`: SameSite of the session cookie.
@@ -147,6 +151,7 @@ $ cornea info --json
 $ cornea open web/dist
 $ cornea open web/dist --title "My App" --size 1200x800 --frameless --debug
 $ cornea open http://localhost:5173 --size 1280x800
+$ cornea open http://localhost:5173 --mode proxy --csp-profile dev --frameless
 ```
 
 ### `cornea serve`
@@ -155,4 +160,5 @@ $ cornea open http://localhost:5173 --size 1280x800
 $ cornea serve web/dist
 $ cornea serve --asgi myproject.asgi:application --app-dir .
 $ cornea serve web/dist --port 8765 --public-path /health --public-path /status
+$ cornea serve http://localhost:5173 --mode proxy --csp-profile dev
 ```

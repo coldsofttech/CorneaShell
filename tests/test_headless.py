@@ -41,7 +41,7 @@ def call(
 def sign_in(shell: Shell) -> str:
     connection = http.client.HTTPConnection("127.0.0.1", shell.port, timeout=5)
     try:
-        connection.request("GET", f"/?t={shell.app.state.bootstrap_token}")
+        connection.request("GET", f"/?cornea_token={shell.app.state.bootstrap_token}")
         return (connection.getresponse().getheader("Set-Cookie") or "").split(";")[0]
     finally:
         connection.close()
@@ -186,7 +186,7 @@ def test_ready_line_with_a_window(bundle: Path) -> None:
         message = json.loads(ready_line(shell))
 
         assert message["window"] is True
-        assert message["url"].startswith(f"http://127.0.0.1:{message['port']}/?t=")
+        assert message["url"].startswith(f"http://127.0.0.1:{message['port']}/?cornea_token=")
 
 
 def test_ready_line_for_a_direct_url() -> None:

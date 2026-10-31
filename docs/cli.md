@@ -44,7 +44,14 @@ $ cornea open web/dist --title "My App" --size 1200x800 --frameless --debug
 $ cornea open http://localhost:5173 --size 1280x800
 ```
 
-An address opened this way is not served by Cornea, so it skips Cornea's security and needs the normal window frame (`--frameless` is an error).
+By default an address is opened **directly**: the page is not served by Cornea, so it skips Cornea's security, needs the normal window frame (`--frameless` is an error) and cannot use the window controls. With `--mode proxy` (needs `pip install "cornea-shell[proxy]"`) Cornea serves the page from its own address instead, so it gets the security, the window controls and the frameless window, and a dev server's hot reload keeps working:
+
+```console
+$ npm run dev
+$ cornea open http://localhost:5173 --mode proxy --csp-profile dev --frameless
+```
+
+A dev server injects inline scripts and styles, which the default content security policy blocks. `--csp-profile dev` allows exactly that and nothing else. It is for development only.
 
 ### `serve [SOURCE]`
 
@@ -52,8 +59,8 @@ Serve the web UI without a window, for a browser or another program. It prints o
 
 ```console
 $ cornea serve web/dist
-{"event": "ready", "url": "http://127.0.0.1:52817/?t=...", "port": 52817, "window": false}
-Serving http://127.0.0.1:52817/?t=... - press Ctrl+C to stop
+{"event": "ready", "url": "http://127.0.0.1:52817/?cornea_token=...", "port": 52817, "window": false}
+Serving http://127.0.0.1:52817/?cornea_token=... - press Ctrl+C to stop
 ```
 
 The JSON line is for other programs; the second line goes to stderr for people and is hidden by `--quiet`. Open the `url` in a browser once: it carries a one-time token that is exchanged for a session cookie. The window controls still answer from a stand-in window, and dialogs report that they are unavailable.
@@ -65,7 +72,7 @@ Give exactly one of these (or the `SOURCE` argument, which is `--web-dist` for a
 | Option | Source |
 | --- | --- |
 | `--web-dist FOLDER` | A built bundle. With none of these, Cornea looks for `web/dist` (or the bundle of `--package`). |
-| `--url ADDRESS` | An address opened directly. `open` only. |
+| `--url ADDRESS` | A page from a server you already run. Direct by default, which needs `open`; `--mode proxy` also works with `serve`. |
 | `--asgi module:attr` | An ASGI app (FastAPI, Django ASGI) mounted on the server. |
 | `--wsgi module:attr` | A WSGI app (Flask, Django) mounted on the server. |
 
@@ -73,7 +80,7 @@ Give exactly one of these (or the `SOURCE` argument, which is `--web-dist` for a
 
 ### Other options
 
-Every setting of the Python API has a flag, grouped in `--help`: server (`--host`, `--port`), security (`--allowed-host`, `--csp`, `--api-prefix`, `--token-ttl`, `--cookie-samesite`, `--public-path`, `--require-origin/--no-require-origin`), native actions (`--disable-action`) and, for `open`, the window (`--title`, `--size`, `--min-size`, `--position`, `--frameless`, `--resizable/--no-resizable`, `--on-top`, `--context-menu`, `--devtools`, `--debug`). Sizes look like `1200x800` and positions like `100,50`. The context menu and developer tools stay off unless you ask for them or use `--debug`. The command line never reads environment variables.
+Every setting of the Python API has a flag, grouped in `--help`: server (`--host`, `--port`), security (`--allowed-host`, `--csp`, `--csp-profile`, `--api-prefix`, `--token-ttl`, `--cookie-samesite`, `--public-path`, `--require-origin/--no-require-origin`), native actions (`--disable-action`) and, for `open`, the window (`--title`, `--size`, `--min-size`, `--position`, `--frameless`, `--resizable/--no-resizable`, `--on-top`, `--context-menu`, `--devtools`, `--debug`). Sizes look like `1200x800` and positions like `100,50`. The context menu and developer tools stay off unless you ask for them or use `--debug`. The command line never reads environment variables.
 
 ### `info`
 

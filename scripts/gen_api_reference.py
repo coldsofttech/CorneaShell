@@ -7,7 +7,9 @@ CI regenerates the file and fails if it differs from the committed copy.
 
 import ast
 import dataclasses
+import importlib
 import inspect
+import pkgutil
 import re
 import sys
 import textwrap
@@ -16,6 +18,7 @@ from types import ModuleType
 from typing import Any
 
 import cornea
+import cornea.core
 
 DEFAULT_OUTPUT = Path(__file__).resolve().parent.parent / "docs" / "api-reference.md"
 MAX_DEFAULT = 40
@@ -209,6 +212,30 @@ def render_callable(obj: Any) -> list[str]:
     ]
 
 
+def constant_doc(name: str) -> str:
+    """The string literal that follows ``NAME = ...`` in any ``cornea.core`` module."""
+    for info in pkgutil.iter_modules(cornea.core.__path__):
+        module = importlib.import_module(f"cornea.core.{info.name}")
+        tree = ast.parse(inspect.getsource(module))
+        for current, following in zip(tree.body, tree.body[1:], strict=False):
+            names = [t.id for t in getattr(current, "targets", []) if isinstance(t, ast.Name)]
+            if (
+                name in names
+                and isinstance(following, ast.Expr)
+                and isinstance(following.value, ast.Constant)
+                and isinstance(following.value.value, str)
+            ):
+                return markdown(" ".join(inspect.cleandoc(following.value.value).split()))
+    return ""
+
+
+def render_constant(name: str, value: str) -> list[str]:
+    """A documented string constant, with its value one clause per line."""
+    clauses = [clause.strip() for clause in value.split(";")]
+    shown = ";\n".join(clauses)
+    return [f"## `{name}`", "", constant_doc(name), "", "```text", shown, "```", ""]
+
+
 def render(module: ModuleType) -> str:
     lines = [
         "# Python API reference",
@@ -228,6 +255,8 @@ def render(module: ModuleType) -> str:
             lines += render_class(obj)
         elif callable(obj):
             lines += render_callable(obj)
+        elif isinstance(obj, str):
+            lines += render_constant(name, obj)
     return "\n".join(lines).rstrip("\n") + "\n"
 
 

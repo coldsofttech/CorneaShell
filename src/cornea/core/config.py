@@ -9,6 +9,13 @@ DEFAULT_CSP = (
     "form-action 'self'"
 )
 
+DEV_CSP = DEFAULT_CSP.replace("script-src 'self'", "script-src 'self' 'unsafe-inline'").replace(
+    "style-src 'self'", "style-src 'self' 'unsafe-inline'"
+)
+"""The default policy plus inline scripts and styles, which development servers such as Vite
+inject for hot reload. Nothing else is loosened. It is for development only and is never the
+default. Use it with ``Security(csp=DEV_CSP)`` or ``--csp-profile dev``."""
+
 Size = tuple[int, int]
 
 
