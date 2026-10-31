@@ -1,10 +1,10 @@
-# python-public-repo-template
+# CorneaShell
 
-[![CI](https://github.com/coldsofttech/python-public-repo-template/actions/workflows/ci.yml/badge.svg)](https://github.com/coldsofttech/python-public-repo-template/actions/workflows/ci.yml)
-[![PyPI](https://img.shields.io/pypi/v/python-public-repo-template)](https://pypi.org/project/python-public-repo-template/)
-[![Python versions](https://img.shields.io/pypi/pyversions/python-public-repo-template)](https://pypi.org/project/python-public-repo-template/)
+[![CI](https://github.com/coldsofttech/CorneaShell/actions/workflows/ci.yml/badge.svg)](https://github.com/coldsofttech/CorneaShell/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/CorneaShell)](https://pypi.org/project/CorneaShell/)
+[![Python versions](https://img.shields.io/pypi/pyversions/CorneaShell)](https://pypi.org/project/CorneaShell/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![License](https://img.shields.io/github/license/coldsofttech/python-public-repo-template)](LICENSE)
+[![License](https://img.shields.io/github/license/coldsofttech/CorneaShell)](LICENSE)
 
 A ready-to-use starting point for public Python projects on GitHub. It includes a typed package layout, automated testing on Python 3.11 to 3.15, linting, one-step releases to PyPI, and the community and security files a public repository needs.
 
@@ -37,19 +37,19 @@ A ready-to-use starting point for public Python projects on GitHub. It includes 
 Requires Python 3.11 or newer.
 
 ```bash
-pip install python-public-repo-template
+pip install CorneaShell
 ```
 
 Or with [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv add python-public-repo-template
+uv add CorneaShell
 ```
 
 To install the latest development version from source:
 
 ```bash
-pip install git+https://github.com/coldsofttech/python-public-repo-template.git
+pip install git+https://github.com/coldsofttech/CorneaShell.git
 ```
 
 ## Usage
@@ -65,8 +65,8 @@ print(example_package.__version__)
 ## Development
 
 ```bash
-git clone https://github.com/coldsofttech/python-public-repo-template.git
-cd python-public-repo-template
+git clone https://github.com/coldsofttech/CorneaShell.git
+cd CorneaShell
 uv sync
 uv run pytest
 ```

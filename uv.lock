@@ -570,7 +570,7 @@ wheels = [
 ]
 
 [[package]]
-name = "python-public-repo-template"
+name = "CorneaShell"
 source = { editable = "." }
 
 [package.dev-dependencies]
