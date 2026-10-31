@@ -51,15 +51,15 @@ def main(
     ] = False,
     verbose: Annotated[
         bool,
-        typer.Option("--verbose", "-v", envvar="CORNEA_VERBOSE", help="Show extra detail."),
+        typer.Option("--verbose", "-v", help="Show extra detail."),
     ] = False,
     quiet: Annotated[
         bool,
-        typer.Option("--quiet", "-q", envvar="CORNEA_QUIET", help="Only show errors."),
+        typer.Option("--quiet", "-q", help="Only show errors."),
     ] = False,
     no_color: Annotated[
         bool,
-        typer.Option("--no-color", envvar="CORNEA_NO_COLOR", help="Disable colored output."),
+        typer.Option("--no-color", help="Disable colored output."),
     ] = False,
 ) -> None:
     """Options that apply to every command."""

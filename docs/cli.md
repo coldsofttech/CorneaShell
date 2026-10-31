@@ -14,17 +14,15 @@ uvx --from cornea-shell cornea --help   # one-off, no install
 
 These go before the command name, for example `cornea --quiet info`.
 
-| Option | Short | Environment variable | Description |
-| --- | --- | --- | --- |
-| `--help` | | | Show help for the tool or for a command. |
-| `--version` | `-V` | | Show the version and exit. |
-| `--verbose` | `-v` | `CORNEA_VERBOSE` | Show extra detail on stderr, and a traceback for unexpected errors. |
-| `--quiet` | `-q` | `CORNEA_QUIET` | Only show errors. Cannot be combined with `--verbose`. |
-| `--no-color` | | `CORNEA_NO_COLOR` | Disable colored output. The standard `NO_COLOR` variable has the same effect. |
-| `--install-completion` | | | Install shell completion for the current shell. |
-| `--show-completion` | | | Print the completion script instead of installing it. |
-
-Boolean environment variables accept `1`, `true` and `yes`. A flag on the command line wins over the variable.
+| Option | Short | Description |
+| --- | --- | --- |
+| `--help` | | Show help for the tool or for a command. |
+| `--version` | `-V` | Show the version and exit. |
+| `--verbose` | `-v` | Show extra detail on stderr, and a traceback for unexpected errors. |
+| `--quiet` | `-q` | Only show errors. Cannot be combined with `--verbose`. |
+| `--no-color` | | Disable colored output. The standard `NO_COLOR` variable has the same effect. |
+| `--install-completion` | | Install shell completion for the current shell. |
+| `--show-completion` | | Print the completion script instead of installing it. |
 
 The full, generated list of commands and options is in [cli-reference.md](cli-reference.md). Regenerate it after changing a command:
 

@@ -60,8 +60,8 @@ def test_info_json() -> None:
     assert json.loads(result.output)["version"] == cornea.__version__
 
 
-def test_quiet_from_environment() -> None:
-    result = runner.invoke(app, ["info"], env={"CORNEA_QUIET": "1"})
+def test_quiet_flag_is_accepted() -> None:
+    result = runner.invoke(app, ["--quiet", "info"])
 
     assert result.exit_code == 0
 
