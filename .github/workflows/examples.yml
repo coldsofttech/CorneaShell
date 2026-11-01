@@ -40,7 +40,7 @@ jobs:
           - packaging
     steps:
       - uses: actions/checkout@v7
-      - uses: astral-sh/setup-uv@v10.3.2
+      - uses: astral-sh/setup-uv@v10.3.3
       - uses: actions/setup-dotnet@v6
         if: matrix.example == 'dotnet_server'
         with:
