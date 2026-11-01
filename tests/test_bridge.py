@@ -391,7 +391,7 @@ def test_a_crash_in_an_action_is_logged_but_not_shown(
     def crash() -> None:
         raise RuntimeError("secret path C:/Users/someone")
 
-    with shell, caplog.at_level(logging.ERROR, logger="cornea.core.bridge_routes"):
+    with shell, caplog.at_level(logging.ERROR, logger="cornea.core.bridge"):
         status, body = call(shell, "crash")
 
     assert (status, body) == (500, {"error": "The action failed"})
@@ -517,7 +517,12 @@ class FakeNativeWindow:
         self.answer = answer
         self.calls: list[tuple[Any, dict[str, Any]]] = []
         self.events = SimpleNamespace(
-            maximized=_Event(), minimized=_Event(), restored=_Event(), closed=_Event()
+            maximized=_Event(),
+            minimized=_Event(),
+            restored=_Event(),
+            closed=_Event(),
+            moved=_Event(),
+            resized=_Event(),
         )
 
     def create_file_dialog(self, kind: Any, **options: Any) -> Sequence[str] | None:

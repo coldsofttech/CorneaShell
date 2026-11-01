@@ -1,6 +1,7 @@
 """The native bridge: a short allowlist of native actions the page can call."""
 
 import inspect
+import logging
 import platform
 import re
 import sys
@@ -9,10 +10,12 @@ from collections.abc import Callable, Iterable, Sequence
 from typing import Any
 from urllib.parse import urlsplit
 
+from fastapi.encoders import jsonable_encoder
 from starlette.concurrency import run_in_threadpool
 
 from cornea.core.window import Unavailable, WindowController
 
+logger = logging.getLogger(__name__)
 ACTION_NAME = re.compile(r"^[a-z][a-z0-9_]*$")
 OPEN_SCHEMES = frozenset({"http", "https", "mailto"})
 MAX_URL_LENGTH = 2048
@@ -104,6 +107,33 @@ def _window(window: WindowController | None) -> WindowController:
     if window is None:
         raise Unavailable("There is no window to show a dialog in.")
     return window
+
+
+async def invoke_action(
+    registry: "ActionRegistry",
+    name: str,
+    arguments: dict[str, Any],
+    window: WindowController | None,
+) -> tuple[int, dict[str, Any]]:
+    """Run an action and describe the outcome as an HTTP status and a JSON-ready body.
+
+    A dialog that cannot be shown (no window) is ``available: false`` and not an error. A crash
+    in an action is logged with its details but the caller only learns that it failed.
+    """
+    try:
+        result = await registry.call(name, arguments, window)
+    except UnknownAction:
+        return 404, {"error": "Unknown action"}
+    except BadArguments as exc:
+        return 422, {"error": str(exc)}
+    except Unavailable as exc:
+        return 200, {"available": False, "reason": str(exc)}
+    except ValueError as exc:
+        return 422, {"error": str(exc)}
+    except Exception:
+        logger.exception("The action %r failed", name)
+        return 500, {"error": "The action failed"}
+    return 200, {"available": True, "result": jsonable_encoder(result)}
 
 
 # ----- the registry ---------------------------------------------------------------------------

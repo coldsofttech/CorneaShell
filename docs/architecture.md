@@ -33,6 +33,11 @@ src/cornea/core/static.py    bundle serving: page fallback, caching, content typ
 src/cornea/core/proxy.py     the reverse proxy for another server's pages (optional `proxy` extra)
 src/cornea/core/app.py       create_app(): puts the pieces above into one FastAPI app
 src/cornea/core/shell.py     Shell and run(): the server thread, the window, shutdown
+src/cornea/core/process.py   starts a dev-server command and stops it with everything it started
+src/cornea/core/appdata.py   the per-app data folder
+src/cornea/core/window_memory.py   remembered window size and position
+src/cornea/core/single_instance.py one copy at a time, and waking the first copy
+src/cornea/core/window_api.py      the opt-in js_api object
 src/cornea/core/window.py    pywebview window, window controller, environment checks
 src/cornea/core/window_routes.py   /api/window routes
 src/cornea/core/bridge.py    native actions and the action registry
@@ -66,7 +71,7 @@ All of it lives in one ASGI middleware, so it guards a mounted Flask or Django a
 4. **Session.** Every other request needs that cookie, except the `public_paths` (default `/health`).
 5. **Headers** on every response, including the refusals: a strict `Content-Security-Policy` (an app's own policy is kept), `X-Content-Type-Options`, `Referrer-Policy`, and the cross-origin opener and resource policies. API responses are `no-store`.
 
-What it does not cover: a direct `Url` is not served by Cornea; the code of your own routes and actions runs with your permissions; and a local program that can read your terminal can read the printed address of `cornea serve` while the token is still valid.
+What it does not cover: a direct `Url` is not served by Cornea, and with `js_api` every page the window loads gets the window controls and the native actions (see [js_api](#js_api-and-its-risk)); the code of your own routes and actions runs with your permissions; and a local program that can read your terminal can read the printed address of `cornea serve` while the token is still valid.
 
 ## Sources and who wins a path
 
@@ -101,6 +106,59 @@ Window controls (`minimize`, `maximize`, `restore`, `close`, title and state) ar
 
 The bridge is one route, `POST {api_prefix}/bridge/{action}`. Built-in actions are choose folder, choose file, choose save path, open an `http`, `https` or `mailto` link, and platform info. Your own actions are registered with `@shell.action`. Unknown and switched-off actions answer 404, bad arguments 422, and a crash in an action is logged and answered with a generic 500, so details never reach the page.
 
+## The Process runner
+
+`Process(command, url, ...)` is a source that starts a dev server and then behaves like a `Url`, direct or proxied. `process.py` does the work:
+
+1. Refuse to start if something already answers on the address, so Cornea never shows (and later stops) a server it did not start.
+2. Start the command. A string runs through the shell, so `npm run dev` works; a tuple runs as given.
+3. Poll the address until it accepts a connection, within `timeout`. While waiting, watch the command: if it exits first, the error carries its last lines of output.
+4. On shutdown, stop the command and everything it started.
+
+The failures are: the command exited early, the address did not answer in time, the address is already in use, or the program could not be started. The command line prints them as one line and exits with code 1.
+
+`npm run dev` starts `node` as a child, so stopping only `npm` would leave the server running. On Windows the command therefore runs inside a job object that is set to kill its members when the last handle closes. Stopping closes the job. If Cornea crashes, the system closes its handles, which closes the job and ends the whole tree, so a crash does not leave a dev server behind either.
+
+## The app identity
+
+`App(id, single_instance, remember_window)` is passed to `Shell` as `identity=` (`app` is already the FastAPI app). The two options need an id.
+
+- **Data folder.** `%LOCALAPPDATA%\Cornea\<id>\` holds `window.json` (the remembered window) and `instance.json` (while the app runs).
+- **Remembered window.** Size, position and the maximized state are saved when the window closes and used at the next start. The size never goes below the minimum. A position is kept only if the window's top-left corner would still be on a screen; otherwise it is dropped and the system places the window, which handles an unplugged monitor.
+- **Single instance.** The first copy takes a named Windows mutex, so the system releases the lock if the app crashes and no stale lock can exist. It also listens on a private loopback port and writes that port and a random secret to `instance.json`. A second copy fails to get the mutex, reads the file, and sends the secret to that port. The first copy checks the secret, restores and activates its window, and the second exits (`AlreadyRunning`, with `.activated` telling whether the first copy answered). A request without the secret is ignored. Single instance needs a window.
+- **Taskbar identity.** The id is set as the Windows app identity, so the taskbar does not group the window under `python.exe`.
+
+## js_api and its risk
+
+A directly opened address is not served by Cornea, so its page cannot call the window routes, and a frameless window would have no way to close. `Window(js_api=True)` offers another way: pywebview puts a `window.pywebview.api` object into the page with `minimize()`, `maximize()`, `restore()`, `close()`, `set_title(title)`, `state()`, `actions()` and `call_action(action, parameters)`. `call_action` returns the same shape as the HTTP bridge route.
+
+It is off by default, and the rule that a directly opened address cannot be frameless holds unless it is on. The risk is the one the object brings: pywebview adds it to every page that loads in the window, including one the window navigates to. That page gets the window controls and the native actions (dialogs, opening a link, platform information). Use it only for pages you trust. Single actions can still be switched off with `--disable-action`. Proxy mode needs none of this: the page is served by Cornea and uses the HTTP routes behind the session.
+
+pywebview builds the JavaScript functions from the Python parameter names, and a parameter called `arguments` breaks them. That is why the second parameter of `call_action` is `parameters`. The object keeps its fields private, because pywebview exposes every public attribute it holds.
+
+## Startup time
+
+`Shell.timings` returns a `Timings` with `process_ready`, `server_ready`, `window_shown` and `page_loaded`, in seconds since `run()` (or `start()`) began. A step that did not happen is `None`.
+
+`scripts/measure_startup.py [runs]` runs each case in fresh processes and prints the minimum, median and maximum for a headless start and a real-window start. Medians from 7 runs on the development machine (Windows 11, Python 3.11):
+
+| Step | Median |
+| --- | --- |
+| Import the package | 0.24 s |
+| Server accepting requests | 0.05 s |
+| Window shown | 0.41 s |
+| First page loaded | 0.70 s |
+
+The target, with about three times the margin for slower machines, counted from the start of `run()` and leaving out the import (about 0.4 s on a slower machine):
+
+| Step | Target |
+| --- | --- |
+| Server accepting requests | under 0.5 s |
+| Window shown | under 2 s |
+| First page loaded | under 3 s |
+
+The target is a guide, not a test. A test that fails on speed would be flaky on shared CI machines, so nothing enforces it; run the script to check.
+
 ## Testing
 
 - **Unit tests** run every module against a real server on a free port where the server matters, and against a fake pywebview where a window would be needed. Coverage must stay above the minimum in `pyproject.toml`.
@@ -109,4 +167,4 @@ The bridge is one route, `POST {api_prefix}/bridge/{action}`. Built-in actions a
 
 ## Not yet
 
-A source that starts a dev-server command for you (and stops it with the window) is planned for 0.2. Other platforms are not supported.
+Other platforms are not supported.

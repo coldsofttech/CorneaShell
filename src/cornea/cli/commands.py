@@ -8,9 +8,20 @@ from typing import Annotated, Any
 import typer
 from rich.table import Table
 
-from cornea import Bridge, Security, Server, Shell, WebSource, Window, __version__, ready_line
+from cornea import (
+    App,
+    Bridge,
+    Security,
+    Server,
+    Shell,
+    WebSource,
+    Window,
+    __version__,
+    ready_line,
+)
 from cornea import run as run_shell
 from cornea.cli import options, output
+from cornea.core.single_instance import AlreadyRunning
 
 EXAMPLES: dict[str, tuple[str, ...]] = {
     "": ("cornea --version", "cornea --quiet info", "cornea --no-color info"),
@@ -20,12 +31,17 @@ EXAMPLES: dict[str, tuple[str, ...]] = {
         'cornea open web/dist --title "My App" --size 1200x800 --frameless --debug',
         "cornea open http://localhost:5173 --size 1280x800",
         "cornea open http://localhost:5173 --mode proxy --csp-profile dev --frameless",
+        'cornea open --run "npm run dev" --url http://localhost:5173 --mode proxy --frameless',
+        "cornea open web/dist --app-id com.example.notes --single-instance --remember-window",
+        "cornea open web/dist --icon examples/static_html/icon.png",
+        "cornea open http://localhost:5173 --frameless --js-api",
     ),
     "serve": (
         "cornea serve web/dist",
         "cornea serve --asgi myproject.asgi:application --app-dir .",
         "cornea serve web/dist --port 8765 --public-path /health --public-path /status",
         "cornea serve http://localhost:5173 --mode proxy --csp-profile dev",
+        'cornea serve --run "npm run dev" --url http://localhost:5173 --mode proxy',
     ),
 }
 """Example invocations by command name (empty for the top level). Tested and used in the docs."""
@@ -50,12 +66,13 @@ JsonOption = Annotated[bool, typer.Option("--json", help="Output as JSON.")]
 
 # ----- the options both commands share, grouped in the help -----------------------------------
 
-WEB, SERVER, SECURITY, WINDOW, NATIVE = (
+WEB, SERVER, SECURITY, WINDOW, NATIVE, APP = (
     "Web source",
     "Server",
     "Security",
     "Window",
     "Native actions",
+    "App",
 )
 
 
@@ -77,6 +94,21 @@ WebDist = Annotated[
 UrlFlag = Annotated[
     str | None,
     _flag("--url", help="Show a page from a server you already run.", panel=WEB),
+]
+RunFlag = Annotated[
+    str | None,
+    _flag(
+        "--run",
+        help="Start this dev-server command for --url and stop it with the window.",
+        panel=WEB,
+    ),
+]
+RunCwd = Annotated[
+    Path | None, _flag("--run-cwd", help="Folder to run the --run command in.", panel=WEB)
+]
+RunTimeout = Annotated[
+    float | None,
+    _flag("--run-timeout", help="Seconds to wait for --url to answer (default 30).", panel=WEB),
 ]
 ModeFlag = Annotated[
     options.UrlMode | None,
@@ -158,6 +190,30 @@ RequireOrigin = Annotated[
 DisableAction = Annotated[
     list[str] | None,
     _flag("--disable-action", help="Switch a built-in action off. Repeatable.", panel=NATIVE),
+]
+IconFlag = Annotated[
+    Path | None,
+    _flag("--icon", help="Window and taskbar icon: .ico, .png, .bmp, .gif or .jpg.", panel=WINDOW),
+]
+JsApi = Annotated[
+    bool | None,
+    _flag(
+        "--js-api",
+        help="Give the page the window controls and native actions. Trusted pages only.",
+        panel=WINDOW,
+    ),
+]
+AppIdFlag = Annotated[
+    str | None,
+    _flag("--app-id", help="Name of the app, like com.example.notes.", panel=APP),
+]
+SingleInstanceFlag = Annotated[
+    bool | None,
+    _flag("--single-instance", help="Run one copy; a second start shows the first.", panel=APP),
+]
+RememberWindowFlag = Annotated[
+    bool | None,
+    _flag("--remember-window", help="Reopen the window where it was, at its size.", panel=APP),
 ]
 Title = Annotated[str | None, _flag("--title", help="Window title.", panel=WINDOW)]
 Size = Annotated[str | None, _flag("--size", help="Window size, like 1200x800.", panel=WINDOW)]
@@ -263,6 +319,7 @@ def _launch(
     server: Server,
     security: Security,
     bridge: Bridge,
+    identity: App | None = None,
 ) -> None:
     """Run the shell, reporting expected failures as a short error with exit code 1."""
     state = ctx.obj
@@ -282,8 +339,15 @@ def _launch(
             server=server,
             window=window,
             bridge=bridge,
+            identity=identity,
             on_ready=announce if window is None else None,
         )
+    except AlreadyRunning as exc:
+        if not exc.activated:
+            output.error(str(exc))
+            raise typer.Exit(code=1) from exc
+        # Handing over to the first copy is what the user asked for, not a failure.
+        output.err_console.print(str(exc), soft_wrap=True, markup=False, highlight=False)
     except (ValueError, FileNotFoundError, ImportError, OSError, RuntimeError) as exc:
         output.error(str(exc))
         raise typer.Exit(code=1) from exc
@@ -296,6 +360,9 @@ def open_window(
     web_dist: WebDist = None,
     url: UrlFlag = None,
     mode: ModeFlag = None,
+    run: RunFlag = None,
+    run_cwd: RunCwd = None,
+    run_timeout: RunTimeout = None,
     asgi: AsgiFlag = None,
     wsgi: WsgiFlag = None,
     app_dir: AppDir = None,
@@ -324,6 +391,11 @@ def open_window(
     context_menu: ContextMenu = None,
     devtools: DevTools = None,
     debug: Debug = None,
+    js_api: JsApi = None,
+    icon: IconFlag = None,
+    app_id: AppIdFlag = None,
+    single_instance: SingleInstanceFlag = None,
+    remember_window: RememberWindowFlag = None,
 ) -> None:
     """Show the web UI in a native window (Windows)."""
     try:
@@ -339,6 +411,9 @@ def open_window(
             spa=spa,
             hashed_prefix=hashed_prefix,
             mode=mode,
+            run=run,
+            run_cwd=run_cwd,
+            run_timeout=run_timeout,
         )
         window = options.build_window(
             title=title,
@@ -351,6 +426,8 @@ def open_window(
             context_menu=context_menu,
             devtools=devtools,
             debug=debug,
+            js_api=js_api,
+            icon=icon,
         )
         server = options.build_server(host=host, port=port)
         security = options.build_security(
@@ -364,10 +441,15 @@ def open_window(
             csp_profile=csp_profile,
         )
         bridge = options.build_bridge(disable_action=disable_action)
+        identity = options.build_app(
+            app_id=app_id, single_instance=single_instance, remember_window=remember_window
+        )
     except ValueError as exc:
         output.error(str(exc))
         raise typer.Exit(code=1) from exc
-    _launch(ctx, web_source, window, server=server, security=security, bridge=bridge)
+    _launch(
+        ctx, web_source, window, server=server, security=security, bridge=bridge, identity=identity
+    )
 
 
 @app.command(epilog=_epilog("serve"))
@@ -377,6 +459,9 @@ def serve(
     web_dist: WebDist = None,
     url: UrlFlag = None,
     mode: ModeFlag = None,
+    run: RunFlag = None,
+    run_cwd: RunCwd = None,
+    run_timeout: RunTimeout = None,
     asgi: AsgiFlag = None,
     wsgi: WsgiFlag = None,
     app_dir: AppDir = None,
@@ -414,6 +499,9 @@ def serve(
             spa=spa,
             hashed_prefix=hashed_prefix,
             mode=mode,
+            run=run,
+            run_cwd=run_cwd,
+            run_timeout=run_timeout,
         )
         server = options.build_server(host=host, port=port)
         security = options.build_security(

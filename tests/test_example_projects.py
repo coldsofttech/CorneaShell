@@ -5,9 +5,7 @@ import importlib.util
 import json
 import shutil
 import socket
-import subprocess
 import sys
-import time
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -133,76 +131,150 @@ def test_the_django_example_is_mounted() -> None:
         assert browser.request("/app.js")[1].startswith("text/javascript")
 
 
-# ----- Node.js --------------------------------------------------------------------------------
+# ----- Python entry points --------------------------------------------------------------------
 
 
-@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
-def test_the_node_example_serves_its_own_page() -> None:
-    node = shutil.which("node")
-    assert node is not None
+def free_port() -> int:
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
-        port = probe.getsockname()[1]
-    process = subprocess.Popen(
-        [node, str(EXAMPLES / "node_server" / "server.js")],
-        env={
-            "PORT": str(port),
-            "PATH": str(Path(sys.executable).parent),
-            "SystemRoot": "C:\\Windows",
-        },
-        stdout=subprocess.PIPE,
-        text=True,
-    )
+        return int(probe.getsockname()[1])
+
+
+def test_the_plain_html_entry_point_is_frameless_with_an_icon() -> None:
+    example = load("static_example", EXAMPLES / "static_html" / "main.py")
+
+    with example.build_shell(headless=True) as shell:
+        assert "Hello from plain HTML" in Signed(shell).request("/")[2]
+    window = example.build_shell().window
+    assert window is not None
+    assert window.frameless is True
+    assert window.icon == "icon.png"
+
+
+def test_the_fastapi_entry_point_can_serve_the_app_itself() -> None:
+    example = load("fastapi_mount_example", EXAMPLES / "fastapi_app" / "main.py")
     try:
-        assert process.stdout is not None
-        assert f"http://127.0.0.1:{port}" in process.stdout.readline()
-        deadline = time.time() + 5
-        while True:
-            try:
-                connection = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
-                connection.request("GET", "/hello?name=Zed")
-                body = json.loads(connection.getresponse().read())
-                break
-            except OSError:
-                assert time.time() < deadline
-                time.sleep(0.1)
-    finally:
-        process.terminate()
-        process.wait(timeout=10)
-
-    assert body["message"].startswith("Hello, Zed, from Node.js v")
-
-
-@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
-def test_the_node_example_can_be_proxied_through_cornea() -> None:
-    from cornea import Url
-
-    node = shutil.which("node")
-    assert node is not None
-    with socket.socket() as probe:
-        probe.bind(("127.0.0.1", 0))
-        port = probe.getsockname()[1]
-    process = subprocess.Popen(
-        [node, str(EXAMPLES / "node_server" / "server.js")],
-        env={
-            "PORT": str(port),
-            "PATH": str(Path(sys.executable).parent),
-            "SystemRoot": r"C:\Windows",
-        },
-        stdout=subprocess.PIPE,
-        text=True,
-    )
-    try:
-        assert process.stdout is not None
-        process.stdout.readline()
-        # Through Cornea the page gets Cornea's security, window controls and frameless window.
-        with Shell(Url(f"http://127.0.0.1:{port}", mode="proxy"), window=None) as shell:
+        with example.build_shell(headless=True, mount=True) as shell:
             browser = Signed(shell)
 
-            assert "Hello from Node.js" in browser.request("/")[2]
-            hello = json.loads(browser.request("/hello?name=Zed")[2])
-            assert hello["message"].startswith("Hello, Zed, from Node.js v")
-            assert json.loads(browser.request("/api/window")[2])["title"] == "Cornea Shell"
+            assert 'content="/greeting"' in browser.request("/")[2]
+            body = json.loads(browser.request("/greeting?name=Zed")[2])
+            assert body == {"message": "Hello, Zed, from FastAPI!"}
     finally:
-        process.terminate()
-        process.wait(timeout=10)
+        sys.modules.pop("main", None)
+
+
+def test_the_flask_entry_point() -> None:
+    pytest.importorskip("flask")
+    example = load("flask_entry", EXAMPLES / "flask_app" / "main.py")
+
+    with example.build_shell(headless=True) as shell:
+        browser = Signed(shell)
+        assert "Hello from Flask" in browser.request("/")[2]
+        assert json.loads(browser.request("/hello?name=Zed")[2])["message"].startswith("Hello, Zed")
+
+
+def test_the_django_entry_point() -> None:
+    pytest.importorskip("django")
+    example = load("django_entry", EXAMPLES / "django_app" / "main.py")
+
+    with example.build_shell(headless=True) as shell:
+        browser = Signed(shell)
+        assert "Hello from Django" in browser.request("/")[2]
+        assert json.loads(browser.request("/hello?name=Zed")[2])["message"].startswith("Hello, Zed")
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs Node.js")
+def test_the_node_entry_point_starts_the_server_through_cornea() -> None:
+    pytest.importorskip("httpx")
+    example = load("node_entry", EXAMPLES / "node_server" / "main.py")
+    port = free_port()
+
+    with example.build_shell(headless=True, mode="proxy", port=port) as shell:
+        browser = Signed(shell)
+        assert "Hello from Node.js" in browser.request("/")[2]
+        body = json.loads(browser.request("/hello?name=Zed")[2])
+        assert body["message"].startswith("Hello, Zed, from Node.js v")
+    with (
+        pytest.raises((ConnectionRefusedError, TimeoutError)),
+        socket.create_connection(("127.0.0.1", port), timeout=1),
+    ):
+        pass  # the server stopped with the shell
+
+
+def test_the_node_entry_point_needs_a_window_for_a_direct_address() -> None:
+    example = load("node_direct", EXAMPLES / "node_server" / "main.py")
+
+    with pytest.raises(SystemExit, match="--mode proxy"):
+        example.build_shell(headless=True)
+    assert example.build_shell(external=True).window is not None
+
+
+def test_the_react_entry_point_serves_the_build() -> None:
+    if not (EXAMPLES / "react_vite" / "dist" / "index.html").is_file():
+        pytest.skip("run npm install && npm run build in examples/react_vite first")
+    example = load("react_entry", EXAMPLES / "react_vite" / "main.py")
+
+    with example.build_shell(headless=True) as shell:
+        assert '<div id="root">' in Signed(shell).request("/")[2]
+
+
+def test_the_react_entry_point_says_what_to_do_without_a_build(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    example = load("react_missing", EXAMPLES / "react_vite" / "main.py")
+    monkeypatch.setattr(example, "HERE", tmp_path)
+
+    with pytest.raises(SystemExit, match="npm install && npm run build"):
+        example.build_shell(headless=True)
+
+
+# ----- Vue, HTMX, Streamlit, MkDocs ------------------------------------------------------------
+
+
+def test_the_vue_entry_point_serves_the_build() -> None:
+    if not (EXAMPLES / "vue_vite" / "dist" / "index.html").is_file():
+        pytest.skip("run npm install && npm run build in examples/vue_vite first")
+    example = load("vue_entry", EXAMPLES / "vue_vite" / "main.py")
+
+    with example.build_shell(headless=True) as shell:
+        assert '<div id="app">' in Signed(shell).request("/")[2]
+
+
+def test_the_htmx_example_answers_with_html_fragments() -> None:
+    pytest.importorskip("jinja2")
+    example = load("htmx_entry", EXAMPLES / "htmx_fastapi" / "main.py")
+    try:
+        with example.build_shell(headless=True) as shell:
+            browser = Signed(shell)
+
+            page = browser.request("/")[2]
+            assert "Hello from HTMX" in page
+            assert "<script>" not in page
+            assert "javascript" in browser.request("/static/htmx.min.js")[1]
+            assert "Hello, Zed, from FastAPI and HTMX!" in browser.request("/greeting?name=Zed")[2]
+            assert "pressed 1 time." in browser.request("/count", "POST")[2]
+    finally:
+        sys.modules.pop("main", None)
+
+
+def test_the_mkdocs_example_serves_the_built_site() -> None:
+    pytest.importorskip("mkdocs")
+    example = load("mkdocs_entry", EXAMPLES / "mkdocs_site" / "main.py")
+
+    with example.build_shell(headless=True) as shell:
+        browser = Signed(shell)
+
+        assert "Hello from MkDocs" in browser.request("/")[2]
+        assert "Edit any page" in browser.request("/guide/")[2]
+
+
+def test_the_streamlit_example_runs_through_the_proxy() -> None:
+    pytest.importorskip("streamlit")
+    example = load("streamlit_entry", EXAMPLES / "streamlit_app" / "main.py")
+
+    with example.build_shell(headless=True, port=free_port()) as shell:
+        browser = Signed(shell)
+
+        assert "Streamlit" in browser.request("/")[2]
+        assert browser.request("/_stcore/health")[0] == 200

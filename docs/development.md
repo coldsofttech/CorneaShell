@@ -36,6 +36,14 @@ uv build                   # build sdist and wheel
 
 Tests under `tests/integration/` are marked `integration` automatically by that folder's `conftest.py`. They are excluded from the default `pytest` run, and therefore from the pre-commit hook, and run as their own job in CI. Put slower or end-to-end tests there.
 
+## Start-up time
+
+`uv run python scripts/measure_startup.py [runs]` measures how long a headless start and a real-window start take, in fresh processes, and prints the minimum, median and maximum of each step. The window case needs WebView2. See [startup time](architecture.md#startup-time) for the target.
+
+## The stand-in dev server
+
+`tests/devserver.py` is a tiny dev server that the `Process` tests start as their command, so they need neither Node nor a real framework. The crash test under `tests/integration/` uses it to prove that the server is gone after Cornea dies.
+
 ## Continuous integration
 
 The `ci` workflow runs four jobs. `lint` runs on Linux: pre-commit (Ruff and mypy among others) and the checks that the generated references are up to date. It also shows that the package imports without pywebview. `test` (unit tests with coverage), `integration` (tests marked `integration`, which run real processes and a real window) and `build` (build, `twine check`, and a smoke test of the built wheel in a clean environment) run on Windows, because that is where Cornea shows a window. `test` and `integration` run on Python 3.11 to 3.15, and install without the `hooks` dependency group (pre-commit and its PyYAML), which they do not use and which can lack a Windows build for the newest Python. A plain `uv sync` installs it. A final `ci` job gates on all four and is the single required check in the branch ruleset.

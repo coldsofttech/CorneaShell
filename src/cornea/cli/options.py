@@ -7,7 +7,20 @@ from typing import Any
 
 import typer
 
-from cornea import DEV_CSP, Asgi, Bridge, Security, Server, Static, Url, WebSource, Window, Wsgi
+from cornea import (
+    DEV_CSP,
+    App,
+    Asgi,
+    Bridge,
+    Process,
+    Security,
+    Server,
+    Static,
+    Url,
+    WebSource,
+    Window,
+    Wsgi,
+)
 
 _URL = re.compile(r"^https?://", re.IGNORECASE)
 
@@ -57,6 +70,9 @@ def build_source(
     spa: bool | None,
     hashed_prefix: list[str] | None,
     mode: UrlMode | None = None,
+    run: str | None = None,
+    run_cwd: Path | None = None,
+    run_timeout: float | None = None,
 ) -> WebSource:
     """The one web source the flags describe. Anything that does not fit is an error."""
     if argument is not None:
@@ -84,6 +100,19 @@ def build_source(
         raise typer.BadParameter("--app-dir only applies to --asgi and --wsgi")
     if mode is not None and url is None:
         raise typer.BadParameter("--mode only applies to an address (--url)")
+    if run is None and (run_cwd is not None or run_timeout is not None):
+        raise typer.BadParameter("--run-cwd and --run-timeout need --run")
+    if run is not None:
+        if web_dist is not None or asgi is not None or wsgi is not None:
+            raise typer.BadParameter("--run starts the server of an address; it cannot be combined")
+        if url is None:
+            raise typer.BadParameter("--run needs the address it serves on: add --url ADDRESS")
+        return Process(
+            run,
+            url=url,
+            mode=mode.value if mode else "direct",
+            **_given(cwd=run_cwd, timeout=run_timeout),
+        )
     if set_bundle and chosen and chosen[0] != "--web-dist":
         raise typer.BadParameter(f"{', '.join(set_bundle)} only apply to a web bundle")
     if url is not None:
@@ -144,6 +173,14 @@ def build_security(
     )
 
 
+def build_app(
+    *, app_id: str | None, single_instance: bool | None, remember_window: bool | None
+) -> App:
+    return App(
+        **_given(id=app_id, single_instance=single_instance, remember_window=remember_window)
+    )
+
+
 def build_bridge(*, disable_action: list[str] | None) -> Bridge:
     return Bridge(**_given(disabled=tuple(disable_action) if disable_action else None))
 
@@ -160,6 +197,8 @@ def build_window(
     context_menu: bool | None,
     devtools: bool | None,
     debug: bool | None,
+    js_api: bool | None = None,
+    icon: Path | None = None,
 ) -> Window:
     return Window(
         **_given(
@@ -173,5 +212,7 @@ def build_window(
             context_menu=context_menu,
             devtools=devtools,
             debug=debug,
+            js_api=js_api,
+            icon=icon,
         )
     )

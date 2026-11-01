@@ -12,7 +12,7 @@ from cornea.core.bridge_routes import router as bridge_router
 from cornea.core.config import Bridge, Security
 from cornea.core.proxy import ProxyApp
 from cornea.core.security import SecurityMiddleware, SessionGate, new_token
-from cornea.core.sources import Asgi, Static, Url, WebSource, Wsgi, coerce_source
+from cornea.core.sources import Asgi, Process, Static, Url, WebSource, Wsgi, coerce_source
 from cornea.core.static import BundleFiles
 from cornea.core.window_routes import router as window_router
 
@@ -106,4 +106,6 @@ def _mount_source(app: FastAPI, source: WebSource | None) -> None:
         proxy = ProxyApp(source.url)
         app.state.proxy = proxy
         app.mount("/", proxy)
+    elif isinstance(source, Process):
+        raise ValueError("a Process source is started by Shell; use Shell or run() for it")
     # A direct Url has nothing to mount: the window opens the address itself.

@@ -153,6 +153,38 @@ class Url(WebSource):
 
 
 @dataclass(frozen=True, slots=True)
+class Process(WebSource):
+    """A dev-server command that Cornea starts for you and stops with the window.
+
+    Cornea runs ``command``, waits until something listens at ``url``, then shows that address
+    exactly as :class:`Url` does, directly or through the proxy. When Cornea stops, or even if it
+    crashes, the command and everything it started are stopped too.
+
+    Example:
+        >>> Process("npm run dev", url="http://localhost:5173").command
+        'npm run dev'
+    """
+
+    command: str | tuple[str, ...]
+    """The command. A string is run by the shell, so ``npm run dev`` works; a tuple is run as is."""
+    url: str
+    """Address the command serves on, for example ``http://localhost:5173``."""
+    cwd: Path | str | None = None
+    """Folder to run the command in."""
+    mode: Literal["direct", "proxy"] = "direct"
+    """As for :class:`Url`: ``direct`` opens the address, ``proxy`` serves it through Cornea."""
+    timeout: float = 30.0
+    """Seconds to wait for the address to answer before giving up."""
+
+    def __post_init__(self) -> None:
+        if not (self.command.strip() if isinstance(self.command, str) else self.command):
+            raise ValueError("command must not be empty")
+        Url(self.url, mode=self.mode)  # same checks as for an address
+        if self.timeout <= 0:
+            raise ValueError(f"timeout must be positive, got {self.timeout}")
+
+
+@dataclass(frozen=True, slots=True)
 class Asgi(WebSource):
     """An ASGI app (FastAPI, Django ASGI) mounted in-process on the shell's port.
 

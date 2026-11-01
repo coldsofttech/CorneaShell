@@ -1,19 +1,28 @@
 """The native window: pywebview on the WebView2 engine (Windows only)."""
 
+import contextlib
 import importlib
 import logging
 import sys
 import threading
 from collections.abc import Callable, Sequence
+from pathlib import Path
 from types import ModuleType
-from typing import Any, Literal, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol
 
-from cornea.core.config import Window
+from cornea.core.appdata import data_dir
+from cornea.core.config import App, Window
+from cornea.core.window_memory import Remembered, WindowMemory, fit_to_screens
+
+if TYPE_CHECKING:
+    from cornea.core.bridge import ActionRegistry
 
 logger = logging.getLogger(__name__)
 
 WEBVIEW2_DOWNLOAD = "https://developer.microsoft.com/microsoft-edge/webview2/"
 _WEBVIEW2_CLIENT = r"SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+OFF_SCREEN = -30000
+"""Windows reports minimized windows near this coordinate; never a real place."""
 CLOSE_DELAY = 0.05
 """Seconds between answering a close request and closing, so the answer can be sent."""
 
@@ -106,18 +115,57 @@ def load_webview() -> ModuleType:
 class NativeWindow:
     """Controls one pywebview window and remembers whether it is maximized or minimized."""
 
-    def __init__(self, window: Any, settings: Window, webview: ModuleType | None = None) -> None:
+    def __init__(
+        self,
+        window: Any,
+        settings: Window,
+        webview: ModuleType | None = None,
+        start: Remembered | None = None,
+    ) -> None:
         self._window = window
         self._webview = webview
         self._frameless = settings.frameless
         self._title = settings.title
-        self._maximized = False
+        self._maximized = bool(start and start.maximized)
         self._minimized = False
         self._closed = False
+        # The window's place when it is neither maximized nor minimized: what gets remembered.
+        if start is not None:
+            self._x, self._y = start.x, start.y
+            self._width, self._height = start.width, start.height
+        else:
+            self._x, self._y = settings.position if settings.position else (None, None)
+            self._width, self._height = settings.size
         window.events.maximized += self._on_maximized
         window.events.minimized += self._on_minimized
         window.events.restored += self._on_restored
         window.events.closed += self._on_closed
+        window.events.moved += self._on_moved
+        window.events.resized += self._on_resized
+
+    def _on_moved(self, x: int, y: int) -> None:
+        if not self._maximized and not self._minimized and x > OFF_SCREEN and y > OFF_SCREEN:
+            self._x, self._y = x, y
+
+    def _on_resized(self, width: int, height: int) -> None:
+        if not self._maximized and not self._minimized and width > 0 and height > 0:
+            self._width, self._height = width, height
+
+    def remember(self) -> Remembered:
+        """Where the window is, for reopening it there. A maximized one keeps its normal place."""
+        if (self._x is None or self._y is None) and not self._maximized and not self._minimized:
+            # Placed by the system and never moved: ask the window itself.
+            with contextlib.suppress(Exception):
+                self._x, self._y = int(self._window.x), int(self._window.y)
+        return Remembered(self._width, self._height, self._x, self._y, self._maximized)
+
+    def activate(self) -> None:
+        """Bring the window to the front, restoring it first if it was minimized."""
+        if self._minimized:
+            self._window.restore()
+        self._window.show()
+        with contextlib.suppress(Exception):  # focusing is a courtesy; it must not raise
+            bring_to_front(self._window)
 
     def _on_maximized(self) -> None:
         self._maximized, self._minimized = True, False
@@ -253,6 +301,50 @@ def _invoke(native: Any, function: Callable[[], None]) -> None:
     native.Invoke(Func[Type](function))
 
 
+def bring_to_front(window: Any) -> None:
+    """Raise the window above the others and give it the keyboard focus."""
+
+    def raise_it() -> None:
+        form = window.native
+        form.TopMost = True
+        form.TopMost = False
+        form.Activate()
+
+    _invoke(window.native, raise_it)
+
+
+def set_app_user_model_id(app_id: str) -> None:
+    """Tell Windows which app this is, so its icon is not grouped under python.exe."""
+    import ctypes
+    from ctypes import wintypes
+
+    shell32 = ctypes.WinDLL("shell32")
+    shell32.SetCurrentProcessExplicitAppUserModelID.argtypes = [wintypes.LPCWSTR]
+    shell32.SetCurrentProcessExplicitAppUserModelID(app_id)
+
+
+def screen_rectangles(webview: ModuleType) -> list[tuple[int, int, int, int]]:
+    """The screens as ``(x, y, width, height)``, or none if they cannot be read."""
+    try:
+        return [(s.x, s.y, s.width, s.height) for s in webview.screens()]
+    except Exception:
+        return []
+
+
+def apply_icon(window: Any, path: Path) -> None:
+    """Put the icon on the window and its taskbar button."""
+
+    def set_icon() -> None:
+        from System.Drawing import Bitmap, Icon  # type: ignore[import-not-found]
+
+        if path.suffix.lower() == ".ico":
+            window.native.Icon = Icon(str(path))
+        else:
+            window.native.Icon = Icon.FromHandle(Bitmap(str(path)).GetHicon())
+
+    _invoke(window.native, set_icon)
+
+
 def apply_webview_settings(window: Any, settings: Window) -> None:
     """Set each WebView2 option to exactly what the settings ask for.
 
@@ -271,11 +363,38 @@ def apply_webview_settings(window: Any, settings: Window) -> None:
 
 
 def create_native_window(
-    webview: ModuleType, url: str, settings: Window, on_error: Callable[[BaseException], None]
+    webview: ModuleType,
+    url: str,
+    settings: Window,
+    on_error: Callable[[BaseException], None],
+    app: App | None = None,
+    on_event: Callable[[str], None] | None = None,
+    actions: "ActionRegistry | None" = None,
 ) -> tuple[Any, NativeWindow]:
     """Create (not yet show) the window and its controller."""
     width, height = settings.size
     x, y = settings.position if settings.position is not None else (None, None)
+    maximized = False
+    memory: WindowMemory | None = None
+    start: Remembered | None = None
+    if app is not None and app.id is not None:
+        set_app_user_model_id(app.id)
+        if app.remember_window:
+            memory = WindowMemory(data_dir(app.id) / "window.json")
+            saved = memory.load()
+            if saved is not None:
+                start = fit_to_screens(saved, screen_rectangles(webview), settings.min_size)
+                width, height, x, y = start.width, start.height, start.x, start.y
+                maximized = start.maximized
+    extra: dict[str, Any] = {}
+    api: Any = None
+    if settings.js_api:
+        # Imported here: both modules import this one.
+        from cornea.core.bridge import ActionRegistry
+        from cornea.core.window_api import WindowApi
+
+        api = WindowApi(actions or ActionRegistry())
+        extra["js_api"] = api
     window = webview.create_window(
         settings.title,
         url,
@@ -287,9 +406,11 @@ def create_native_window(
         resizable=settings.resizable,
         frameless=settings.frameless,
         on_top=settings.on_top,
+        maximized=maximized,
         # A frameless window is dragged by elements with the `pywebview-drag-region` class,
         # not by any point of the page.
         easy_drag=False,
+        **extra,
     )
 
     def narrow_settings() -> None:
@@ -302,7 +423,40 @@ def create_native_window(
             window.destroy()
 
     window.events.loaded += narrow_settings
-    return window, NativeWindow(window, settings, webview)
+    if settings.icon is not None:
+        icon_path = Path(settings.icon).resolve()
+        icon_set = False
+
+        def set_icon() -> None:
+            nonlocal icon_set
+            if icon_set:
+                return
+            try:
+                apply_icon(window, icon_path)
+            except Exception:
+                logger.warning("Could not set the window icon from %s", icon_path, exc_info=True)
+            else:
+                icon_set = True
+
+        # Early, so the icon is there as the window appears; tried again on load if that failed.
+        window.events.shown += set_icon
+        window.events.loaded += set_icon
+    if on_event is not None:
+        # Reported as it happens so start-up can be timed; only the first page load counts.
+        window.events.shown += lambda: on_event("window_shown")
+        window.events.loaded += lambda: on_event("page_loaded")
+    controller = NativeWindow(window, settings, webview, start)
+    if api is not None:
+        api._controller = controller
+    if memory is not None:
+        remembered_window = memory
+
+        def save_place() -> None:
+            with contextlib.suppress(OSError):  # not remembering beats failing to close
+                remembered_window.save(controller.remember())
+
+        window.events.closing += save_place
+    return window, controller
 
 
 def show_window(webview: ModuleType, settings: Window) -> None:

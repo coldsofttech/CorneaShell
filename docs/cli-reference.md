@@ -56,6 +56,9 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--web-dist <path>`: Folder with the built web bundle.
 * `--url <str>`: Show a page from a server you already run.
 * `--mode <direct|proxy>`: For an address: direct (default) or proxy (serve it through Cornea).
+* `--run <str>`: Start this dev-server command for --url and stop it with the window.
+* `--run-cwd <path>`: Folder to run the --run command in.
+* `--run-timeout <float>`: Seconds to wait for --url to answer (default 30).
 * `--asgi <str>`: Mount an ASGI app, as module:attribute.
 * `--wsgi <str>`: Mount a WSGI app, as module:attribute.
 * `--app-dir <path>`: Folder to import --asgi/--wsgi apps from.
@@ -84,6 +87,11 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--context-menu`: Allow the right-click menu.
 * `--devtools`: Allow the developer tools.
 * `--debug`: Turn on the context menu and developer tools.
+* `--js-api`: Give the page the window controls and native actions. Trusted pages only.
+* `--icon <path>`: Window and taskbar icon: .ico, .png, .bmp, .gif or .jpg.
+* `--app-id <str>`: Name of the app, like com.example.notes.
+* `--single-instance`: Run one copy; a second start shows the first.
+* `--remember-window`: Reopen the window where it was, at its size.
 * `--help`: Show this message and exit.
 
 ## `cornea serve`
@@ -108,6 +116,9 @@ $ cornea serve [OPTIONS] [SOURCE]
 * `--web-dist <path>`: Folder with the built web bundle.
 * `--url <str>`: Show a page from a server you already run.
 * `--mode <direct|proxy>`: For an address: direct (default) or proxy (serve it through Cornea).
+* `--run <str>`: Start this dev-server command for --url and stop it with the window.
+* `--run-cwd <path>`: Folder to run the --run command in.
+* `--run-timeout <float>`: Seconds to wait for --url to answer (default 30).
 * `--asgi <str>`: Mount an ASGI app, as module:attribute.
 * `--wsgi <str>`: Mount a WSGI app, as module:attribute.
 * `--app-dir <path>`: Folder to import --asgi/--wsgi apps from.
@@ -152,6 +163,10 @@ $ cornea open web/dist
 $ cornea open web/dist --title "My App" --size 1200x800 --frameless --debug
 $ cornea open http://localhost:5173 --size 1280x800
 $ cornea open http://localhost:5173 --mode proxy --csp-profile dev --frameless
+$ cornea open --run "npm run dev" --url http://localhost:5173 --mode proxy --frameless
+$ cornea open web/dist --app-id com.example.notes --single-instance --remember-window
+$ cornea open web/dist --icon examples/static_html/icon.png
+$ cornea open http://localhost:5173 --frameless --js-api
 ```
 
 ### `cornea serve`
@@ -161,4 +176,5 @@ $ cornea serve web/dist
 $ cornea serve --asgi myproject.asgi:application --app-dir .
 $ cornea serve web/dist --port 8765 --public-path /health --public-path /status
 $ cornea serve http://localhost:5173 --mode proxy --csp-profile dev
+$ cornea serve --run "npm run dev" --url http://localhost:5173 --mode proxy
 ```

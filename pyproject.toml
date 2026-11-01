@@ -69,6 +69,11 @@ dev = [
   "ruff>=0.8",
   "websockets>=17.4",
 ]
+examples = [
+    "jinja2>=3.1.6",
+    "mkdocs>=1.6.1",
+    "streamlit>=1.66.1",
+]
 hooks = [
   "pre-commit>=4.7.0",
 ]
@@ -102,8 +107,11 @@ files = ["src", "tests"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-m 'not integration' --strict-markers --cov=cornea --cov-report=term-missing --cov-fail-under=80"
-markers = ["integration: slower end-to-end tests, run in CI but not by default or in pre-commit"]
+addopts = "-m 'not integration and not toolchains' --strict-markers --cov=cornea --cov-report=term-missing --cov-fail-under=80"
+markers = [
+  "integration: slower end-to-end tests, run in CI but not by default or in pre-commit",
+  "toolchains: examples that need Go, PHP, Java, .NET, Node, Streamlit or MkDocs; run by the examples workflow",
+]
 
 [tool.coverage.run]
 branch = true

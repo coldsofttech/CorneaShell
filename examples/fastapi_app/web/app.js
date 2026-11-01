@@ -7,8 +7,9 @@ async function show(request) {
 }
 
 document.querySelector("#greet").addEventListener("click", () => {
-  // The route defined in main.py: GET /api/greeting
-  show(fetch(`/api/greeting?name=${encodeURIComponent(name.value)}`));
+  // The route defined in main.py: GET /api/greeting (/greeting when FastAPI is mounted)
+  const url = document.querySelector("meta[name=greeting-url]").content;
+  show(fetch(`${url}?name=${encodeURIComponent(name.value)}`));
 });
 
 document.querySelector("#shout").addEventListener("click", () => {

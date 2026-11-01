@@ -14,6 +14,7 @@ Show a web UI in a native Windows window, backed by a secured local server. You 
 - **A secured local server.** Only your window can use it: other programs and web pages on the same machine are kept out.
 - **Any web UI.** A folder of built files, a Python web app, or an address you already run.
 - **Your own Python routes** next to the UI, called with ordinary `fetch()`.
+- **Your dev server, started for you.** Cornea runs `npm run dev` (or any command), shows it, and stops it when the window closes.
 - **Native actions your page can call:** choose a folder or file, choose where to save, open a link in the browser, read platform info, and your own.
 - **A command line and a Python API** that do the same things.
 
@@ -82,6 +83,7 @@ Your page reaches the route at `/api/greeting` and the action with `POST /api/br
 | Plain HTML, CSS and JavaScript | the folder: `cornea open web` |
 | A React, Vue, Svelte, Angular or similar project | the build folder: `cornea open dist` |
 | A dev server that is already running (Vite, Next.js, Node) | the address: `cornea open http://localhost:5173 --mode proxy --csp-profile dev` |
+| A dev server you want Cornea to start | the command and its address: `cornea open --run "npm run dev" --url http://localhost:5173 --mode proxy --csp-profile dev --frameless` |
 | A FastAPI or Django (ASGI) app | `cornea open --asgi myproject.asgi:application --app-dir .` |
 | A Flask or Django (WSGI) app | `cornea open --wsgi myapp:app --app-dir .` |
 
@@ -101,6 +103,16 @@ npm run dev   # in your project; Vite listens on http://localhost:5173
 cornea open http://localhost:5173 --mode proxy --csp-profile dev --frameless
 ```
 
+### A dev server that Cornea starts
+
+Instead of starting the dev server in another terminal, let Cornea do it. Give it the command with `--run` and the address the server listens on with `--url`:
+
+```bash
+cornea open --run "npm run dev" --url http://localhost:5173 --mode proxy --csp-profile dev --frameless
+```
+
+Cornea waits until the address answers, then shows it. When the window closes, Cornea stops the command and everything it started, and it does the same if Cornea itself crashes. If the command stops early, never answers (30 seconds by default, change it with `--run-timeout`), or the address is already in use, Cornea tells you in one short message. Use `--run-cwd` to run the command in another folder.
+
 ## A frameless window with your own title bar
 
 Run with `--frameless` and draw the title bar in your page. The buttons call Cornea:
@@ -112,6 +124,26 @@ await fetch("/api/window/close", { method: "POST" });
 ```
 
 Give the empty part of your bar the class `pywebview-drag-region` so it drags the window. `GET /api/window` tells your page whether the window is frameless, so it can draw the bar only when needed.
+
+If a page comes straight from an address (the direct way) and you still want a frameless window, add `--js-api`. Cornea then gives the page the window controls and the native actions itself. Every page the window loads gets those powers, so use `--js-api` only for pages you trust. The proxy way needs no `--js-api`.
+
+## A window icon
+
+`--icon path/to/icon.ico` shows an icon on the window and its taskbar button. `.ico`, `.png`, `.bmp`, `.gif` and `.jpg` files work. A missing file is reported before anything starts.
+
+## Keeping your app's state
+
+Give the app a name and it can behave like an installed program:
+
+```bash
+cornea open web/dist --app-id com.example.notes --single-instance --remember-window
+```
+
+- **One copy at a time** (`--single-instance`): starting it again brings the first window to the front and the second start ends quietly.
+- **Reopen where it was** (`--remember-window`): the window comes back at the size and place you left it. If that place is no longer on a screen, for example an unplugged monitor, Windows places it instead.
+- **Its own taskbar identity:** the name also keeps the icon from being grouped under `python.exe`.
+
+The name uses letters, digits, dots, dashes and underscores. In Python these are the `App` options. Remembered details are kept in `%LOCALAPPDATA%\Cornea\<name>`.
 
 ## Trying your page in a browser
 

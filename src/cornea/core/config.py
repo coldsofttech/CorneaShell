@@ -1,6 +1,8 @@
 """Typed, frozen settings. Everything is a parameter; nothing is read from the environment."""
 
+import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 DEFAULT_CSP = (
@@ -15,6 +17,8 @@ DEV_CSP = DEFAULT_CSP.replace("script-src 'self'", "script-src 'self' 'unsafe-in
 """The default policy plus inline scripts and styles, which development servers such as Vite
 inject for hot reload. Nothing else is loosened. It is for development only and is never the
 default. Use it with ``Security(csp=DEV_CSP)`` or ``--csp-profile dev``."""
+
+ICON_TYPES = frozenset({".ico", ".png", ".bmp", ".gif", ".jpg", ".jpeg"})
 
 Size = tuple[int, int]
 
@@ -89,6 +93,38 @@ class Security:
             raise ValueError(f"public_paths must start with '/', got {self.public_paths!r}")
 
 
+APP_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
+
+@dataclass(frozen=True, slots=True)
+class App:
+    """Who the app is, for the things that must tell one app from another.
+
+    The id names the app's data folder, the Windows taskbar identity (so its icon is not grouped
+    under ``python.exe``) and the single-instance lock. Several copies run independently unless
+    ``single_instance`` is on.
+
+    Example:
+        >>> App(id="com.example.notes", remember_window=True).remember_window
+        True
+    """
+
+    id: str | None = None
+    """A short name such as ``com.example.notes``: letters, digits, dots, dashes, underscores."""
+    single_instance: bool = False
+    """Allow one copy at a time: starting a second one brings the first window to the front."""
+    remember_window: bool = False
+    """Reopen the window where it was and at the size it had."""
+
+    def __post_init__(self) -> None:
+        if self.id is not None and not APP_ID.match(self.id):
+            raise ValueError(
+                f"id may use letters, digits, '.', '-' and '_' (up to 128), got {self.id!r}"
+            )
+        if (self.single_instance or self.remember_window) and self.id is None:
+            raise ValueError("single_instance and remember_window need an id")
+
+
 @dataclass(frozen=True, slots=True)
 class Bridge:
     """Which built-in native actions the page may call. All of them are on by default.
@@ -135,10 +171,22 @@ class Window:
     """Enable the developer tools. Off by default."""
     debug: bool = False
     """Debug mode turns on the context menu and developer tools."""
+    icon: Path | str | None = None
+    """Icon for the window and its taskbar button: an ``.ico`` file or an image
+    (``.png``, ``.bmp``, ``.gif``, ``.jpg``). A relative path is relative to the current folder."""
+    js_api: bool = False
+    """Give the page ``window.pywebview.api``: the window controls and the native actions.
+
+    It lets a frameless window show an address that Cornea does not serve. Every page that loads
+    in the window gets these powers, so use it only for pages you trust."""
 
     def __post_init__(self) -> None:
         _check_size("size", self.size)
         _check_size("min_size", self.min_size)
+        if self.icon is not None and Path(self.icon).suffix.lower() not in ICON_TYPES:
+            raise ValueError(
+                f"icon must be one of {', '.join(sorted(ICON_TYPES))}, got {str(self.icon)!r}"
+            )
 
     @property
     def context_menu_enabled(self) -> bool:

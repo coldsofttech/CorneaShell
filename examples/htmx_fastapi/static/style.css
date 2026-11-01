@@ -1,0 +1,15 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+
+main {
+  padding: 1.5rem 2rem;
+}
+
+pre,
+.result {
+  padding: 1rem;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border-radius: 6px;
+}

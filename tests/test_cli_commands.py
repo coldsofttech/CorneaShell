@@ -9,7 +9,20 @@ import typer
 from typer.main import get_command
 from typer.testing import CliRunner
 
-from cornea import DEV_CSP, Asgi, Bridge, Security, Server, Shell, Static, Url, Window, Wsgi
+from cornea import (
+    DEV_CSP,
+    App,
+    Asgi,
+    Bridge,
+    Process,
+    Security,
+    Server,
+    Shell,
+    Static,
+    Url,
+    Window,
+    Wsgi,
+)
 from cornea.cli import app, options
 from cornea.core import window as window_module
 
@@ -66,9 +79,23 @@ FLAGS: dict[type, dict[str, str]] = {
         "context_menu": "--context-menu",
         "devtools": "--devtools",
         "debug": "--debug",
+        "js_api": "--js-api",
+        "icon": "--icon",
     },
     Bridge: {"disabled": "--disable-action"},
+    App: {
+        "id": "--app-id",
+        "single_instance": "--single-instance",
+        "remember_window": "--remember-window",
+    },
     Url: {"url": "--url", "mode": "--mode"},
+    Process: {
+        "command": "--run",
+        "url": "--url",
+        "cwd": "--run-cwd",
+        "mode": "--mode",
+        "timeout": "--run-timeout",
+    },
     Static: {
         "path": "--web-dist",
         "package": "--package",
@@ -94,7 +121,7 @@ def test_every_setting_has_a_flag(settings: type) -> None:
 
 
 def test_serve_has_every_flag_except_the_window_ones() -> None:
-    window_flags = set(FLAGS[Window].values())
+    window_flags = set(FLAGS[Window].values()) | set(FLAGS[App].values())
 
     assert option_names("serve") == option_names("open") - window_flags
     assert window_flags <= option_names("open")
@@ -259,6 +286,35 @@ def test_serve_can_proxy_an_address(calls: Calls) -> None:
     assert calls.last["window"] is None
 
 
+def test_a_command_can_be_started_for_the_address(calls: Calls) -> None:
+    invoke("open", "--run", "npm run dev", "--url", "http://localhost:5173")
+    assert calls.last["source"] == Process("npm run dev", url="http://localhost:5173")
+
+    invoke(
+        "open",
+        "http://localhost:5173",
+        "--run",
+        "npm run dev",
+        "--run-cwd",
+        "web",
+        "--run-timeout",
+        "90",
+        "--mode",
+        "proxy",
+    )
+    assert calls.last["source"] == Process(
+        "npm run dev", url="http://localhost:5173", cwd=Path("web"), timeout=90, mode="proxy"
+    )
+
+
+def test_serve_can_start_a_command_too(calls: Calls) -> None:
+    result = invoke("serve", "--run", "npm run dev", "--url", "http://x.test", "--mode", "proxy")
+
+    assert result.exit_code == 0
+    assert calls.last["source"] == Process("npm run dev", url="http://x.test", mode="proxy")
+    assert calls.last["window"] is None
+
+
 def test_the_dev_csp_profile_is_opt_in(calls: Calls) -> None:
     invoke("open", "web/dist")
     assert calls.last["security"].csp == Security().csp
@@ -378,6 +434,12 @@ def test_serve_with_an_address_explains_that_it_needs_a_window() -> None:
         ["open", "http://x.test", "--mode", "other"],
         ["open", "web/dist", "--csp", "default-src 'none'", "--csp-profile", "dev"],
         ["open", "web/dist", "--csp-profile", "loose"],
+        ["open", "--run", "npm run dev"],
+        ["open", "--run", "npm run dev", "--url", "http://x.test", "--web-dist", "web"],
+        ["open", "--run", "npm run dev", "--asgi", "a:b", "--url", "http://x.test"],
+        ["open", "http://x.test", "--run-cwd", "web"],
+        ["open", "http://x.test", "--run-timeout", "5"],
+        ["open", "--run", "npm run dev", "--url", "http://x.test", "--run-timeout", "soon"],
     ],
 )
 def test_bad_combinations_are_usage_errors(args: list[str], calls: Calls) -> None:

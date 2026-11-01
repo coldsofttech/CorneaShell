@@ -26,15 +26,15 @@ from cornea.core.window import (
 
 class FakeEvent:
     def __init__(self) -> None:
-        self.handlers: list[Callable[[], None]] = []
+        self.handlers: list[Callable[..., None]] = []
 
-    def __iadd__(self, handler: Callable[[], None]) -> "FakeEvent":
+    def __iadd__(self, handler: Callable[..., None]) -> "FakeEvent":
         self.handlers.append(handler)
         return self
 
-    def fire(self) -> None:
+    def fire(self, *args: Any) -> None:
         for handler in list(self.handlers):
-            handler()
+            handler(*args)
 
 
 class FakeWebViewOptions:
@@ -61,6 +61,10 @@ class FakeWindow:
             restored=FakeEvent(),
             loaded=FakeEvent(),
             closed=FakeEvent(),
+            closing=FakeEvent(),
+            shown=FakeEvent(),
+            moved=FakeEvent(),
+            resized=FakeEvent(),
         )
         core = SimpleNamespace(Settings=self.options_object)
         self.native = SimpleNamespace(webview=SimpleNamespace(CoreWebView2=core))
@@ -76,6 +80,9 @@ class FakeWindow:
 
     def destroy(self) -> None:
         self.calls.append("destroy")
+
+    def show(self) -> None:
+        self.calls.append("show")
 
     def set_title(self, title: str) -> None:
         self.calls.append(f"title:{title}")
@@ -327,6 +334,7 @@ def test_run_shows_a_window_on_the_signed_in_url(webview: FakeWebview, bundle: P
         "resizable": False,
         "frameless": True,
         "on_top": True,
+        "maximized": False,
         "easy_drag": False,
     }
     assert seen["running"]

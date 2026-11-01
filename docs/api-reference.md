@@ -20,6 +20,27 @@ frame-ancestors 'none';
 form-action 'self'
 ```
 
+## `App`
+
+Who the app is, for the things that must tell one app from another.
+
+The id names the app's data folder, the Windows taskbar identity (so its icon is not grouped
+under `python.exe`) and the single-instance lock. Several copies run independently unless
+`single_instance` is on.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `id` | `str \| None` | `None` | A short name such as `com.example.notes`: letters, digits, dots, dashes, underscores. |
+| `single_instance` | `bool` | `False` | Allow one copy at a time: starting a second one brings the first window to the front. |
+| `remember_window` | `bool` | `False` | Reopen the window where it was and at the size it had. |
+
+Example:
+
+```pycon
+>>> App(id="com.example.notes", remember_window=True).remember_window
+True
+```
+
 ## `Asgi`
 
 An ASGI app (FastAPI, Django ASGI) mounted in-process on the shell's port.
@@ -53,6 +74,29 @@ Example:
 ```pycon
 >>> Bridge(disabled=("open_external",)).disabled
 ('open_external',)
+```
+
+## `Process`
+
+A dev-server command that Cornea starts for you and stops with the window.
+
+Cornea runs `command`, waits until something listens at `url`, then shows that address
+exactly as `Url` does, directly or through the proxy. When Cornea stops, or even if it
+crashes, the command and everything it started are stopped too.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `command` | `str \| tuple[str, ...]` | `required` | The command. A string is run by the shell, so `npm run dev` works; a tuple is run as is. |
+| `url` | `str` | `required` | Address the command serves on, for example `http://localhost:5173`. |
+| `cwd` | `Path \| str \| None` | `None` | Folder to run the command in. |
+| `mode` | `Literal['direct', 'proxy']` | `'direct'` | As for `Url`: `direct` opens the address, `proxy` serves it through Cornea. |
+| `timeout` | `float` | `30.0` | Seconds to wait for the address to answer before giving up. |
+
+Example:
+
+```pycon
+>>> Process("npm run dev", url="http://localhost:5173").command
+'npm run dev'
 ```
 
 ## `Security`
@@ -105,6 +149,7 @@ Shell(
     server: Server | None = None,
     window: Window | None = Window(),
     bridge: Bridge | None = None,
+    identity: App | None = None,
 )
 ```
 
@@ -123,6 +168,7 @@ reach the window controls) and `url` is the address you gave.
 
 Properties:
 
+- `timings`: How long start-up took so far. See `Timings`.
 - `actions`: The native actions the page can call. Register your own with `action`.
 - `is_direct`: Whether the window opens a `Url` itself, with no local server.
 - `running`: Whether the server is accepting requests.
@@ -178,6 +224,27 @@ Example:
 'web/dist'
 ```
 
+## `Timings`
+
+How long start-up took, in seconds since `Shell.run` (or `start`) began.
+
+A value is `None` when that step did not happen, for example `window_shown` without a
+window.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `process_ready` | `float \| None` | `None` | The command of a `Process` source answers. |
+| `server_ready` | `float \| None` | `None` | Cornea's own server accepts requests. |
+| `window_shown` | `float \| None` | `None` | The native window appears. |
+| `page_loaded` | `float \| None` | `None` | The first page has loaded in the window. |
+
+Example:
+
+```pycon
+>>> Timings(server_ready=0.2).page_loaded is None
+True
+```
+
 ## `Url`
 
 A page from a server you already run, such as a dev server.
@@ -224,6 +291,8 @@ Native window options. The context menu and developer tools are off unless enabl
 | `context_menu` | `bool` | `False` | Enable the right-click menu. Off by default. |
 | `devtools` | `bool` | `False` | Enable the developer tools. Off by default. |
 | `debug` | `bool` | `False` | Debug mode turns on the context menu and developer tools. |
+| `icon` | `Path \| str \| None` | `None` | Icon for the window and its taskbar button: an `.ico` file or an image (`.png`, `.bmp`, `.gif`, `.jpg`). A relative path is relative to the current folder. |
+| `js_api` | `bool` | `False` | Give the page `window.pywebview.api`: the window controls and the native actions. It lets a frameless window show an address that Cornea does not serve. Every page that loads in the window gets these powers, so use it only for pages you trust. |
 
 Properties:
 
@@ -321,6 +390,7 @@ def run(
     server: Server | None = None,
     window: Window | None = Window(),
     bridge: Bridge | None = None,
+    identity: App | None = None,
     title: str | None = None,
     debug: bool | None = None,
     on_ready: Callable[[Shell], None] | None = None,

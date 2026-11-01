@@ -6,7 +6,8 @@ import socket
 import threading
 import time
 from collections.abc import Callable, Iterable
-from dataclasses import replace
+from dataclasses import dataclass, replace
+from pathlib import Path
 from types import ModuleType, TracebackType
 from typing import Any, Self
 
@@ -15,8 +16,10 @@ from fastapi import APIRouter, FastAPI
 
 from cornea.core.app import allow_host, create_app
 from cornea.core.bridge import ActionRegistry
-from cornea.core.config import Bridge, Security, Server, Window
-from cornea.core.sources import Url, WebSource, coerce_source
+from cornea.core.config import App, Bridge, Security, Server, Window
+from cornea.core.process import ProcessRunner
+from cornea.core.single_instance import AlreadyRunning, InstanceLock, activate_existing
+from cornea.core.sources import Process, Url, WebSource, coerce_source
 from cornea.core.window import (
     SimulatedWindow,
     create_native_window,
@@ -27,6 +30,30 @@ from cornea.core.window import (
 )
 
 DEFAULT_WINDOW = Window()
+
+
+@dataclass(frozen=True, slots=True)
+class Timings:
+    """How long start-up took, in seconds since :meth:`Shell.run` (or ``start``) began.
+
+    A value is ``None`` when that step did not happen, for example ``window_shown`` without a
+    window.
+
+    Example:
+        >>> Timings(server_ready=0.2).page_loaded is None
+        True
+    """
+
+    process_ready: float | None = None
+    """The command of a ``Process`` source answers."""
+    server_ready: float | None = None
+    """Cornea's own server accepts requests."""
+    window_shown: float | None = None
+    """The native window appears."""
+    page_loaded: float | None = None
+    """The first page has loaded in the window."""
+
+
 START_TIMEOUT = 10.0
 STOP_TIMEOUT = 10.0
 
@@ -65,11 +92,23 @@ class Shell:
         server: Server | None = None,
         window: Window | None = DEFAULT_WINDOW,
         bridge: Bridge | None = None,
+        identity: App | None = None,
     ) -> None:
         self.security = security or Security()
+        self.identity = identity or App()
+        if window is None and (self.identity.single_instance or self.identity.remember_window):
+            raise ValueError("single_instance and remember_window need a window")
+        self._lock: InstanceLock | None = None
+        self._started_at: float | None = None
+        self._marks: dict[str, float] = {}
         self.server = server or Server()
         self.window = window
         web_source = coerce_source(source) if source is not None else None
+        self._runner: ProcessRunner | None = None
+        if isinstance(web_source, Process):
+            # The command is started by this shell; the app only sees the address it serves on.
+            self._runner = ProcessRunner(web_source)
+            web_source = Url(web_source.url, mode=web_source.mode)
         self._direct_url: str | None = None
         if isinstance(web_source, Url) and web_source.mode == "direct":
             self._direct_url = web_source.url
@@ -87,6 +126,16 @@ class Shell:
         self._window_error: BaseException | None = None
 
     # ----- what the server is ---------------------------------------------------------------
+
+    @property
+    def timings(self) -> Timings:
+        """How long start-up took so far. See :class:`Timings`."""
+        return Timings(**self._marks)
+
+    def _mark(self, step: str) -> None:
+        """Record when a start-up step finished. Only the first time counts."""
+        if self._started_at is not None and step not in self._marks:
+            self._marks[step] = time.perf_counter() - self._started_at
 
     @property
     def actions(self) -> ActionRegistry:
@@ -139,6 +188,16 @@ class Shell:
         self._require_server()
         if self._thread is not None:
             raise RuntimeError("the server was already started")
+        if self._started_at is None:
+            self._started_at = time.perf_counter()
+        self._start_process()
+        try:
+            return self._start_server()
+        except BaseException:
+            self.stop()  # do not leave the command running behind a failed start
+            raise
+
+    def _start_server(self) -> Self:
         family = socket.AF_INET6 if ":" in self.server.host else socket.AF_INET
         listener = socket.create_server((self.server.host, self.server.port), family=family)
         self._socket = listener
@@ -151,6 +210,7 @@ class Shell:
         )
         self._thread.start()
         self._wait_until_started()
+        self._mark("server_ready")
         return self
 
     def stop(self) -> None:
@@ -164,6 +224,10 @@ class Shell:
                 thread.join(STOP_TIMEOUT)
         if listener is not None:
             listener.close()
+        if self._runner is not None:
+            self._runner.stop()
+        if self._lock is not None:
+            self._lock.release()
 
     def run(self, on_ready: Callable[["Shell"], None] | None = None) -> None:
         """Show the window and wait until it closes, or just serve when there is no window.
@@ -172,14 +236,19 @@ class Shell:
         it to announce the address, for example with :func:`ready_line`. Serving ends on Ctrl+C
         or :meth:`stop`. The server is stopped in every case.
         """
+        self._started_at = time.perf_counter()
         webview = None
         if self.window is not None:
             # Check first, so nothing is started on a machine that cannot show a window.
             require_windows()
             require_webview2()
             webview = load_webview()
+            self._check_icon(self.window)
+            self._take_lock()
         if self._direct_url is None:
             self.start()
+        else:
+            self._start_process()
         try:
             if on_ready is not None:
                 on_ready(self)
@@ -207,6 +276,29 @@ class Shell:
 
     # ----- internals ------------------------------------------------------------------------
 
+    @staticmethod
+    def _check_icon(window: Window) -> None:
+        """Fail before anything starts if the icon file is not there."""
+        if window.icon is not None and not Path(window.icon).is_file():
+            raise FileNotFoundError(f"window icon not found: {Path(window.icon).resolve()}")
+
+    def _take_lock(self) -> None:
+        """Allow one copy of the app at a time, if asked: otherwise wake the first copy."""
+        if not self.identity.single_instance or self.identity.id is None:
+            return
+        lock = InstanceLock(self.identity.id)
+        if not lock.acquire():
+            raise AlreadyRunning(self.identity.id, activated=activate_existing(self.identity.id))
+        self._lock = lock
+
+    def _start_process(self) -> None:
+        """Start the command of a ``Process`` source, once, and wait until it answers."""
+        if self._runner is not None and self._runner.running:
+            return
+        if self._runner is not None:
+            self._runner.start()
+            self._mark("process_ready")
+
     def _require_server(self) -> None:
         if self._direct_url is not None:
             raise RuntimeError("a direct URL has no local server")
@@ -215,10 +307,11 @@ class Shell:
     def _check_direct_window(window: Window | None) -> None:
         if window is None:
             raise ValueError("a direct URL needs a window; there is nothing to serve without one")
-        if window.frameless:
+        if window.frameless and not window.js_api:
             raise ValueError(
                 "a direct URL cannot use a frameless window: the page cannot reach the window "
-                "controls. Use the native frame, or the proxy mode when it is available."
+                "controls. Use the native frame, serve the address through the proxy mode, or "
+                "set js_api=True to give the page the controls (only for pages you trust)."
             )
 
     def _serve_until_stopped(self) -> None:
@@ -227,7 +320,17 @@ class Shell:
             self._thread.join(0.2)
 
     def _show_window(self, webview: ModuleType, settings: Window) -> None:
-        _, controller = create_native_window(webview, self.url, settings, self._set_window_error)
+        _, controller = create_native_window(
+            webview,
+            self.url,
+            settings,
+            self._set_window_error,
+            self.identity,
+            self._mark,
+            self.actions,
+        )
+        if self._lock is not None:
+            self._lock.serve(controller.activate)
         self.app.state.window = controller
         show_window(webview, settings)
 
@@ -280,6 +383,7 @@ def run(
     server: Server | None = None,
     window: Window | None = DEFAULT_WINDOW,
     bridge: Bridge | None = None,
+    identity: App | None = None,
     title: str | None = None,
     debug: bool | None = None,
     on_ready: Callable[[Shell], None] | None = None,
@@ -299,6 +403,12 @@ def run(
             debug=window.debug if debug is None else debug,
         )
     shell = Shell(
-        source, routers=routers, security=security, server=server, window=window, bridge=bridge
+        source,
+        routers=routers,
+        security=security,
+        server=server,
+        window=window,
+        bridge=bridge,
+        identity=identity,
     )
     shell.run(on_ready=on_ready)

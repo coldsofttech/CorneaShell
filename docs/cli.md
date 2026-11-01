@@ -42,6 +42,8 @@ Show the web UI in a native window (Windows). `SOURCE` is a folder with the buil
 $ cornea open web/dist
 $ cornea open web/dist --title "My App" --size 1200x800 --frameless --debug
 $ cornea open http://localhost:5173 --size 1280x800
+$ cornea open web/dist --app-id com.example.notes --single-instance --remember-window
+$ cornea open web/dist --icon examples/static_html/icon.png
 ```
 
 By default an address is opened **directly**: the page is not served by Cornea, so it skips Cornea's security, needs the normal window frame (`--frameless` is an error) and cannot use the window controls. With `--mode proxy` (needs `pip install "cornea-shell[proxy]"`) Cornea serves the page from its own address instead, so it gets the security, the window controls and the frameless window, and a dev server's hot reload keeps working:
@@ -52,6 +54,14 @@ $ cornea open http://localhost:5173 --mode proxy --csp-profile dev --frameless
 ```
 
 A dev server injects inline scripts and styles, which the default content security policy blocks. `--csp-profile dev` allows exactly that and nothing else. It is for development only.
+
+A directly opened address cannot be frameless, because its page cannot reach Cornea's window routes. `--js-api` lifts that rule: it gives the page `window.pywebview.api` with the window controls and the native actions.
+
+```console
+$ cornea open http://localhost:5173 --frameless --js-api
+```
+
+pywebview puts that object into every page the window loads, including one it later navigates to, so the page gets the window controls and the native actions (dialogs, opening a link, platform information). Use `--js-api` only for pages you trust. You can still switch off single actions with `--disable-action`. `--mode proxy` is the alternative that needs no `--js-api`.
 
 ### `serve [SOURCE]`
 
@@ -73,14 +83,37 @@ Give exactly one of these (or the `SOURCE` argument, which is `--web-dist` for a
 | --- | --- |
 | `--web-dist FOLDER` | A built bundle. With none of these, Cornea looks for `web/dist` (or the bundle of `--package`). |
 | `--url ADDRESS` | A page from a server you already run. Direct by default, which needs `open`; `--mode proxy` also works with `serve`. |
+| `--run COMMAND` | A dev-server command that Cornea starts. Needs `--url` with the address it serves on. |
 | `--asgi module:attr` | An ASGI app (FastAPI, Django ASGI) mounted on the server. |
 | `--wsgi module:attr` | A WSGI app (Flask, Django) mounted on the server. |
+
+`--run` starts the command (a string, run through the shell, so `npm run dev` works), waits until the address answers, and shows it as `--url` does, directly or with `--mode proxy`. It cannot be combined with `--web-dist`, `--asgi` or `--wsgi`. `--run-cwd FOLDER` is where the command runs and `--run-timeout SECONDS` is how long to wait for the address (30 by default). When Cornea stops, or crashes, the command and everything it started are stopped too.
+
+```console
+$ cornea open --run "npm run dev" --url http://localhost:5173 --mode proxy --csp-profile dev --frameless
+```
+
+Failures print one short message and exit with code 1: the command ended before the address answered (the message includes the command's last output), the address did not answer in time, something is already listening on that address, or the program could not be started.
 
 `--app-dir` adds a folder to the import path for `--asgi` and `--wsgi`. `--package`, `--package-path`, `--spa/--no-spa` and `--hashed-prefix` only apply to a bundle.
 
 ### Other options
 
-Every setting of the Python API has a flag, grouped in `--help`: server (`--host`, `--port`), security (`--allowed-host`, `--csp`, `--csp-profile`, `--api-prefix`, `--token-ttl`, `--cookie-samesite`, `--public-path`, `--require-origin/--no-require-origin`), native actions (`--disable-action`) and, for `open`, the window (`--title`, `--size`, `--min-size`, `--position`, `--frameless`, `--resizable/--no-resizable`, `--on-top`, `--context-menu`, `--devtools`, `--debug`). Sizes look like `1200x800` and positions like `100,50`. The context menu and developer tools stay off unless you ask for them or use `--debug`. The command line never reads environment variables.
+Every setting of the Python API has a flag, grouped in `--help`: server (`--host`, `--port`), security (`--allowed-host`, `--csp`, `--csp-profile`, `--api-prefix`, `--token-ttl`, `--cookie-samesite`, `--public-path`, `--require-origin/--no-require-origin`), native actions (`--disable-action`) and, for `open`, the window (`--title`, `--size`, `--min-size`, `--position`, `--frameless`, `--icon`, `--js-api`, `--resizable/--no-resizable`, `--on-top`, `--context-menu`, `--devtools`, `--debug`) and the app (`--app-id`, `--single-instance`, `--remember-window`). Sizes look like `1200x800` and positions like `100,50`. The context menu and developer tools stay off unless you ask for them or use `--debug`. The command line never reads environment variables.
+
+### The app (`open` only)
+
+| Option | Effect |
+| --- | --- |
+| `--app-id ID` | Names the app, like `com.example.notes`: letters, digits, `.`, `-` and `_`. It also sets the Windows taskbar identity, so the icon is not grouped under `python.exe`. |
+| `--single-instance` | Run one copy at a time. Needs `--app-id`. |
+| `--remember-window` | Reopen the window at its last size, position and maximized state. Needs `--app-id`. |
+
+The app keeps its files in `%LOCALAPPDATA%\Cornea\<id>\`. A second launch of a single-instance app brings the first window to the front (restoring it if minimized), prints a message and exits with code `0`. If it cannot reach the first copy it exits with code `1`.
+
+### The window icon (`open` only)
+
+`--icon PATH` shows an icon on the window and its taskbar button. `.ico`, `.png`, `.bmp`, `.gif`, `.jpg` and `.jpeg` files are accepted. A missing file is an error before anything starts; a file that cannot be loaded only logs a warning.
 
 ### `info`
 
@@ -97,7 +130,7 @@ Show the tool version, the Python version and the platform in a table. Add `--js
 
 | Code | Meaning |
 | --- | --- |
-| `0` | Success. |
+| `0` | Success. Also when a second start of a `--single-instance` app handed over to the first. |
 | `1` | The command failed, for example a missing bundle, a setting that is not allowed, or an unexpected error. |
 | `2` | Invalid usage, such as an unknown option or conflicting options. |
 
