@@ -76,6 +76,17 @@ Example:
 ('open_external',)
 ```
 
+## `Literal`
+
+```python
+def Literal(
+    *args,
+    **kwargs,
+)
+```
+
+
+
 ## `Process`
 
 A dev-server command that Cornea starts for you and stops with the window.
@@ -150,6 +161,7 @@ Shell(
     window: Window | None = Window(),
     bridge: Bridge | None = None,
     identity: App | None = None,
+    measure: bool | Callable[[Timings], None] = False,
 )
 ```
 
@@ -165,6 +177,10 @@ be tried in a normal browser.
 A direct `cornea.core.sources.Url` source is different: the window opens that address
 itself and no server is started, so it needs a window with the native frame (the page cannot
 reach the window controls) and `url` is the address you gave.
+
+With `measure=True` the start-up time is printed on stderr (and logged) once the first
+page has loaded, or once the server answers when there is no window. Pass a function instead
+to receive the `Timings` yourself. `timings` has the numbers in either case.
 
 Properties:
 
@@ -237,6 +253,11 @@ window.
 | `server_ready` | `float \| None` | `None` | Cornea's own server accepts requests. |
 | `window_shown` | `float \| None` | `None` | The native window appears. |
 | `page_loaded` | `float \| None` | `None` | The first page has loaded in the window. |
+
+Methods:
+
+- `as_dict() -> dict[str, float | None]`: The steps by name, for JSON.
+- `summary() -> str`: One line with the steps that happened.
 
 Example:
 
@@ -332,6 +353,26 @@ Example:
 'myapp:app'
 ```
 
+## `configure_logging`
+
+```python
+def configure_logging(
+    level: Literal['debug', 'info', 'warning', 'error'] = 'debug',
+    *,
+    file: Path | str | None = None,
+) -> None
+```
+
+Show Cornea's log messages on stderr, and optionally write all of them to a file.
+
+`level` is the least important message shown on stderr. The file always gets every
+message, down to `debug`, so it is the one to attach to a bug report. Calling this again
+replaces the earlier setup. Start-up tokens are never written.
+
+Raises:
+    ValueError: If `level` is not one of `LOG_LEVELS`.
+    OSError: If the file cannot be opened.
+
 ## `create_app`
 
 ```python
@@ -391,6 +432,7 @@ def run(
     window: Window | None = Window(),
     bridge: Bridge | None = None,
     identity: App | None = None,
+    measure: bool | Callable[[Timings], None] = False,
     title: str | None = None,
     debug: bool | None = None,
     on_ready: Callable[[Shell], None] | None = None,
@@ -400,4 +442,5 @@ def run(
 Show the web UI: build a `Shell` and run it until it is closed.
 
 `title` and `debug` are shorthands for the same `window` settings. `on_ready` is
-called once the shell is serving; see `Shell.run`.
+called once the shell is serving; see `Shell.run`. `measure` reports the start-up
+time: see `Shell`.

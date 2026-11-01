@@ -14,6 +14,8 @@ $ cornea [OPTIONS] COMMAND [ARGS]...
 * `-v, --verbose`: Show extra detail.
 * `-q, --quiet`: Only show errors.
 * `--no-color`: Disable colored output.
+* `--config <path>`: Read settings from this file instead of searching for cornea.toml.
+* `--no-config`: Ignore any cornea.toml or  settings.
 * `--help`: Show this message and exit.
 
 **Commands**:
@@ -86,12 +88,17 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--on-top`: Keep the window on top.
 * `--context-menu`: Allow the right-click menu.
 * `--devtools`: Allow the developer tools.
-* `--debug`: Turn on the context menu and developer tools.
+* `--debug`: Turn on the context menu, the developer tools and debug logging.
 * `--js-api`: Give the page the window controls and native actions. Trusted pages only.
 * `--icon <path>`: Window and taskbar icon: .ico, .png, .bmp, .gif or .jpg.
 * `--app-id <str>`: Name of the app, like com.example.notes.
 * `--single-instance`: Run one copy; a second start shows the first.
 * `--remember-window`: Reopen the window where it was, at its size.
+* `--log-level <debug|info|warning|error>`: Show log messages of this level and above on stderr (default: warning).
+* `--log-file <path>`: Also write a full debug log to this file.
+* `--measure`: Print how long start-up took (on stderr) once the first page has loaded.
+* `--json-friendly`: With --measure: print the timings as one JSON line on stdout instead.
+* `--json-file <path>`: With --measure: also write the timings as JSON to this file.
 * `--help`: Show this message and exit.
 
 ## `cornea serve`
@@ -137,6 +144,11 @@ $ cornea serve [OPTIONS] [SOURCE]
 * `--public-path <str>`: Path reachable without a session. Repeatable.
 * `--require-origin / --no-require-origin`: Reject state-changing requests without an Origin (default on).
 * `--disable-action <str>`: Switch a built-in action off. Repeatable.
+* `--log-level <debug|info|warning|error>`: Show log messages of this level and above on stderr (default: warning).
+* `--log-file <path>`: Also write a full debug log to this file.
+* `--measure`: Print how long start-up took (on stderr) once the first page has loaded.
+* `--json-friendly`: With --measure: print the timings as one JSON line on stdout instead.
+* `--json-file <path>`: With --measure: also write the timings as JSON to this file.
 * `--help`: Show this message and exit.
 
 ## Examples
@@ -167,6 +179,8 @@ $ cornea open --run "npm run dev" --url http://localhost:5173 --mode proxy --fra
 $ cornea open web/dist --app-id com.example.notes --single-instance --remember-window
 $ cornea open web/dist --icon examples/static_html/icon.png
 $ cornea open http://localhost:5173 --frameless --js-api
+$ cornea open web/dist --log-level debug --log-file cornea.log
+$ cornea open web/dist --measure
 ```
 
 ### `cornea serve`
@@ -176,5 +190,7 @@ $ cornea serve web/dist
 $ cornea serve --asgi myproject.asgi:application --app-dir .
 $ cornea serve web/dist --port 8765 --public-path /health --public-path /status
 $ cornea serve http://localhost:5173 --mode proxy --csp-profile dev
+$ cornea serve web/dist --log-level info --log-file cornea.log
+$ cornea serve web/dist --measure --json-friendly --json-file timings.json
 $ cornea serve --run "npm run dev" --url http://localhost:5173 --mode proxy
 ```

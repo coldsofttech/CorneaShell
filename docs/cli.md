@@ -21,6 +21,8 @@ These go before the command name, for example `cornea --quiet info`.
 | `--verbose` | `-v` | Show extra detail on stderr, and a traceback for unexpected errors. |
 | `--quiet` | `-q` | Only show errors. Cannot be combined with `--verbose`. |
 | `--no-color` | | Disable colored output. The standard `NO_COLOR` variable has the same effect. |
+| `--config PATH` | | Read settings from this file instead of searching for one. |
+| `--no-config` | | Ignore any settings file. Cannot be combined with `--config`. |
 | `--install-completion` | | Install shell completion for the current shell. |
 | `--show-completion` | | Print the completion script instead of installing it. |
 
@@ -99,7 +101,7 @@ Failures print one short message and exit with code 1: the command ended before 
 
 ### Other options
 
-Every setting of the Python API has a flag, grouped in `--help`: server (`--host`, `--port`), security (`--allowed-host`, `--csp`, `--csp-profile`, `--api-prefix`, `--token-ttl`, `--cookie-samesite`, `--public-path`, `--require-origin/--no-require-origin`), native actions (`--disable-action`) and, for `open`, the window (`--title`, `--size`, `--min-size`, `--position`, `--frameless`, `--icon`, `--js-api`, `--resizable/--no-resizable`, `--on-top`, `--context-menu`, `--devtools`, `--debug`) and the app (`--app-id`, `--single-instance`, `--remember-window`). Sizes look like `1200x800` and positions like `100,50`. The context menu and developer tools stay off unless you ask for them or use `--debug`. The command line never reads environment variables.
+Every setting of the Python API has a flag, grouped in `--help`: server (`--host`, `--port`), security (`--allowed-host`, `--csp`, `--csp-profile`, `--api-prefix`, `--token-ttl`, `--cookie-samesite`, `--public-path`, `--require-origin/--no-require-origin`), native actions (`--disable-action`) and, for `open`, the window (`--title`, `--size`, `--min-size`, `--position`, `--frameless`, `--icon`, `--js-api`, `--resizable/--no-resizable`, `--on-top`, `--context-menu`, `--devtools`, `--debug`) the app (`--app-id`, `--single-instance`, `--remember-window`) and logging (`--log-level`, `--log-file`). Sizes look like `1200x800` and positions like `100,50`. The context menu and developer tools stay off unless you ask for them or use `--debug`. The command line never reads environment variables.
 
 ### The app (`open` only)
 
@@ -111,6 +113,34 @@ Every setting of the Python API has a flag, grouped in `--help`: server (`--host
 
 The app keeps its files in `%LOCALAPPDATA%\Cornea\<id>\`. A second launch of a single-instance app brings the first window to the front (restoring it if minimized), prints a message and exits with code `0`. If it cannot reach the first copy it exits with code `1`.
 
+### Logging
+
+| Option | Effect |
+| --- | --- |
+| `--log-level LEVEL` | Show log messages of this level and above on stderr: `debug`, `info`, `warning` (the default) or `error`. |
+| `--log-file PATH` | Also write a full debug log to this file. The folder is created if needed. |
+
+`--debug` (for `open`) also turns on debug logging, unless `--log-level` says otherwise. With no `--log-file`, it writes the log to `%LOCALAPPDATA%\Cornea\logs\cornea.log` (the folder is created; the file is started over at 1 MB, keeping three older ones). If that file cannot be written, debug messages only go to stderr. An unwritable log file is an error before anything starts. Logs go to stderr, so the JSON line of `serve` on stdout stays clean. The start-up token is never written.
+
+```console
+$ cornea open web/dist --log-level debug --log-file cornea.log
+```
+
+### Start-up time
+
+| Option | Effect |
+| --- | --- |
+| `--measure` | Show how long start-up took, as a table on stderr, once the first page has loaded (or once the server answers, for `serve`). |
+| `--json-friendly` | With `--measure`: print the timings as one JSON line on stdout instead of the table. |
+| `--json-file PATH` | With `--measure`: also write the timings as JSON to this file. |
+
+The steps are `process_ready` (only with `--run`), `server_ready`, `window_shown` and `page_loaded`, in seconds since the command started working, and `null` for a step that did not happen. For `serve`, `--json-friendly` adds a second JSON line after the ready line. The `--json-friendly` and `--json-file` options need `--measure`. To compare runs, run the command several times with `--json-file`.
+
+```console
+$ cornea open web/dist --measure
+$ cornea serve web/dist --measure --json-friendly --json-file timings.json
+```
+
 ### The window icon (`open` only)
 
 `--icon PATH` shows an icon on the window and its taskbar button. `.ico`, `.png`, `.bmp`, `.gif`, `.jpg` and `.jpeg` files are accepted. A missing file is an error before anything starts; a file that cannot be loaded only logs a warning.
@@ -118,6 +148,40 @@ The app keeps its files in `%LOCALAPPDATA%\Cornea\<id>\`. A second launch of a s
 ### `info`
 
 Show the tool version, the Python version and the platform in a table. Add `--json` for machine-readable output.
+
+## The settings file
+
+Settings you would otherwise type every time can live in a file. Cornea looks for `cornea.toml` in the current folder and then in each folder above it, and in the same places for a `[tool.cornea]` table in `pyproject.toml`. In one folder `cornea.toml` wins. The first file found is used on its own; files are never merged. Only the command line reads it: a Python program that calls `Shell` or `run()` stays explicit.
+
+Each table holds the long flags of `open` and `serve`, without the leading dashes. Dashes or underscores both work in a name. A single value is accepted where a flag can repeat (`allowed-host`, `public-path`, `disable-action`).
+
+```toml
+[source]        # web-dist, url, mode, run, run-cwd, run-timeout, asgi, wsgi, app-dir,
+run = "npm run dev"       # package, package-path, spa, hashed-prefix
+url = "http://localhost:5173"
+mode = "proxy"
+
+[server]        # host, port
+[security]      # allowed-host, csp, csp-profile, api-prefix, token-ttl, cookie-samesite,
+csp-profile = "dev"       # public-path, require-origin
+[bridge]        # disable-action
+
+[window]        # title, size, min-size, position, frameless, resizable, on-top,
+title = "My App"          # context-menu, devtools, debug, js-api, icon
+frameless = true
+
+[app]           # id, single-instance, remember-window
+id = "com.example.notes"
+
+[logging]       # level, file
+level = "info"
+```
+
+In `pyproject.toml` the same tables are written as `[tool.cornea.window]` and so on. Paths in the file are relative to the file. A flag on the command line always wins. A source on the command line (a folder, `--url`, `--run`, `--asgi`, `--wsgi`) replaces everything the file said under `[source]`, so the two never mix. A table or key the command does not know is an error (exit code 2), and so is a file that is not valid TOML. `open` and `serve` show the file they used in their details table.
+
+## What the commands print
+
+`open` and `serve` first show a small table on stderr with what they are about to do: the source, the window, the app and the logging. `--quiet` hides it. `info`, the details table and `--measure` all use Rich, so they follow `--no-color` and `NO_COLOR`. Data for other programs (the `serve` ready line, `info --json`, `--json-friendly`) is plain JSON on stdout.
 
 ## Output conventions
 

@@ -4,14 +4,17 @@ __version__ = "0.1.0"
 
 from cornea.core.app import create_app
 from cornea.core.config import DEV_CSP, App, Bridge, Security, Server, Window
+from cornea.core.logs import LOG_LEVELS, LogLevel, configure_logging
 from cornea.core.shell import Shell, Timings, ready_line, run
 from cornea.core.sources import Asgi, Process, Static, Url, WebSource, Wsgi
 
 __all__ = [
     "DEV_CSP",
+    "LOG_LEVELS",
     "App",
     "Asgi",
     "Bridge",
+    "LogLevel",
     "Process",
     "Security",
     "Server",
@@ -23,6 +26,7 @@ __all__ = [
     "Window",
     "Wsgi",
     "__version__",
+    "configure_logging",
     "create_app",
     "ready_line",
     "run",

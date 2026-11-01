@@ -7,6 +7,7 @@ from a request.
 
 import asyncio
 import contextlib
+import logging
 import re
 from collections.abc import AsyncIterator, Iterable
 from typing import Any
@@ -14,6 +15,8 @@ from urllib.parse import urlsplit
 
 from cornea.core.security import SESSION_COOKIE
 from cornea.core.sources import Receive, Scope, Send
+
+logger = logging.getLogger(__name__)
 
 CONNECT_TIMEOUT = 5.0
 HOP_BY_HOP = frozenset(
@@ -157,7 +160,8 @@ class ProxyApp:
         )
         try:
             response = await self._client.send(request, stream=True)
-        except httpx.HTTPError:
+        except httpx.HTTPError as exc:
+            logger.debug("Could not reach %s for %s: %s", self.origin, scope["path"], exc)
             await self._bad_gateway(send)
             return
         try:
@@ -209,7 +213,8 @@ class ProxyApp:
                 max_size=2**24,
                 proxy=None,
             )
-        except Exception:
+        except Exception as exc:
+            logger.debug("Could not open a WebSocket to %s%s: %s", self.origin, scope["path"], exc)
             await send({"type": "websocket.close", "code": 1014})
             return
         await send({"type": "websocket.accept", "subprotocol": upstream.subprotocol})

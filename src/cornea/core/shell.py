@@ -1,8 +1,10 @@
 """The shell: runs the secured local server that hosts the web UI."""
 
 import json
+import logging
 import os
 import socket
+import sys
 import threading
 import time
 from collections.abc import Callable, Iterable
@@ -17,6 +19,8 @@ from fastapi import APIRouter, FastAPI
 from cornea.core.app import allow_host, create_app
 from cornea.core.bridge import ActionRegistry
 from cornea.core.config import App, Bridge, Security, Server, Window
+from cornea.core.environment import environment_details
+from cornea.core.logs import enable_debug_logging
 from cornea.core.process import ProcessRunner
 from cornea.core.single_instance import AlreadyRunning, InstanceLock, activate_existing
 from cornea.core.sources import Process, Url, WebSource, coerce_source
@@ -30,6 +34,8 @@ from cornea.core.window import (
 )
 
 DEFAULT_WINDOW = Window()
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +58,30 @@ class Timings:
     """The native window appears."""
     page_loaded: float | None = None
     """The first page has loaded in the window."""
+
+    def as_dict(self) -> dict[str, float | None]:
+        """The steps by name, for JSON.
+
+        Example:
+            >>> Timings(server_ready=0.2).as_dict()["server_ready"]
+            0.2
+        """
+        return {
+            "process_ready": self.process_ready,
+            "server_ready": self.server_ready,
+            "window_shown": self.window_shown,
+            "page_loaded": self.page_loaded,
+        }
+
+    def summary(self) -> str:
+        """One line with the steps that happened.
+
+        Example:
+            >>> Timings(server_ready=0.2, page_loaded=0.75).summary()
+            'Start-up: server_ready 0.20 s, page_loaded 0.75 s'
+        """
+        steps = [f"{name} {value:.2f} s" for name, value in self.as_dict().items() if value]
+        return "Start-up: " + (", ".join(steps) if steps else "nothing finished")
 
 
 START_TIMEOUT = 10.0
@@ -77,6 +107,10 @@ class Shell:
     itself and no server is started, so it needs a window with the native frame (the page cannot
     reach the window controls) and :attr:`url` is the address you gave.
 
+    With ``measure=True`` the start-up time is printed on stderr (and logged) once the first
+    page has loaded, or once the server answers when there is no window. Pass a function instead
+    to receive the :class:`Timings` yourself. :attr:`timings` has the numbers in either case.
+
     Example:
         >>> with Shell(window=None) as shell:
         ...     shell.url.startswith("http://127.0.0.1:")
@@ -93,12 +127,15 @@ class Shell:
         window: Window | None = DEFAULT_WINDOW,
         bridge: Bridge | None = None,
         identity: App | None = None,
+        measure: bool | Callable[[Timings], None] = False,
     ) -> None:
         self.security = security or Security()
         self.identity = identity or App()
         if window is None and (self.identity.single_instance or self.identity.remember_window):
             raise ValueError("single_instance and remember_window need a window")
         self._lock: InstanceLock | None = None
+        self._measure = measure
+        self._reported = False
         self._started_at: float | None = None
         self._marks: dict[str, float] = {}
         self.server = server or Server()
@@ -136,6 +173,30 @@ class Shell:
         """Record when a start-up step finished. Only the first time counts."""
         if self._started_at is not None and step not in self._marks:
             self._marks[step] = time.perf_counter() - self._started_at
+            logger.debug("Start-up step %s reached after %.3f s", step, self._marks[step])
+            if step == ("page_loaded" if self.window is not None else "server_ready"):
+                self._report_timings()
+
+    def _log_environment(self) -> None:
+        """Write the versions and settings to the top of a debug log. No secrets are in them."""
+        for name, value in environment_details().items():
+            logger.debug("%s: %s", name, value)
+        logger.debug("Window: %r", self.window)
+        logger.debug("Server: %r", self.server)
+        logger.debug("Security: %r", self.security)
+        logger.debug("App: %r", self.identity)
+
+    def _report_timings(self) -> None:
+        """Report the timings once, if asked: the last step has finished, or the run ended."""
+        if not self._measure or self._reported:
+            return
+        self._reported = True
+        timings = self.timings
+        if callable(self._measure):
+            self._measure(timings)
+            return
+        logger.info(timings.summary())
+        print(timings.summary(), file=sys.stderr)  # noqa: T201 - the point of measure=True
 
     @property
     def actions(self) -> ActionRegistry:
@@ -202,6 +263,7 @@ class Shell:
         listener = socket.create_server((self.server.host, self.server.port), family=family)
         self._socket = listener
         allow_host(self.app, _host_header(self.server.host, self.port))
+        logger.debug("Serving on %s", self.base_url)
         # No access log: it would print the one-time token from the first URL.
         config = uvicorn.Config(self.app, log_level="warning", access_log=False)
         self._uvicorn = uvicorn.Server(config)
@@ -237,6 +299,15 @@ class Shell:
         or :meth:`stop`. The server is stopped in every case.
         """
         self._started_at = time.perf_counter()
+        if self.window is not None and self.window.debug:
+            enable_debug_logging()
+        logger.debug(
+            "Starting: %s, %s",
+            "direct address" if self._direct_url is not None else "local server",
+            "with a window" if self.window is not None else "no window",
+        )
+        if logger.isEnabledFor(logging.DEBUG):
+            self._log_environment()
         webview = None
         if self.window is not None:
             # Check first, so nothing is started on a machine that cannot show a window.
@@ -260,7 +331,10 @@ class Shell:
             pass
         finally:
             self.stop()
+            logger.debug("Stopped")
+            self._report_timings()  # a start that never got as far as the last step
         if self._window_error is not None:
+            logger.debug("The window could not be set up", exc_info=self._window_error)
             raise RuntimeError("the window could not be set up") from self._window_error
 
     def __enter__(self) -> Self:
@@ -384,6 +458,7 @@ def run(
     window: Window | None = DEFAULT_WINDOW,
     bridge: Bridge | None = None,
     identity: App | None = None,
+    measure: bool | Callable[[Timings], None] = False,
     title: str | None = None,
     debug: bool | None = None,
     on_ready: Callable[[Shell], None] | None = None,
@@ -391,7 +466,8 @@ def run(
     """Show the web UI: build a :class:`Shell` and run it until it is closed.
 
     ``title`` and ``debug`` are shorthands for the same ``window`` settings. ``on_ready`` is
-    called once the shell is serving; see :meth:`Shell.run`.
+    called once the shell is serving; see :meth:`Shell.run`. ``measure`` reports the start-up
+    time: see :class:`Shell`.
     """
     if window is None:
         if title is not None or debug is not None:
@@ -410,5 +486,6 @@ def run(
         window=window,
         bridge=bridge,
         identity=identity,
+        measure=measure,
     )
     shell.run(on_ready=on_ready)

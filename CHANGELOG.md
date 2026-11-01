@@ -21,5 +21,10 @@ All notable changes to this project are documented here. The format follows [Kee
 - Apps can run one copy at a time, reopen the window where it was, and get their own taskbar identity.
 - Frameless windows can show pages Cornea does not serve, if you opt in to give the page the window controls (trusted pages only).
 - Windows can have an icon.
-- Start-up time is measured, with a documented target.
+- A refused request with the wrong Host or Origin is now reported as a warning, so a wrong `allowed_hosts` setting is no longer silent.
+- `cornea info` also shows the WebView2 runtime, pywebview and the log folder.
+- Settings for the `cornea` command can be kept in `cornea.toml` or in `[tool.cornea]` of `pyproject.toml`.
+- `--measure` (and `measure=True` in Python) shows how long start-up took; the numbers can be saved as JSON. There is a documented target.
+- `open` and `serve` show a short summary of what they are about to do.
+- Logging for troubleshooting: `--log-level` and `--log-file`, and `--debug` (and debug mode in Python) now turns on debug logging too, writing to your local app data folder if you set nothing up. The start-up token is never written to a log.
 - More examples: Vue, HTMX, Streamlit, MkDocs, and .NET, Java, PHP and Go servers, checked weekly by an automated workflow.

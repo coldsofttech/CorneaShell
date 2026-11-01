@@ -120,19 +120,25 @@ async def invoke_action(
     A dialog that cannot be shown (no window) is ``available: false`` and not an error. A crash
     in an action is logged with its details but the caller only learns that it failed.
     """
+    # The arguments and the result are never logged: they can hold paths and personal data.
     try:
         result = await registry.call(name, arguments, window)
     except UnknownAction:
+        logger.debug("Action %r: unknown or switched off", name)
         return 404, {"error": "Unknown action"}
     except BadArguments as exc:
+        logger.debug("Action %r: bad arguments: %s", name, exc)
         return 422, {"error": str(exc)}
     except Unavailable as exc:
+        logger.debug("Action %r: not available: %s", name, exc)
         return 200, {"available": False, "reason": str(exc)}
     except ValueError as exc:
+        logger.debug("Action %r: rejected: %s", name, exc)
         return 422, {"error": str(exc)}
     except Exception:
         logger.exception("The action %r failed", name)
         return 500, {"error": "The action failed"}
+    logger.debug("Action %r: done", name)
     return 200, {"available": True, "result": jsonable_encoder(result)}
 
 

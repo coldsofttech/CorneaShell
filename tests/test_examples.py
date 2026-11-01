@@ -1,5 +1,8 @@
 import doctest
+import logging
 import shlex
+from collections.abc import Iterator
+from pathlib import Path
 from types import ModuleType
 
 import pytest
@@ -16,6 +19,21 @@ runner = CliRunner()
 CLI_EXAMPLES = [
     (command, example) for command, examples in EXAMPLES.items() for example in examples
 ]
+
+
+@pytest.fixture(autouse=True)
+def restore_cornea_logging(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
+    """The log examples configure logging for real: keep their files and handlers to this test."""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
+    logger = logging.getLogger("cornea")
+    level, propagate = logger.level, logger.propagate
+    yield
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler)
+        handler.close()
+    logger.setLevel(level)
+    logger.propagate = propagate
 
 
 @pytest.mark.parametrize(

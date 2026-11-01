@@ -1,6 +1,8 @@
 import dataclasses
 import json
+import logging
 import re
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +21,7 @@ from cornea import (
     Server,
     Shell,
     Static,
+    Timings,
     Url,
     Window,
     Wsgi,
@@ -42,6 +45,25 @@ class Calls:
     @property
     def last(self) -> dict[str, Any]:
         return self.items[-1]
+
+
+@pytest.fixture(autouse=True)
+def restore_cornea_logging(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
+    """Undo configure_logging after each test.
+
+    A command such as ``open --debug`` configures logging for real, and its handler would
+    otherwise outlive the test and write to a stream that is already closed.
+    """
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))  # where debug logs go
+    logger = logging.getLogger("cornea")
+    level, propagate = logger.level, logger.propagate
+    yield
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler)
+        handler.close()
+    logger.setLevel(level)
+    logger.propagate = propagate
 
 
 @pytest.fixture
@@ -491,7 +513,9 @@ def test_failures_while_running_are_short_errors(
     result = invoke("open", "web/dist")
 
     assert result.exit_code == 1
-    assert result.stderr.strip() == f"Error: {error}"
+    # The details table comes first; the error is the last line and a single short message.
+    assert result.stderr.strip().splitlines()[-1] == f"Error: {error}"
+    assert result.stderr.count("Error:") == 1
 
 
 def test_an_unknown_action_to_disable_is_a_short_error(tmp_path: Path) -> None:
@@ -542,3 +566,81 @@ def test_bad_pairs_name_the_flag(text: str) -> None:
 def test_position_errors_show_the_right_example() -> None:
     with pytest.raises(typer.BadParameter, match="100,50"):
         options.parse_pair("x", "--position", ",")
+
+
+# ----- --measure --------------------------------------------------------------------------------
+
+
+def test_measure_is_passed_on(calls: Calls) -> None:
+    assert invoke("open", "web", "--measure").exit_code == 0
+
+    assert callable(calls.last["measure"])
+
+
+def test_measure_is_off_by_default_on_the_command_line(calls: Calls) -> None:
+    invoke("open", "web")
+
+    assert calls.last["measure"] is False
+
+
+def test_the_json_options_need_measure(calls: Calls) -> None:
+    result = invoke("serve", "web", "--json-friendly")
+
+    assert result.exit_code == 2
+    assert not calls.items
+
+
+def test_measure_can_print_json_and_write_a_file(calls: Calls, tmp_path: Path) -> None:
+    target = tmp_path / "out" / "timings.json"
+    invoke("serve", "web", "--measure", "--json-friendly", "--json-file", str(target))
+
+    report = calls.last["measure"]
+    assert callable(report)
+    report(Timings(server_ready=0.05))
+
+    assert json.loads(target.read_text(encoding="utf-8"))["server_ready"] == 0.05
+
+
+def test_measure_with_only_a_file_still_prints_the_line(
+    calls: Calls, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    invoke("open", "web", "--measure", "--json-file", str(tmp_path / "t.json"))
+    calls.last["measure"](Timings(server_ready=0.05))
+
+    err = capsys.readouterr().err
+    assert "Start-up time" in err
+    assert "server_ready" in err
+    assert "0.050" in err
+
+
+# ----- the details table ------------------------------------------------------------------------
+
+
+def test_open_shows_what_it_will_do(calls: Calls) -> None:
+    result = invoke("open", "web/dist", "--title", "Notes", "--frameless", "--app-id", "a.b")
+
+    assert result.exit_code == 0
+    assert "cornea open" in result.stderr
+    assert "folder web" in result.stderr
+    assert "'Notes', frameless" in result.stderr
+    assert "a.b" in result.stderr
+
+
+def test_serve_shows_its_source_and_never_a_window(calls: Calls) -> None:
+    result = invoke("serve", "http://localhost:5173", "--mode", "proxy")
+
+    assert "cornea serve" in result.stderr
+    assert "http://localhost:5173 (proxy)" in result.stderr
+    assert "Window" not in result.stderr
+
+
+def test_quiet_hides_the_details(calls: Calls) -> None:
+    result = invoke("--quiet", "open", "web/dist")
+
+    assert result.stderr == ""
+
+
+def test_a_started_command_is_described(calls: Calls) -> None:
+    result = invoke("serve", "--run", "npm run dev", "--url", "http://localhost:5173")
+
+    assert "started with: npm run dev" in result.stderr

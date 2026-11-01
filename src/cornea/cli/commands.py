@@ -1,26 +1,38 @@
 """Command line interface built on Typer and Rich. It only parses input and shows output."""
 
-import platform
+import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any
 
 import typer
 from rich.table import Table
+from rich.text import Text
 
 from cornea import (
     App,
+    Asgi,
     Bridge,
+    LogLevel,
+    Process,
     Security,
     Server,
     Shell,
+    Static,
+    Timings,
+    Url,
     WebSource,
     Window,
+    Wsgi,
     __version__,
+    configure_logging,
     ready_line,
 )
 from cornea import run as run_shell
-from cornea.cli import options, output
+from cornea.cli import config, options, output
+from cornea.core.environment import environment_details
+from cornea.core.logs import start_debug_logging
 from cornea.core.single_instance import AlreadyRunning
 
 EXAMPLES: dict[str, tuple[str, ...]] = {
@@ -35,12 +47,16 @@ EXAMPLES: dict[str, tuple[str, ...]] = {
         "cornea open web/dist --app-id com.example.notes --single-instance --remember-window",
         "cornea open web/dist --icon examples/static_html/icon.png",
         "cornea open http://localhost:5173 --frameless --js-api",
+        "cornea open web/dist --log-level debug --log-file cornea.log",
+        "cornea open web/dist --measure",
     ),
     "serve": (
         "cornea serve web/dist",
         "cornea serve --asgi myproject.asgi:application --app-dir .",
         "cornea serve web/dist --port 8765 --public-path /health --public-path /status",
         "cornea serve http://localhost:5173 --mode proxy --csp-profile dev",
+        "cornea serve web/dist --log-level info --log-file cornea.log",
+        "cornea serve web/dist --measure --json-friendly --json-file timings.json",
         'cornea serve --run "npm run dev" --url http://localhost:5173 --mode proxy',
     ),
 }
@@ -66,13 +82,15 @@ JsonOption = Annotated[bool, typer.Option("--json", help="Output as JSON.")]
 
 # ----- the options both commands share, grouped in the help -----------------------------------
 
-WEB, SERVER, SECURITY, WINDOW, NATIVE, APP = (
+WEB, SERVER, SECURITY, WINDOW, NATIVE, APP, LOGGING, MEASURE = (
     "Web source",
     "Server",
     "Security",
     "Window",
     "Native actions",
     "App",
+    "Logging",
+    "Start-up time",
 )
 
 
@@ -240,7 +258,47 @@ DevTools = Annotated[
 ]
 Debug = Annotated[
     bool | None,
-    _flag("--debug", help="Turn on the context menu and developer tools.", panel=WINDOW),
+    _flag(
+        "--debug",
+        help="Turn on the context menu, the developer tools and debug logging.",
+        panel=WINDOW,
+    ),
+]
+LogLevelFlag = Annotated[
+    options.LogLevelChoice | None,
+    _flag(
+        "--log-level",
+        help="Show log messages of this level and above on stderr (default: warning).",
+        panel=LOGGING,
+    ),
+]
+MeasureFlag = Annotated[
+    bool | None,
+    _flag(
+        "--measure",
+        help="Print how long start-up took (on stderr) once the first page has loaded.",
+        panel=MEASURE,
+    ),
+]
+JsonFriendlyFlag = Annotated[
+    bool | None,
+    _flag(
+        "--json-friendly",
+        help="With --measure: print the timings as one JSON line on stdout instead.",
+        panel=MEASURE,
+    ),
+]
+JsonFileFlag = Annotated[
+    Path | None,
+    _flag(
+        "--json-file",
+        help="With --measure: also write the timings as JSON to this file.",
+        panel=MEASURE,
+    ),
+]
+LogFileFlag = Annotated[
+    Path | None,
+    _flag("--log-file", help="Also write a full debug log to this file.", panel=LOGGING),
 ]
 
 
@@ -250,6 +308,7 @@ class State:
 
     verbose: bool = False
     quiet: bool = False
+    config: Path | None = None
 
 
 def _show_version(value: bool) -> None:
@@ -283,22 +342,42 @@ def main(
         bool,
         typer.Option("--no-color", help="Disable colored output."),
     ] = False,
+    config_file: Annotated[
+        Path | None,
+        typer.Option(
+            "--config",
+            help="Read settings from this file instead of searching for cornea.toml.",
+        ),
+    ] = None,
+    no_config: Annotated[
+        bool,
+        typer.Option("--no-config", help="Ignore any cornea.toml or [tool.cornea] settings."),
+    ] = False,
 ) -> None:
     """Options that apply to every command."""
     if verbose and quiet:
         raise typer.BadParameter("--verbose and --quiet cannot be used together.")
+    if config_file is not None and no_config:
+        raise typer.BadParameter("--config and --no-config cannot be used together.")
     output.configure(no_color=no_color, verbose=verbose)
-    ctx.obj = State(verbose=verbose, quiet=quiet)
+    state = State(verbose=verbose, quiet=quiet)
+    ctx.obj = state
+    if no_config or ctx.invoked_subcommand not in {"open", "serve"}:
+        return
+    try:
+        found = config_file if config_file is not None else config.find_config(Path.cwd())
+        if found is not None:
+            ctx.default_map = config.load_config(found)
+            state.config = found
+    except config.ConfigError as exc:
+        output.error(str(exc))
+        raise typer.Exit(code=2) from exc
 
 
 @app.command(epilog=_epilog("info"))
 def info(json_output: JsonOption = False) -> None:
     """Show version and environment details."""
-    details = {
-        "version": __version__,
-        "python": platform.python_version(),
-        "platform": platform.platform(),
-    }
+    details = environment_details()
     if json_output:
         output.console.print_json(data=details)
         return
@@ -311,6 +390,123 @@ def info(json_output: JsonOption = False) -> None:
 # ----- open and serve -------------------------------------------------------------------------
 
 
+def _logging_options(
+    level: options.LogLevelChoice | None, file: Path | None, debug: bool | None
+) -> tuple[LogLevel, Path | None, bool] | None:
+    """The level, the file, and whether to use the default file, or None to leave logging alone.
+
+    ``--debug`` means debug logging unless ``--log-level`` says otherwise, and then it also
+    writes the default log file unless ``--log-file`` names another file.
+    """
+    if level is not None:
+        return level.value, file, False
+    if debug:
+        return "debug", file, file is None
+    return ("warning", file, False) if file is not None else None
+
+
+def _source_arguments(ctx: typer.Context, source: str | None, **values: Any) -> dict[str, Any]:
+    """The source settings, with the settings file stepping aside for a source on the command line.
+
+    The file may say what to show, but a source typed on the command line replaces everything
+    the file said about the source, so the two never mix into something neither meant.
+    """
+
+    def came_from(name: str) -> str | None:
+        found = ctx.get_parameter_source(name)
+        return found.name if found is not None else None
+
+    typed = source is not None or any(
+        came_from(name) == "COMMANDLINE" for name in ("web_dist", "url", "asgi", "wsgi", "run")
+    )
+    if typed:
+        for name in config.SOURCE_PARAMETERS:
+            if came_from(name) == "DEFAULT_MAP":
+                values[name] = None
+    return values
+
+
+def _measure_option(
+    measure: bool | None, json_friendly: bool | None, json_file: Path | None
+) -> bool | Callable[[Timings], None]:
+    """What to pass as ``measure``: False, or our reporter, which prints a Rich table."""
+    if not measure:
+        if json_friendly or json_file is not None:
+            raise typer.BadParameter("--json-friendly and --json-file need --measure")
+        return False
+
+    def report(timings: Timings) -> None:
+        text = json.dumps(timings.as_dict())
+        if json_file is not None:
+            try:
+                json_file.parent.mkdir(parents=True, exist_ok=True)
+                json_file.write_text(text + "\n", encoding="utf-8")
+            except OSError as exc:
+                output.error(f"could not write the timings: {exc}")
+        if json_friendly:
+            output.console.print(text, soft_wrap=True, markup=False, highlight=False)
+        else:
+            table = Table(title="Start-up time", title_justify="left")
+            table.add_column("Step")
+            table.add_column("Seconds", justify="right")
+            for step, seconds in timings.as_dict().items():
+                if seconds is not None:
+                    table.add_row(step, f"{seconds:.3f}")
+            output.err_console.print(table)
+
+    return report
+
+
+def _describe_source(source: WebSource) -> str:
+    """One line that says what is shown, for the details table."""
+    match source:
+        case Static():
+            return f"folder {source.path}" if source.path is not None else "built web bundle"
+        case Url():
+            return f"{source.url} ({source.mode})"
+        case Process():
+            command = (
+                source.command if isinstance(source.command, str) else " ".join(source.command)
+            )
+            return f"{source.url} ({source.mode}), started with: {command}"
+        case Asgi():
+            return f"ASGI app {source.target}"
+        case Wsgi():
+            return f"WSGI app {source.target}"
+        case _:
+            return type(source).__name__
+
+
+def _show_details(
+    command: str,
+    source: WebSource,
+    window: Window | None,
+    identity: App | None,
+    logging: tuple[LogLevel, Path | None] | None,
+    settings_file: Path | None,
+) -> None:
+    rows = [("Source", _describe_source(source))]
+    if settings_file is not None:
+        rows.insert(0, ("Settings", str(settings_file)))
+    if window is not None:
+        shown = f"{window.title!r}, {'frameless' if window.frameless else 'normal frame'}"
+        rows.append(("Window", shown))
+    if identity is not None and identity.id is not None:
+        flags = [
+            name
+            for name, on in (
+                ("single instance", identity.single_instance),
+                ("remembers its window", identity.remember_window),
+            )
+            if on
+        ]
+        rows.append(("App", ", ".join([identity.id, *flags])))
+    if logging is not None:
+        level, file = logging
+        rows.append(("Logging", f"{level}" + (f", file {file}" if file is not None else "")))
+    output.details(f"cornea {command}", rows)
+
+
 def _launch(
     ctx: typer.Context,
     source: WebSource,
@@ -320,17 +516,40 @@ def _launch(
     security: Security,
     bridge: Bridge,
     identity: App | None = None,
+    logging_options: tuple[LogLevel, Path | None, bool] | None = None,
+    measure: bool | Callable[[Timings], None] = False,
 ) -> None:
     """Run the shell, reporting expected failures as a short error with exit code 1."""
     state = ctx.obj
     assert isinstance(state, State)  # noqa: S101 - set by the callback
+    logging_shown: tuple[LogLevel, Path | None] | None = None
+    if logging_options is not None:
+        level, file, use_default = logging_options
+        try:
+            if use_default:
+                file = start_debug_logging()  # falls back to the screen if it cannot write
+            else:
+                configure_logging(level, file=file)
+        except OSError as exc:
+            output.error(f"could not open the log file: {exc}")
+            raise typer.Exit(code=1) from exc
+        logging_shown = (level, file)
+    if not state.quiet:
+        _show_details(
+            "open" if window is not None else "serve",
+            source,
+            window,
+            identity,
+            logging_shown,
+            state.config,
+        )
 
     def announce(shell: Shell) -> None:
         # The ready line is data for other programs; the second line is for the person.
         output.console.print(ready_line(shell), soft_wrap=True, markup=False, highlight=False)
         if not state.quiet:
-            message = f"Serving {shell.url} - press Ctrl+C to stop"
-            output.err_console.print(message, soft_wrap=True, markup=False, highlight=False)
+            message = Text.assemble("Serving ", (shell.url, "bold"), " - press Ctrl+C to stop")
+            output.err_console.print(message, soft_wrap=True)
 
     try:
         run_shell(
@@ -340,6 +559,7 @@ def _launch(
             window=window,
             bridge=bridge,
             identity=identity,
+            measure=measure,
             on_ready=announce if window is None else None,
         )
     except AlreadyRunning as exc:
@@ -396,24 +616,33 @@ def open_window(
     app_id: AppIdFlag = None,
     single_instance: SingleInstanceFlag = None,
     remember_window: RememberWindowFlag = None,
+    log_level: LogLevelFlag = None,
+    log_file: LogFileFlag = None,
+    measure: MeasureFlag = None,
+    json_friendly: JsonFriendlyFlag = None,
+    json_file: JsonFileFlag = None,
 ) -> None:
     """Show the web UI in a native window (Windows)."""
     try:
         web_source = options.build_source(
             argument=source,
-            web_dist=web_dist,
-            url=url,
-            asgi=asgi,
-            wsgi=wsgi,
-            app_dir=app_dir,
-            package=package,
-            package_path=package_path,
-            spa=spa,
-            hashed_prefix=hashed_prefix,
-            mode=mode,
-            run=run,
-            run_cwd=run_cwd,
-            run_timeout=run_timeout,
+            **_source_arguments(
+                ctx,
+                source,
+                web_dist=web_dist,
+                url=url,
+                asgi=asgi,
+                wsgi=wsgi,
+                app_dir=app_dir,
+                package=package,
+                package_path=package_path,
+                spa=spa,
+                hashed_prefix=hashed_prefix,
+                mode=mode,
+                run=run,
+                run_cwd=run_cwd,
+                run_timeout=run_timeout,
+            ),
         )
         window = options.build_window(
             title=title,
@@ -448,7 +677,15 @@ def open_window(
         output.error(str(exc))
         raise typer.Exit(code=1) from exc
     _launch(
-        ctx, web_source, window, server=server, security=security, bridge=bridge, identity=identity
+        ctx,
+        web_source,
+        window,
+        server=server,
+        security=security,
+        bridge=bridge,
+        identity=identity,
+        logging_options=_logging_options(log_level, log_file, debug),
+        measure=_measure_option(measure, json_friendly, json_file),
     )
 
 
@@ -480,6 +717,11 @@ def serve(
     public_path: PublicPath = None,
     require_origin: RequireOrigin = None,
     disable_action: DisableAction = None,
+    log_level: LogLevelFlag = None,
+    log_file: LogFileFlag = None,
+    measure: MeasureFlag = None,
+    json_friendly: JsonFriendlyFlag = None,
+    json_file: JsonFileFlag = None,
 ) -> None:
     """Serve the web UI without a window, for a browser or another program.
 
@@ -489,19 +731,23 @@ def serve(
     try:
         web_source = options.build_source(
             argument=source,
-            web_dist=web_dist,
-            url=url,
-            asgi=asgi,
-            wsgi=wsgi,
-            app_dir=app_dir,
-            package=package,
-            package_path=package_path,
-            spa=spa,
-            hashed_prefix=hashed_prefix,
-            mode=mode,
-            run=run,
-            run_cwd=run_cwd,
-            run_timeout=run_timeout,
+            **_source_arguments(
+                ctx,
+                source,
+                web_dist=web_dist,
+                url=url,
+                asgi=asgi,
+                wsgi=wsgi,
+                app_dir=app_dir,
+                package=package,
+                package_path=package_path,
+                spa=spa,
+                hashed_prefix=hashed_prefix,
+                mode=mode,
+                run=run,
+                run_cwd=run_cwd,
+                run_timeout=run_timeout,
+            ),
         )
         server = options.build_server(host=host, port=port)
         security = options.build_security(
@@ -518,7 +764,16 @@ def serve(
     except ValueError as exc:
         output.error(str(exc))
         raise typer.Exit(code=1) from exc
-    _launch(ctx, web_source, None, server=server, security=security, bridge=bridge)
+    _launch(
+        ctx,
+        web_source,
+        None,
+        server=server,
+        security=security,
+        bridge=bridge,
+        logging_options=_logging_options(log_level, log_file, None),
+        measure=_measure_option(measure, json_friendly, json_file),
+    )
 
 
 def run() -> None:

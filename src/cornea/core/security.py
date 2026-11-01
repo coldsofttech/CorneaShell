@@ -6,6 +6,7 @@ Pure ASGI, so the same checks guard any mounted app (FastAPI, Flask, Django, a p
 import hashlib
 import hmac
 import json
+import logging
 import secrets
 import threading
 import time
@@ -15,6 +16,8 @@ from urllib.parse import parse_qsl, quote, urlencode
 
 from cornea.core.config import Security
 from cornea.core.sources import AsgiApp, Message, Receive, Scope, Send
+
+logger = logging.getLogger(__name__)
 
 SESSION_COOKIE = "cornea_session"
 BOOTSTRAP_PARAM = "cornea_token"
@@ -114,6 +117,18 @@ async def _respond(
     await send({"type": "http.response.body", "body": body})
 
 
+def _refused(scope: Scope, reason: str, *, misconfigured: bool = False) -> None:
+    """Log a refused request: the method and path, never the query (it can carry the token).
+
+    A wrong Host or Origin usually means a setting is off (``allowed_hosts``), so it is a
+    warning and shows without turning logging on. The rest is routine and stays at debug.
+    """
+    level = logging.WARNING if misconfigured else logging.DEBUG
+    logger.log(
+        level, "Refused %s %s: %s", scope.get("method", scope["type"]), scope["path"], reason
+    )
+
+
 async def _error(send: Send, status: int, message: str) -> None:
     body = json.dumps({"error": message}).encode()
     await _respond(send, status, body, [(b"content-type", b"application/json")])
@@ -181,15 +196,18 @@ class SecurityMiddleware:
     async def _http(self, scope: Scope, receive: Receive, send: Send) -> None:
         send = self._with_security_headers(scope, send)
         if not self._host_allowed(scope):
+            _refused(scope, "unexpected Host header", misconfigured=True)
             await _error(send, 403, "Unexpected Host")
             return
         method = scope["method"]
         if method in UNSAFE_METHODS and not self._origin_allowed(scope):
+            _refused(scope, "unexpected Origin header", misconfigured=True)
             await _error(send, 403, "Unexpected Origin")
             return
         if method in {"GET", "HEAD"} and await self._bootstrap(scope, send):
             return
         if not self._is_public(scope["path"]) and not self._signed_in(scope):
+            _refused(scope, "no valid session cookie")
             await _error(send, 401, "Not signed in")
             return
         await self.app(scope, receive, send)
@@ -202,6 +220,7 @@ class SecurityMiddleware:
             return False
         session_id = self.gate.redeem(tokens[0])
         if session_id is None:
+            _refused(scope, "the start-up token was not valid, already used, or expired")
             await _error(send, 403, "The start-up link is not valid")
             return True
         remaining = [(key, value) for key, value in pairs if key != BOOTSTRAP_PARAM]
@@ -252,6 +271,8 @@ class SecurityMiddleware:
             and (self._is_public(scope["path"]) or self._signed_in(scope))
         )
         if not allowed:
+            wrong_place = not (self._host_allowed(scope) and self._origin_allowed(scope))
+            _refused(scope, "host, origin or session check failed", misconfigured=wrong_place)
             await receive()
             await send({"type": "websocket.close", "code": POLICY_VIOLATION})
             return

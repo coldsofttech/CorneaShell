@@ -1,4 +1,3 @@
-import importlib.util
 import socket
 import sys
 import time
@@ -140,17 +139,73 @@ def test_a_window_run_times_the_whole_start_up(
     assert timings.server_ready < timings.window_shown <= timings.page_loaded
 
 
-def test_the_measuring_script_reports_a_headless_start(capsys: pytest.CaptureFixture[str]) -> None:
-    path = Path(__file__).resolve().parent.parent / "scripts" / "measure_startup.py"
-    spec = importlib.util.spec_from_file_location("measure_startup", path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+def test_timings_are_a_dict_and_a_summary() -> None:
+    timings = Timings(server_ready=0.05, page_loaded=0.7)
 
-    module.child("headless")
+    assert timings.as_dict() == {
+        "process_ready": None,
+        "server_ready": 0.05,
+        "window_shown": None,
+        "page_loaded": 0.7,
+    }
+    assert timings.summary() == "Start-up: server_ready 0.05 s, page_loaded 0.70 s"
+    assert Timings().summary() == "Start-up: nothing finished"
 
-    lines = capsys.readouterr().out.splitlines()
-    line = next(text for text in lines if text.startswith("TIMINGS "))
-    assert '"server_ready"' in line
-    assert '"import"' in line
+
+def test_measure_prints_the_start_up_once_the_server_answers(
+    bundle: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with Shell(Static(bundle), window=None, measure=True):
+        pass
+
+    err = capsys.readouterr().err
+    assert err.count("Start-up:") == 1
+    assert "server_ready" in err
+
+
+def test_measure_can_hand_the_timings_to_a_function(bundle: Path) -> None:
+    seen: list[Timings] = []
+
+    with Shell(Static(bundle), window=None, measure=seen.append):
+        pass
+
+    assert len(seen) == 1
+    assert seen[0].server_ready is not None
+
+
+def test_measure_is_off_by_default(bundle: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    with Shell(Static(bundle), window=None):
+        pass
+
+    assert capsys.readouterr().err == ""
+
+
+def test_a_window_run_is_reported_after_the_page_loads(
+    bundle: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(window_module, "_registry_version", lambda: "1")
+    monkeypatch.setitem(sys.modules, "webview", SimpleNamespace())
+
+    def create(
+        webview: object,
+        url: str,
+        settings: object,
+        on_error: object,
+        app: object,
+        on_event: object,
+        actions: object = None,
+    ) -> object:
+        assert callable(on_event)
+        on_event("window_shown")
+        on_event("page_loaded")
+        return None, SimpleNamespace(activate=lambda: None)
+
+    monkeypatch.setattr(shell_module, "create_native_window", create)
+    monkeypatch.setattr(shell_module, "show_window", lambda *args: None)
+    seen: list[Timings] = []
+
+    Shell(Static(bundle), measure=seen.append).run()
+
+    assert len(seen) == 1
+    assert seen[0].page_loaded is not None
+    assert seen[0].window_shown is not None

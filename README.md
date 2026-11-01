@@ -145,6 +145,37 @@ cornea open web/dist --app-id com.example.notes --single-instance --remember-win
 
 The name uses letters, digits, dots, dashes and underscores. In Python these are the `App` options. Remembered details are kept in `%LOCALAPPDATA%\Cornea\<name>`.
 
+## Keeping your settings in a file
+
+Put the flags you always use in a `cornea.toml` next to your project, and `cornea open` needs nothing else:
+
+```toml
+[source]
+web-dist = "web/dist"
+
+[window]
+title = "My App"
+frameless = true
+```
+
+Cornea also reads a `[tool.cornea]` table in `pyproject.toml`. Flags on the command line win over the file, and `--no-config` ignores it. See the [command line guide](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli.md#the-settings-file) for every setting.
+
+## When something goes wrong
+
+Cornea is quiet by default. To see what it is doing, turn on logging:
+
+```bash
+cornea open web/dist --log-level debug --log-file cornea.log
+```
+
+`--log-level` (`debug`, `info`, `warning` or `error`) controls what appears on screen, and `--log-file` also writes everything to a file you can attach to a bug report. Debug mode (`--debug`, or `Window(debug=True)` in Python) turns on debug logging along with the right-click menu and developer tools. If you have not set up logging yourself, Cornea writes the log to `%LOCALAPPDATA%\Cornea\logs\cornea.log`, a folder every user can write to, and also shows it on screen. If that file cannot be written, the log only appears on screen. When the file reaches 1 MB it is started over, keeping the three previous ones (`cornea.log.1` to `cornea.log.3`). If you already set up logging, or use `--log-file` or `--log-level`, Cornea uses that and creates nothing.
+
+The log starts with the versions and settings in use (no secrets). It shows start-up steps, refused requests, dev-server output and native action names. It never shows the start-up token, cookies, or what your page sends to an action. In Python, `configure_logging("debug", file="my.log")` does the same without debug mode.
+
+## How long does it take to start?
+
+`cornea open web/dist --measure` shows how long start-up took once the first page has loaded. Add `--json-file timings.json` to keep the numbers. In Python, use `run(..., measure=True)` or read `shell.timings`.
+
 ## Trying your page in a browser
 
 ```bash
@@ -176,6 +207,7 @@ See the [command line guide](https://github.com/coldsofttech/CorneaShell/blob/ma
 - [Command line guide](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli.md) and [reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli-reference.md)
 - [Python API reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/api-reference.md)
 - [How it works](https://github.com/coldsofttech/CorneaShell/blob/main/docs/architecture.md)
+- [Troubleshooting](https://github.com/coldsofttech/CorneaShell/blob/main/docs/troubleshooting.md)
 
 ## Development
 

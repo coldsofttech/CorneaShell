@@ -38,11 +38,14 @@ src/cornea/core/appdata.py   the per-app data folder
 src/cornea/core/window_memory.py   remembered window size and position
 src/cornea/core/single_instance.py one copy at a time, and waking the first copy
 src/cornea/core/window_api.py      the opt-in js_api object
+src/cornea/core/logs.py      configure_logging(): stderr and file handlers, token redaction
 src/cornea/core/window.py    pywebview window, window controller, environment checks
 src/cornea/core/window_routes.py   /api/window routes
 src/cornea/core/bridge.py    native actions and the action registry
 src/cornea/core/bridge_routes.py   /api/bridge route
 src/cornea/cli/              the cornea command: a thin wrapper over run()
+src/cornea/cli/config.py     cornea.toml and [tool.cornea]: defaults for the command
+src/cornea/core/environment.py   versions and places, for `cornea info` and the debug log
 tests/                       unit tests; tests/integration/ runs real processes and a real window
 examples/                    runnable example projects
 ```
@@ -138,9 +141,11 @@ pywebview builds the JavaScript functions from the Python parameter names, and a
 
 ## Startup time
 
-`Shell.timings` returns a `Timings` with `process_ready`, `server_ready`, `window_shown` and `page_loaded`, in seconds since `run()` (or `start()`) began. A step that did not happen is `None`.
+`Shell.timings` returns a `Timings` with `process_ready`, `server_ready`, `window_shown` and `page_loaded`, in seconds since `run()` (or `start()`) began. A step that did not happen is `None`. `Timings.as_dict()` and `Timings.summary()` give the numbers as JSON-ready data and as one line.
 
-`scripts/measure_startup.py [runs]` runs each case in fresh processes and prints the minimum, median and maximum for a headless start and a real-window start. Medians from 7 runs on the development machine (Windows 11, Python 3.11):
+`Shell(measure=True)` and `run(measure=True)` report the timings once, when the last step has finished: `page_loaded` with a window, `server_ready` without one. The default report is the summary line on stderr plus an `info` log message. Pass a function instead (`measure=callback`) to receive the `Timings` yourself. The command line uses this: `--measure` shows a Rich table, `--json-friendly` prints the JSON line and `--json-file` writes it. Because the measuring is part of the package, it works for any app, not just the examples. To compare runs, start the app several times with `--measure --json-file` and look at the median.
+
+Medians from 7 runs on the development machine (Windows 11, Python 3.11), measured with `--measure`:
 
 | Step | Median |
 | --- | --- |
@@ -157,7 +162,19 @@ The target, with about three times the margin for slower machines, counted from 
 | Window shown | under 2 s |
 | First page loaded | under 3 s |
 
-The target is a guide, not a test. A test that fails on speed would be flaky on shared CI machines, so nothing enforces it; run the script to check.
+The target is a guide, not a test. A test that fails on speed would be flaky on shared CI machines, so nothing enforces it; run your app with `--measure` to check.
+
+## Logging
+
+Every module logs to a child of the `cornea` logger, and Cornea never configures logging itself, so a program that sets up logging sees these messages like any library's. `configure_logging(level, file=...)` is the quick way: it adds a stderr handler at `level` and, with a file, a file handler that always records `debug`. The `cornea` command calls it for `--log-level`, `--log-file` and `--debug`.
+
+Debug mode (`Window(debug=True)`, which `Shell.run()` checks, or `--debug`) calls `enable_debug_logging()`. It does nothing if the `cornea` logger or the root logger already has a handler, because the program chose where logs go. Otherwise it logs at `debug` to stderr and to `cornea.log` in `%LOCALAPPDATA%\Cornea\logs` (`appdata.logs_dir()`), which does not depend on where the program was started. If the file cannot be opened it logs to stderr only. Files rotate at 1 MB and keep three backups. The first lines of a debug log are `environment_details()` (the versions, the WebView2 runtime and the log folder) and the window, server, security and app settings; none of them holds a secret.
+
+What is logged, all at `debug`: start-up and shutdown steps with their timings, requests the security layer refused (method, path and reason), proxy failures, native action names and outcomes, and the dev-server command's output lines. Query strings, cookies, action arguments and results are never logged, and a formatter hides anything that looks like `cornea_token=...` as a last line of defence, tracebacks included. The default is quiet because most messages are only useful when something is wrong.
+
+## The settings file
+
+`cli/config.py` finds `cornea.toml` (or `[tool.cornea]`) from the current folder upward and turns it into Click's `default_map` for `open` and `serve`. Because it is a default map, a flag always wins and no merging code is needed. The one special case is the source: if the command line names a source, `_source_arguments()` clears the source values that came from the file, so a `run` from the file cannot combine with a folder from the command line. Unknown tables and keys are errors, so a typo is never silently ignored. The Python API does not read the file.
 
 ## Testing
 

@@ -7,6 +7,7 @@ server running. With the job, stopping (or Cornea crashing) ends the whole tree.
 
 import collections
 import contextlib
+import logging
 import socket
 import subprocess
 import sys
@@ -17,6 +18,8 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from cornea.core.sources import Process
+
+logger = logging.getLogger(__name__)
 
 POLL_INTERVAL = 0.1
 OUTPUT_LINES = 40
@@ -138,12 +141,16 @@ class ProcessRunner:
         except BaseException:
             self.stop()
             raise
+        logger.debug(
+            "%s is answering on %s:%s", _describe(self.source.command), self.host, self.port
+        )
 
     def stop(self) -> None:
         """Stop the command and everything it started. Safe to call more than once."""
         process, job = self._process, self._job
         if process is None:
             return
+        logger.debug("Stopping %s", _describe(self.source.command))
         if job is not None:
             job.kill()
         if process.poll() is None:
@@ -179,6 +186,7 @@ class ProcessRunner:
             )
         except OSError as exc:
             raise RuntimeError(f"could not start {_describe(source.command)}: {exc}") from exc
+        logger.debug("Started %s (pid %s)", _describe(source.command), self._process.pid)
         if sys.platform == "win32":
             self._job = _Job()
             self._job.add(self._process)
@@ -193,6 +201,7 @@ class ProcessRunner:
         try:
             for line in process.stdout:
                 self._output.append(line.rstrip())
+                logger.debug("command: %s", line.rstrip())
         except (OSError, ValueError):
             pass  # the pipe was closed while stopping
 

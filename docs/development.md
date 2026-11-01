@@ -38,7 +38,7 @@ Tests under `tests/integration/` are marked `integration` automatically by that 
 
 ## Start-up time
 
-`uv run python scripts/measure_startup.py [runs]` measures how long a headless start and a real-window start take, in fresh processes, and prints the minimum, median and maximum of each step. The window case needs WebView2. See [startup time](architecture.md#startup-time) for the target.
+`cornea open <folder> --measure` (or `Shell(measure=True)`) shows how long start-up took. Add `--json-file timings.json` to keep the numbers, and run it a few times to compare. The window case needs WebView2. See [startup time](architecture.md#startup-time) for the target.
 
 ## The stand-in dev server
 

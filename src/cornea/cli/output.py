@@ -31,6 +31,18 @@ def configure(*, no_color: bool, verbose: bool) -> None:
         err_console.no_color = True
 
 
+def details(title: str, rows: list[tuple[str, str]]) -> None:
+    """Show what a command is about to do, as a few aligned lines on stderr.
+
+    Values are never wrapped or cut, so a long path or address stays whole and can be copied.
+    """
+    err_console.print(Text(title, style="bold"), soft_wrap=True)
+    width = max(len(label) for label, _ in rows)
+    for label, value in rows:
+        line = Text.assemble((f"  {label:<{width}}  ", "dim"), value)
+        err_console.print(line, soft_wrap=True)
+
+
 def error(message: str) -> None:
     """Print an error message to stderr."""
     # No wrapping: a message with a long path must stay on one line, whatever the terminal width.

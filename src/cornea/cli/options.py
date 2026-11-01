@@ -32,6 +32,15 @@ class SameSite(enum.StrEnum):
     lax = "lax"
 
 
+class LogLevelChoice(enum.StrEnum):
+    """The values ``--log-level`` accepts."""
+
+    debug = "debug"
+    info = "info"
+    warning = "warning"
+    error = "error"
+
+
 class UrlMode(enum.StrEnum):
     """The values ``--mode`` accepts."""
 
