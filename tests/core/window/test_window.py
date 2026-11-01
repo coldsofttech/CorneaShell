@@ -1,5 +1,6 @@
 import http.client
 import json
+import re
 import sys
 import threading
 import time
@@ -7,6 +8,7 @@ from collections.abc import Callable
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
+from urllib.parse import urlparse
 
 import pytest
 
@@ -91,7 +93,8 @@ def test_missing_webview2_says_where_to_get_it(
     with pytest.raises(RuntimeError, match="WebView2 runtime is not installed") as caught:
         require_webview2()
 
-    assert "developer.microsoft.com" in str(caught.value)
+    urls = re.findall(r"https?://\S+", str(caught.value))
+    assert [urlparse(url).hostname for url in urls] == ["developer.microsoft.com"]
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="reads the Windows registry")
