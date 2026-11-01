@@ -12,14 +12,14 @@ from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Literal, Protocol
 
-from cornea.core.appdata import data_dir
-from cornea.core.close_guard import CloseGuard
+from cornea.core.app.appdata import AppData
 from cornea.core.config import App, Window
-from cornea.core.window_memory import Remembered, WindowMemory, fit_to_screens
+from cornea.core.security.close_guard import CloseGuard
+from cornea.core.window.memory import Remembered, WindowMemory, fit_to_screens
 
 if TYPE_CHECKING:
-    from cornea.core.bridge import ActionRegistry
-    from cornea.core.notifications import Notifier
+    from cornea.core.bridge.bridge import ActionRegistry
+    from cornea.core.page.notifications import Notifier
 
 logger = logging.getLogger(__name__)
 
@@ -493,7 +493,7 @@ def create_native_window(
     if app is not None and app.id is not None:
         set_app_user_model_id(app.id)
         if app.remember_window:
-            memory = WindowMemory(data_dir(app.id) / "window.json")
+            memory = WindowMemory(AppData.data_dir(app.id) / "window.json")
             saved = memory.load()
             if saved is not None:
                 start = fit_to_screens(saved, screen_rectangles(webview), settings.min_size)
@@ -503,8 +503,8 @@ def create_native_window(
     api: Any = None
     if settings.js_api:
         # Imported here: both modules import this one.
-        from cornea.core.bridge import ActionRegistry
-        from cornea.core.window_api import WindowApi
+        from cornea.core.bridge.bridge import ActionRegistry
+        from cornea.core.window.api import WindowApi
 
         api = WindowApi(actions or ActionRegistry())
         extra["js_api"] = api

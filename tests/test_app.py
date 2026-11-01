@@ -8,8 +8,8 @@ from fastapi import APIRouter
 from starlette.applications import Starlette
 
 from asgi_client import AsgiClient
-from cornea import Asgi, Security, Static, Url, Wsgi
-from cornea.core.app import allow_host, create_app
+from cornea import Asgi, Security, Static, Url, Wsgi, create_app
+from cornea.core.app import AppFactory
 
 HOST = "127.0.0.1:8000"
 ORIGIN = "http://127.0.0.1:8000"
@@ -28,7 +28,7 @@ def wsgi_source(environ: Any, start_response: Any) -> list[bytes]:
 
 def build(*args: Any, **kwargs: Any) -> tuple[Starlette, AsgiClient]:
     app = create_app(*args, **kwargs)
-    allow_host(app, HOST)
+    AppFactory.allow_host(app, HOST)
     return app, AsgiClient(app)
 
 
@@ -89,13 +89,13 @@ def test_bound_address_must_be_added() -> None:
     app = create_app()
 
     assert AsgiClient(app).request("/health").status == 403
-    allow_host(app, "127.0.0.1:8000")
+    AppFactory.allow_host(app, "127.0.0.1:8000")
     assert AsgiClient(app).request("/health").status == 200
 
 
 def test_allow_host_ignores_case() -> None:
     app = create_app()
-    allow_host(app, "LocalHost:9")
+    AppFactory.allow_host(app, "LocalHost:9")
 
     assert AsgiClient(app).request("/health", host="localhost:9").status == 200
 

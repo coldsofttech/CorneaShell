@@ -14,7 +14,7 @@ import threading
 from collections.abc import Callable
 from typing import Any
 
-from cornea.core.appdata import data_dir
+from cornea.core.app.appdata import AppData
 
 ERROR_ALREADY_EXISTS = 183
 CONNECT_TIMEOUT = 2.0
@@ -64,7 +64,7 @@ class InstanceLock:
         listener.settimeout(0.2)
         self._listener = listener
         info = {"port": listener.getsockname()[1], "secret": self._secret}
-        (data_dir(self.app_id) / INFO_FILE).write_text(json.dumps(info), encoding="utf-8")
+        (AppData.data_dir(self.app_id) / INFO_FILE).write_text(json.dumps(info), encoding="utf-8")
         self._thread = threading.Thread(
             target=self._listen, args=(listener, on_activate), name="cornea-instance", daemon=True
         )
@@ -80,7 +80,7 @@ class InstanceLock:
             thread.join(2)
         if listener is not None:
             with contextlib.suppress(OSError):
-                (data_dir(self.app_id) / INFO_FILE).unlink()
+                (AppData.data_dir(self.app_id) / INFO_FILE).unlink()
         if handle is not None:
             import ctypes
             from ctypes import wintypes
@@ -114,7 +114,7 @@ class InstanceLock:
 def activate_existing(app_id: str) -> bool:
     """Ask the running copy of ``app_id`` to come to the front. ``True`` if it did."""
     try:
-        info: Any = json.loads((data_dir(app_id) / INFO_FILE).read_text(encoding="utf-8"))
+        info: Any = json.loads((AppData.data_dir(app_id) / INFO_FILE).read_text(encoding="utf-8"))
         with socket.create_connection(("127.0.0.1", int(info["port"])), CONNECT_TIMEOUT) as client:
             client.sendall(f"ACTIVATE {info['secret']}\n".encode())
             return client.makefile("r", encoding="utf-8").readline().strip() == "OK"

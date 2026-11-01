@@ -12,8 +12,8 @@ including one it navigates to, so only use it for pages you trust.
 import asyncio
 from typing import Any
 
-from cornea.core.bridge import ActionRegistry, invoke_action
-from cornea.core.window import WindowController
+from cornea.core.bridge.bridge import ActionRegistry
+from cornea.core.window.window import WindowController
 
 
 class WindowApi:
@@ -65,9 +65,7 @@ class WindowApi:
         The second parameter is not called ``arguments`` on purpose: pywebview builds the
         JavaScript function from these names, and that word would hide JavaScript's own.
         """
-        _, payload = asyncio.run(
-            invoke_action(self._actions, action, parameters or {}, self._controller)
-        )
+        _, payload = asyncio.run(self._actions.invoke(action, parameters or {}, self._controller))
         return payload
 
     def _window(self) -> WindowController:

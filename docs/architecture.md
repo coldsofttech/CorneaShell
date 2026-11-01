@@ -25,34 +25,35 @@ A direct `Url` source skips all of this: no server is started and the window ope
 ## Source layout
 
 ```text
-src/cornea/__init__.py       public API (everything in __all__)
-src/cornea/core/config.py    Server, Security, Bridge and Window settings (frozen dataclasses)
-src/cornea/core/sources.py   Static, Url, Asgi, Wsgi and the shorthand rules
-src/cornea/core/security.py  the ASGI middleware and the one-time-token session gate
-src/cornea/core/static.py    bundle serving: page fallback, caching, content types
-src/cornea/core/proxy.py     the reverse proxy for another server's pages (optional `proxy` extra)
-src/cornea/core/app.py       create_app(): puts the pieces above into one FastAPI app
-src/cornea/core/shell.py     Shell and run(): the server thread, the window, shutdown
-src/cornea/core/process.py   starts a dev-server command and stops it with everything it started
-src/cornea/core/appdata.py   the per-app data folder
-src/cornea/core/window_memory.py   remembered window size and position
-src/cornea/core/single_instance.py one copy at a time, and waking the first copy
-src/cornea/core/window_api.py      the opt-in js_api object
-src/cornea/core/logs.py      configure_logging(): stderr and file handlers, token redaction
-src/cornea/core/close_guard.py     holds the window open while the app is busy
-src/cornea/core/page_routes.py     /api/client.js and /api/csp-report
-src/cornea/core/client.js          the script served as /api/client.js
-src/cornea/cli/doctor.py           the checks behind `cornea doctor`
-src/cornea/core/notifications.py   Windows toast notifications through the winrt bindings
-src/cornea/core/window.py    pywebview window, window controller, environment checks
-src/cornea/core/window_routes.py   /api/window routes
-src/cornea/core/bridge.py    native actions and the action registry
-src/cornea/core/bridge_routes.py   /api/bridge route
-src/cornea/cli/              the cornea command: a thin wrapper over run()
-src/cornea/cli/config.py     cornea.toml and [tool.cornea]: defaults for the command
-src/cornea/core/environment.py   versions and places, for the top of the debug log
-tests/                       unit tests; tests/integration/ runs real processes and a real window
-examples/                    runnable example projects
+src/cornea/__init__.py                    public API (everything in __all__)
+src/cornea/core/config.py                 Server, Security, Bridge and Window settings (frozen dataclasses)
+src/cornea/core/shell.py                  Shell and run(): the server thread, the window, shutdown
+src/cornea/core/logs.py                   Logs: stderr and file handlers, token redaction
+src/cornea/core/environment.py            Environment: versions and places, for the top of the debug log
+src/cornea/core/asgi.py                   the ASGI types the middleware and sources share
+src/cornea/core/client.js                 the script served as /api/client.js
+src/cornea/core/app/app.py                AppFactory: puts the pieces below into one FastAPI app
+src/cornea/core/app/appdata.py            AppData: the per-app data folder
+src/cornea/core/window/window.py          pywebview window, window controller, environment checks
+src/cornea/core/window/memory.py          remembered window size and position
+src/cornea/core/window/api.py             the opt-in js_api object
+src/cornea/core/window/routes.py          /api/window routes
+src/cornea/core/bridge/bridge.py          BuiltinActions and the ActionRegistry
+src/cornea/core/bridge/routes.py          /api/bridge route
+src/cornea/core/sources/sources.py        Static, Url, Asgi, Wsgi and the shorthand rules
+src/cornea/core/sources/static.py         bundle serving: page fallback, caching, content types
+src/cornea/core/sources/proxy.py          the reverse proxy for another server's pages (optional `proxy` extra)
+src/cornea/core/sources/process.py        starts a dev-server command and stops it with everything it started
+src/cornea/core/security/security.py      the ASGI middleware and the one-time-token session gate
+src/cornea/core/security/close_guard.py   holds the window open while the app is busy
+src/cornea/core/security/single_instance.py  one copy at a time, and waking the first copy
+src/cornea/core/page/routes.py            /api/client.js and /api/csp-report
+src/cornea/core/page/notifications.py     Notifier: Windows toast notifications through the winrt bindings
+src/cornea/cli/                           the cornea command: a thin wrapper over run()
+src/cornea/cli/config.py                  cornea.toml and [tool.cornea]: defaults for the command
+src/cornea/cli/doctor.py                  the checks behind `cornea doctor`
+tests/                                    unit tests; tests/integration/ runs real processes and a real window
+examples/                                 runnable example projects
 ```
 
 The command line never does anything the Python API cannot. Each setting has exactly one flag, and a test fails when a setting is added without one.
@@ -201,7 +202,7 @@ Windows calls back on a thread of its own when a toast is clicked, dismissed or 
 
 Every module logs to a child of the `cornea` logger, and Cornea never configures logging itself, so a program that sets up logging sees these messages like any library's. `configure_logging(level, file=...)` is the quick way: it adds a stderr handler at `level` and, with a file, a file handler that always records `debug`. The `cornea` command calls it for `--log-level`, `--log-file` and `--debug`.
 
-Debug mode (`Window(debug=True)`, which `Shell.run()` checks, or `--debug`) calls `enable_debug_logging()`. It does nothing if the `cornea` logger or the root logger already has a handler, because the program chose where logs go. Otherwise it logs at `debug` to stderr and to `cornea.log` in `%LOCALAPPDATA%\Cornea\logs` (`appdata.logs_dir()`), which does not depend on where the program was started. If the file cannot be opened it logs to stderr only. Files rotate at 1 MB and keep three backups. The first lines of a debug log are `environment_details()` (the versions, the WebView2 runtime and the log folder) and the window, server, security and app settings; none of them holds a secret.
+Debug mode (`Window(debug=True)`, which `Shell.run()` checks, or `--debug`) calls `Logs.enable_debug()`. It does nothing if the `cornea` logger or the root logger already has a handler, because the program chose where logs go. Otherwise it logs at `debug` to stderr and to `cornea.log` in `%LOCALAPPDATA%\Cornea\logs` (`appdata.logs_dir()`), which does not depend on where the program was started. If the file cannot be opened it logs to stderr only. Files rotate at 1 MB and keep three backups. The first lines of a debug log are `environment_details()` (the versions, the WebView2 runtime and the log folder) and the window, server, security and app settings; none of them holds a secret.
 
 What is logged, all at `debug`: start-up and shutdown steps with their timings, requests the security layer refused (method, path and reason), proxy failures, native action names and outcomes, and the dev-server command's output lines. Query strings, cookies, action arguments and results are never logged, and a formatter hides anything that looks like `cornea_token=...` as a last line of defence, tracebacks included. The default is quiet because most messages are only useful when something is wrong.
 

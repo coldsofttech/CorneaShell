@@ -12,7 +12,7 @@ from typer.testing import CliRunner
 
 from cornea import Security, Shell, Static, Window
 from cornea.cli import app, doctor
-from cornea.core.window import show_window
+from cornea.core.window.window import show_window
 from test_window import FakeWebview
 
 runner = CliRunner()
@@ -79,7 +79,7 @@ def test_the_client_uses_a_custom_prefix(tmp_path: Path) -> None:
 
 
 def test_the_client_has_no_inline_code_to_block() -> None:
-    from cornea.core.page_routes import _client_source
+    from cornea.core.page.routes import _client_source
 
     source = _client_source()
     for name in (

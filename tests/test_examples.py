@@ -10,9 +10,11 @@ from typer.testing import CliRunner
 
 from cornea.cli import app
 from cornea.cli.commands import EXAMPLES
-from cornea.core import app as app_module
-from cornea.core import bridge, config, shell, sources
-from cornea.core import window as window_module
+from cornea.core import config, shell
+from cornea.core.app import app as app_module
+from cornea.core.bridge import bridge
+from cornea.core.sources import sources
+from cornea.core.window import window as window_module
 
 runner = CliRunner()
 

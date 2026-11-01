@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Literal
 
 from cornea.cli import config
-from cornea.core.appdata import logs_dir
+from cornea.core.app.appdata import AppData
 
 Status = Literal["ok", "warn", "fail"]
 
@@ -55,7 +55,7 @@ def _platform() -> Check:
 
 
 def _webview2() -> Check:
-    from cornea.core.window import WEBVIEW2_DOWNLOAD, _registry_version
+    from cornea.core.window.window import WEBVIEW2_DOWNLOAD, _registry_version
 
     version = _registry_version()
     if version is None:
@@ -112,7 +112,7 @@ def _port(port: int) -> Check:
 
 
 def _log_folder() -> Check:
-    folder = logs_dir()
+    folder = AppData.logs_dir()
     try:
         folder.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryFile(dir=folder):

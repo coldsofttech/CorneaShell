@@ -11,16 +11,16 @@ import pytest
 
 from cornea import App, Shell, Static, Window
 from cornea.core import shell as shell_module
-from cornea.core import window as window_module
-from cornea.core.appdata import data_dir
-from cornea.core.single_instance import (
+from cornea.core.app import AppData
+from cornea.core.security.single_instance import (
     INFO_FILE,
     AlreadyRunning,
     InstanceLock,
     activate_existing,
 )
-from cornea.core.window import NativeWindow, create_native_window
-from cornea.core.window_memory import MIN_VISIBLE, Remembered, WindowMemory, fit_to_screens
+from cornea.core.window import window as window_module
+from cornea.core.window.memory import MIN_VISIBLE, Remembered, WindowMemory, fit_to_screens
+from cornea.core.window.window import NativeWindow, create_native_window
 from test_window import FakeEvent, FakeWebview, FakeWindow
 
 SCREEN = (0, 0, 1920, 1080)
@@ -71,7 +71,7 @@ def test_an_id_alone_only_names_the_app() -> None:
 
 
 def test_data_lives_under_the_local_app_data_folder(local_data: Path) -> None:
-    folder = data_dir("notes")
+    folder = AppData.data_dir("notes")
 
     assert folder == local_data / "Cornea" / "notes"
     assert folder.is_dir()
@@ -288,7 +288,7 @@ def create(
 
 
 def write_memory(app_id: str, place: dict[str, Any]) -> Path:
-    path = data_dir(app_id) / "window.json"
+    path = AppData.data_dir(app_id) / "window.json"
     path.write_text(json.dumps(place), encoding="utf-8")
     return path
 
@@ -344,7 +344,7 @@ def test_closing_saves_the_place(webview: FakeWebview) -> None:
 
     window.events.closing.fire()
 
-    saved = json.loads((data_dir("notes") / "window.json").read_text(encoding="utf-8"))
+    saved = json.loads((AppData.data_dir("notes") / "window.json").read_text(encoding="utf-8"))
     assert saved == {"width": 1000, "height": 650, "x": 60, "y": 70, "maximized": False}
 
 
@@ -357,7 +357,7 @@ def test_closing_a_maximized_window_saves_the_normal_place(webview: FakeWebview)
 
     window.events.closing.fire()
 
-    saved = json.loads((data_dir("notes") / "window.json").read_text(encoding="utf-8"))
+    saved = json.loads((AppData.data_dir("notes") / "window.json").read_text(encoding="utf-8"))
     assert saved == {"width": 1000, "height": 650, "x": 60, "y": 70, "maximized": True}
 
 
@@ -366,7 +366,7 @@ def test_a_window_is_not_saved_unless_asked(webview: FakeWebview) -> None:
 
     window.events.closing.fire()
 
-    assert not (data_dir("notes") / "window.json").exists()
+    assert not (AppData.data_dir("notes") / "window.json").exists()
     # Only the close guard listens, and it lets the window close.
     assert len(window.events.closing.handlers) == 1
 
@@ -481,9 +481,9 @@ def test_waking_needs_the_secret() -> None:
     woken: list[int] = []
     first.serve(lambda: woken.append(1))
     try:
-        info = json.loads((data_dir(app_id) / INFO_FILE).read_text(encoding="utf-8"))
+        info = json.loads((AppData.data_dir(app_id) / INFO_FILE).read_text(encoding="utf-8"))
         info["secret"] = "guessed"  # noqa: S105
-        (data_dir(app_id) / INFO_FILE).write_text(json.dumps(info), encoding="utf-8")
+        (AppData.data_dir(app_id) / INFO_FILE).write_text(json.dumps(info), encoding="utf-8")
 
         assert activate_existing(app_id) is False
     finally:
@@ -519,7 +519,7 @@ def test_nobody_to_wake_means_false() -> None:
 def test_a_leftover_file_from_a_crashed_copy_is_not_trusted() -> None:
     app_id = unique_id()
     info = {"port": 9, "secret": "x"}  # nothing listens on port 9
-    (data_dir(app_id) / INFO_FILE).write_text(json.dumps(info), encoding="utf-8")
+    (AppData.data_dir(app_id) / INFO_FILE).write_text(json.dumps(info), encoding="utf-8")
 
     assert activate_existing(app_id) is False
 
@@ -527,7 +527,7 @@ def test_a_leftover_file_from_a_crashed_copy_is_not_trusted() -> None:
 @pytest.mark.parametrize("content", ["not json", "{}", '{"port": "x", "secret": "y"}'])
 def test_a_damaged_info_file_means_false(content: str) -> None:
     app_id = unique_id()
-    (data_dir(app_id) / INFO_FILE).write_text(content, encoding="utf-8")
+    (AppData.data_dir(app_id) / INFO_FILE).write_text(content, encoding="utf-8")
 
     assert activate_existing(app_id) is False
 
@@ -537,11 +537,11 @@ def test_releasing_removes_the_info_file() -> None:
     lock = InstanceLock(app_id)
     lock.acquire()
     lock.serve(lambda: None)
-    assert (data_dir(app_id) / INFO_FILE).exists()
+    assert (AppData.data_dir(app_id) / INFO_FILE).exists()
 
     lock.release()
 
-    assert not (data_dir(app_id) / INFO_FILE).exists()
+    assert not (AppData.data_dir(app_id) / INFO_FILE).exists()
 
 
 def test_the_message_says_what_happened() -> None:

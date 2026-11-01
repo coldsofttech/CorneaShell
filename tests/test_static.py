@@ -8,8 +8,8 @@ from starlette.routing import Mount
 
 from asgi_client import AsgiClient
 from cornea import Static, create_app
-from cornea.core.app import allow_host
-from cornea.core.static import HASHED_CACHE, REVALIDATE, BundleFiles
+from cornea.core.app import AppFactory
+from cornea.core.sources.static import HASHED_CACHE, REVALIDATE, BundleFiles
 
 
 def files_client(directory: str, **options: Any) -> AsgiClient:
@@ -240,7 +240,7 @@ def sign_in(client: AsgiClient, token: str) -> str:
 
 def test_app_serves_the_bundle_behind_the_session(bundle: Path) -> None:
     app = create_app(Static(bundle))
-    allow_host(app, "127.0.0.1:8000")
+    AppFactory.allow_host(app, "127.0.0.1:8000")
     client = AsgiClient(app)
     assert client.request("/dashboard").status == 401
 
@@ -255,7 +255,7 @@ def test_app_serves_the_bundle_behind_the_session(bundle: Path) -> None:
 
 def test_app_respects_the_spa_setting(bundle: Path) -> None:
     app = create_app(Static(bundle, spa=False))
-    allow_host(app, "127.0.0.1:8000")
+    AppFactory.allow_host(app, "127.0.0.1:8000")
     client = AsgiClient(app)
     cookie = sign_in(client, app.state.bootstrap_token)
 

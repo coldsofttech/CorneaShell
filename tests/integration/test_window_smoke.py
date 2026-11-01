@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from cornea.core import window as window_module
+from cornea.core.window import window as window_module
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "win32"

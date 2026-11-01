@@ -16,17 +16,17 @@ from typing import Any, Self
 import uvicorn
 from fastapi import APIRouter, FastAPI
 
-from cornea.core.app import allow_host, create_app
-from cornea.core.bridge import ActionRegistry
-from cornea.core.close_guard import CloseGuard
+from cornea.core.app.app import AppFactory
+from cornea.core.bridge.bridge import ActionRegistry
 from cornea.core.config import App, Bridge, Security, Server, Window
-from cornea.core.environment import environment_details
-from cornea.core.logs import enable_debug_logging
-from cornea.core.notifications import Notifier, check_notification
-from cornea.core.process import ProcessRunner
-from cornea.core.single_instance import AlreadyRunning, InstanceLock, activate_existing
-from cornea.core.sources import Process, Url, WebSource, coerce_source
-from cornea.core.window import (
+from cornea.core.environment import Environment
+from cornea.core.logs import Logs
+from cornea.core.page.notifications import Notifier
+from cornea.core.security.close_guard import CloseGuard
+from cornea.core.security.single_instance import AlreadyRunning, InstanceLock, activate_existing
+from cornea.core.sources.process import ProcessRunner
+from cornea.core.sources.sources import Process, Url, WebSource, coerce_source
+from cornea.core.window.window import (
     SimulatedWindow,
     Unavailable,
     check_event_name,
@@ -155,7 +155,7 @@ class Shell:
             self._direct_url = web_source.url
         if self._direct_url is not None:
             self._check_direct_window(window)
-        self.app: FastAPI = create_app(
+        self.app: FastAPI = AppFactory.create(
             web_source, routers=routers, security=self.security, bridge=bridge
         )
         self._guard: CloseGuard = self.app.state.close_guard
@@ -184,7 +184,7 @@ class Shell:
 
     def _log_environment(self) -> None:
         """Write the versions and settings to the top of a debug log. No secrets are in them."""
-        for name, value in environment_details().items():
+        for name, value in Environment.details().items():
             logger.debug("%s: %s", name, value)
         logger.debug("Window: %r", self.window)
         logger.debug("Server: %r", self.server)
@@ -254,7 +254,7 @@ class Shell:
             ValueError: If the title, message or id is not allowed.
             RuntimeError: If there is no window, or the ``notifications`` extra is missing.
         """
-        check_notification(title, message, notification_id)
+        Notifier.check(title, message, notification_id)
         try:
             self.app.state.window.show_notification(title, message, notification_id)
         except Unavailable as exc:
@@ -310,7 +310,7 @@ class Shell:
         family = socket.AF_INET6 if ":" in self.server.host else socket.AF_INET
         listener = socket.create_server((self.server.host, self.server.port), family=family)
         self._socket = listener
-        allow_host(self.app, _host_header(self.server.host, self.port))
+        AppFactory.allow_host(self.app, _host_header(self.server.host, self.port))
         logger.debug("Serving on %s", self.base_url)
         # No access log: it would print the one-time token from the first URL.
         config = uvicorn.Config(self.app, log_level="warning", access_log=False)
@@ -348,7 +348,7 @@ class Shell:
         """
         self._started_at = time.perf_counter()
         if self.window is not None and self.window.debug:
-            enable_debug_logging()
+            Logs.enable_debug()
         logger.debug(
             "Starting: %s, %s",
             "direct address" if self._direct_url is not None else "local server",

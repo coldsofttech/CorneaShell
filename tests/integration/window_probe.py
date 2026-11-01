@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from cornea import Shell, Static, Window
-from cornea.core.window import _invoke
+from cornea.core.window.window import _invoke
 
 report: dict[str, Any] = {}
 

@@ -12,10 +12,9 @@ from typer.testing import CliRunner
 
 from cornea import Shell, Static, Window, configure_logging
 from cornea.cli import app
-from cornea.core import logs as logs_module
 from cornea.core import shell as shell_module
-from cornea.core import window as window_module
-from cornea.core.logs import default_log_file, enable_debug_logging
+from cornea.core.logs import Logs
+from cornea.core.window import window as window_module
 
 runner = CliRunner()
 TOKEN = "s3cret-token-value"  # noqa: S105
@@ -201,17 +200,17 @@ def _ignoring_pytest(logger: logging.Logger | None) -> bool:
 def nothing_configured(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Path:
     """No program-chosen handler on the cornea or the root logger, and a fresh folder."""
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(logs_module, "_has_handlers", _ignoring_pytest)
+    monkeypatch.setattr(Logs, "_has_handlers", _ignoring_pytest)
     return tmp_path
 
 
 def test_debug_mode_logs_to_the_local_app_data_folder(nothing_configured: Path) -> None:
-    written = enable_debug_logging()
+    written = Logs.enable_debug()
 
     logging.getLogger("cornea.test").debug("a detail")
 
     assert written == nothing_configured / "appdata" / "Cornea" / "logs" / "cornea.log"
-    assert default_log_file() == written
+    assert Logs.default_log_file() == written
     text = written.read_text(encoding="utf-8")
     assert "a detail" in text
     assert "Debug mode: writing the log to" in text
@@ -220,7 +219,7 @@ def test_debug_mode_logs_to_the_local_app_data_folder(nothing_configured: Path) 
 def test_debug_mode_leaves_existing_logging_alone(nothing_configured: Path) -> None:
     configure_logging("error")
 
-    assert enable_debug_logging() is None
+    assert Logs.enable_debug() is None
     assert not (nothing_configured / "appdata").exists()
 
 
@@ -228,7 +227,7 @@ def test_debug_mode_respects_the_programs_own_logging(nothing_configured: Path) 
     root = logging.getLogger()
     root.addHandler(logging.NullHandler())
     try:
-        assert enable_debug_logging() is None
+        assert Logs.enable_debug() is None
     finally:
         root.handlers = [h for h in root.handlers if not isinstance(h, logging.NullHandler)]
     assert not (nothing_configured / "appdata").exists()
@@ -287,7 +286,7 @@ def test_debug_mode_logs_to_the_screen_when_the_file_cannot_be_written(
     blocker = nothing_configured / "appdata"
     blocker.write_text("not a folder", encoding="utf-8")  # LOCALAPPDATA\Cornea cannot be made
 
-    assert enable_debug_logging() is None
+    assert Logs.enable_debug() is None
     logging.getLogger("cornea.test").debug("still logged")
 
     err = capsys.readouterr().err

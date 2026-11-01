@@ -13,8 +13,8 @@ from collections.abc import AsyncIterator, Iterable
 from typing import Any
 from urllib.parse import urlsplit
 
-from cornea.core.security import SESSION_COOKIE
-from cornea.core.sources import Receive, Scope, Send
+from cornea.core.asgi import Receive, Scope, Send
+from cornea.core.security.security import SESSION_COOKIE
 
 logger = logging.getLogger(__name__)
 

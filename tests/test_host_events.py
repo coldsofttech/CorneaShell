@@ -11,11 +11,10 @@ from typing import Any
 import pytest
 
 from cornea import Bridge, Shell, Static, Window
-from cornea.core import bridge as bridge_module
-from cornea.core import window as window_module
-from cornea.core.bridge import ActionRegistry, BadArguments, invoke_action
-from cornea.core.close_guard import CloseGuard
-from cornea.core.window import NativeWindow, Unavailable, create_native_window
+from cornea.core.bridge import ActionRegistry, BadArguments, BuiltinActions
+from cornea.core.security.close_guard import CloseGuard
+from cornea.core.window import window as window_module
+from cornea.core.window.window import NativeWindow, Unavailable, create_native_window
 from test_window import FakeWebview, FakeWindow
 
 
@@ -277,14 +276,16 @@ def test_nothing_is_listened_for_by_default(
 @pytest.fixture
 def launched(monkeypatch: pytest.MonkeyPatch) -> list[Any]:
     calls: list[Any] = []
-    monkeypatch.setattr(bridge_module, "_windows", lambda: True)
-    monkeypatch.setattr("cornea.core.bridge.os.startfile", calls.append, raising=False)
-    monkeypatch.setattr("cornea.core.bridge.subprocess.Popen", lambda args: calls.append(args))
+    monkeypatch.setattr(BuiltinActions, "_windows", lambda: True)
+    monkeypatch.setattr("cornea.core.bridge.bridge.os.startfile", calls.append, raising=False)
+    monkeypatch.setattr(
+        "cornea.core.bridge.bridge.subprocess.Popen", lambda args: calls.append(args)
+    )
     return calls
 
 
 async def call(name: str, arguments: dict[str, Any], registry: ActionRegistry) -> tuple[int, Any]:
-    return await invoke_action(registry, name, arguments, None)
+    return await registry.invoke(name, arguments, None)
 
 
 def run(function: Callable[..., Any], *args: Any) -> Any:
@@ -368,14 +369,14 @@ def test_reveal_can_show_a_program(launched: list[Any], tmp_path: Path) -> None:
 def test_other_systems_say_it_is_unavailable(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(bridge_module, "_windows", lambda: False)
+    monkeypatch.setattr(BuiltinActions, "_windows", lambda: False)
     document = tmp_path / "a.txt"
     document.write_text("x", encoding="utf-8")
 
     with pytest.raises(Unavailable):
-        bridge_module.open_file(None, str(document))
+        BuiltinActions.open_file(None, str(document))
 
 
 def test_a_bad_path_is_bad_arguments() -> None:
     with pytest.raises(BadArguments):
-        bridge_module.open_file(None, 5)  # type: ignore[arg-type]
+        BuiltinActions.open_file(None, 5)  # type: ignore[arg-type]

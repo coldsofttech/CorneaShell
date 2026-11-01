@@ -9,8 +9,8 @@ import pytest
 
 from cornea import Process, Server, Shell, Url, create_app
 from cornea.core import shell as shell_module
-from cornea.core import window as window_module
-from cornea.core.process import OUTPUT_LINES, ProcessRunner
+from cornea.core.sources.process import OUTPUT_LINES, ProcessRunner
+from cornea.core.window import window as window_module
 
 DEVSERVER = Path(__file__).with_name("devserver.py")
 

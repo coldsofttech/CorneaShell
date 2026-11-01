@@ -27,7 +27,7 @@ from cornea import (
     Wsgi,
 )
 from cornea.cli import app, options
-from cornea.core import window as window_module
+from cornea.core.window import window as window_module
 
 runner = CliRunner()
 ANSI = re.compile(r"\x1b\[[0-9;]*m")

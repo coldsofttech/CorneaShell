@@ -26,14 +26,13 @@ from cornea import (
     Window,
     Wsgi,
     __version__,
-    configure_logging,
     ready_line,
 )
 from cornea import run as run_shell
 from cornea.cli import config, options, output
 from cornea.cli.doctor import run_checks
-from cornea.core.logs import start_debug_logging
-from cornea.core.single_instance import AlreadyRunning
+from cornea.core.logs import Logs
+from cornea.core.security.single_instance import AlreadyRunning
 
 EXAMPLES: dict[str, tuple[str, ...]] = {
     "": ("cornea --version", "cornea --quiet doctor", "cornea --no-color doctor"),
@@ -579,9 +578,9 @@ def _launch(
         level, file, use_default = logging_options
         try:
             if use_default:
-                file = start_debug_logging()  # falls back to the screen if it cannot write
+                file = Logs.start_debug()  # falls back to the screen if it cannot write
             else:
-                configure_logging(level, file=file)
+                Logs.configure(level, file=file)
         except OSError as exc:
             output.error(f"could not open the log file: {exc}")
             raise typer.Exit(code=1) from exc

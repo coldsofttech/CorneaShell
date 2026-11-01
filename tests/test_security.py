@@ -6,7 +6,7 @@ import pytest
 
 from asgi_client import AsgiClient
 from cornea import Security
-from cornea.core.security import (
+from cornea.core.security.security import (
     BOOTSTRAP_PARAM,
     SESSION_COOKIE,
     SecurityMiddleware,

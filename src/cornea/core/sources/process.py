@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from cornea.core.sources import Process
+from cornea.core.sources.sources import Process
 
 logger = logging.getLogger(__name__)
 

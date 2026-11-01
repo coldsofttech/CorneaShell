@@ -12,9 +12,9 @@ import pytest
 
 from asgi_client import AsgiClient
 from cornea import Shell, Static, Url, Window, create_app
-from cornea.core import window as window_module
-from cornea.core.app import allow_host
-from cornea.core.window import (
+from cornea.core.app import AppFactory
+from cornea.core.window import window as window_module
+from cornea.core.window.window import (
     NativeWindow,
     WindowController,
     apply_webview_settings,
@@ -422,7 +422,7 @@ def test_the_page_can_control_the_window_over_http(webview: FakeWebview, bundle:
 
 def test_window_routes_without_a_window_answer_409() -> None:
     app = create_app()
-    allow_host(app, "127.0.0.1:8000")
+    AppFactory.allow_host(app, "127.0.0.1:8000")
     client = AsgiClient(app)
     cookie = (
         client.request("/", query=f"cornea_token={app.state.bootstrap_token}").header("set-cookie")

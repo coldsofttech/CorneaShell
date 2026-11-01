@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 from cornea import Process
-from cornea.core.process import ProcessRunner
+from cornea.core.sources.process import ProcessRunner
 
 DEVSERVER = Path(__file__).resolve().parent.parent / "devserver.py"
 

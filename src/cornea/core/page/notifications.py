@@ -16,10 +16,10 @@ import sys
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 from xml.sax.saxutils import escape
 
-from cornea.core.window import Unavailable
+from cornea.core.window.window import Unavailable
 
 logger = logging.getLogger(__name__)
 
@@ -31,46 +31,14 @@ DEFAULT_APP_ID = "Cornea.Shell"
 INSTALL_HINT = 'Notifications need the extra: pip install "cornea-shell[notifications]"'
 
 _REGISTRY_ROOT = r"Software\Classes\AppUserModelId"
-_alive: set[Any] = set()
-"""Toasts that are still on screen. Windows calls back into them, so they must not be freed."""
-_alive_lock = threading.Lock()
-
-
-def check_notification(title: object, message: object, notification_id: object = None) -> None:
-    """Refuse anything that is not a short plain-text title and message.
-
-    Raises:
-        ValueError: With what is wrong.
-    """
-    if not isinstance(title, str) or not title.strip():
-        raise ValueError("title must be a non-empty string")
-    if len(title) > MAX_TITLE:
-        raise ValueError(f"title can have at most {MAX_TITLE} characters")
-    if not isinstance(message, str) or not message.strip():
-        raise ValueError("message must be a non-empty string")
-    if len(message) > MAX_MESSAGE:
-        raise ValueError(f"message can have at most {MAX_MESSAGE} characters")
-    if notification_id is not None and (
-        not isinstance(notification_id, str)
-        or len(notification_id) > MAX_ID
-        or not NOTIFICATION_ID.match(notification_id)
-    ):
-        raise ValueError(
-            f"notification_id must be up to {MAX_ID} letters, digits and . _ : - characters"
-        )
-
-
-def toast_xml(title: str, message: str) -> str:
-    """The toast as XML. The text is escaped, so it can never add markup."""
-    return (
-        '<toast><visual><binding template="ToastGeneric">'
-        f"<text>{escape(title)}</text><text>{escape(message)}</text>"
-        "</binding></visual></toast>"
-    )
 
 
 class Notifier:
     """Shows toasts for one app identity."""
+
+    _alive: ClassVar[set[Any]] = set()
+    """Toasts that are still on screen. Windows calls back into them, so they must not be freed."""
+    _alive_lock = threading.Lock()
 
     def __init__(self, app_id: str | None, name: str, icon: Path | str | None = None) -> None:
         self.app_id = app_id or DEFAULT_APP_ID
@@ -78,9 +46,42 @@ class Notifier:
         self.icon = Path(icon).resolve() if icon is not None else None
         self._registered = False
 
+    @staticmethod
+    def check(title: object, message: object, notification_id: object = None) -> None:
+        """Refuse anything that is not a short plain-text title and message.
+
+        Raises:
+            ValueError: With what is wrong.
+        """
+        if not isinstance(title, str) or not title.strip():
+            raise ValueError("title must be a non-empty string")
+        if len(title) > MAX_TITLE:
+            raise ValueError(f"title can have at most {MAX_TITLE} characters")
+        if not isinstance(message, str) or not message.strip():
+            raise ValueError("message must be a non-empty string")
+        if len(message) > MAX_MESSAGE:
+            raise ValueError(f"message can have at most {MAX_MESSAGE} characters")
+        if notification_id is not None and (
+            not isinstance(notification_id, str)
+            or len(notification_id) > MAX_ID
+            or not NOTIFICATION_ID.match(notification_id)
+        ):
+            raise ValueError(
+                f"notification_id must be up to {MAX_ID} letters, digits and . _ : - characters"
+            )
+
+    @staticmethod
+    def toast_xml(title: str, message: str) -> str:
+        """The toast as XML. The text is escaped, so it can never add markup."""
+        return (
+            '<toast><visual><binding template="ToastGeneric">'
+            f"<text>{escape(title)}</text><text>{escape(message)}</text>"
+            "</binding></visual></toast>"
+        )
+
     def show(self, title: str, message: str, on_click: Callable[[], None] | None = None) -> None:
         """Show a toast. ``on_click`` runs, on another thread, if the person clicks it."""
-        check_notification(title, message)
+        self.check(title, message)
         if sys.platform != "win32":
             raise Unavailable("Notifications only work on Windows for now.")
         try:
@@ -90,14 +91,14 @@ class Notifier:
             raise Unavailable(INSTALL_HINT) from exc
         self._register()
         document = XmlDocument()
-        document.load_xml(toast_xml(title, message))
+        document.load_xml(self.toast_xml(title, message))
         toast = ToastNotification(document)
-        with _alive_lock:
-            _alive.add(toast)
+        with Notifier._alive_lock:
+            Notifier._alive.add(toast)
 
         def forget(*_: Any) -> None:
-            with _alive_lock:
-                _alive.discard(toast)
+            with Notifier._alive_lock:
+                Notifier._alive.discard(toast)
 
         def activated(*_: Any) -> None:
             forget()

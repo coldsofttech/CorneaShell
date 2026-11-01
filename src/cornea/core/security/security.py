@@ -14,9 +14,9 @@ from collections.abc import Callable, Iterable
 from http.cookies import CookieError, SimpleCookie
 from urllib.parse import parse_qsl, quote, urlencode
 
+from cornea.core.asgi import AsgiApp, Message, Receive, Scope, Send
 from cornea.core.config import Security
-from cornea.core.page_routes import REPORT_PATH
-from cornea.core.sources import AsgiApp, Message, Receive, Scope, Send
+from cornea.core.page.routes import REPORT_PATH
 
 logger = logging.getLogger(__name__)
 

@@ -10,8 +10,8 @@ import pytest
 
 from cornea import Shell, Static, Url, Window, ready_line, run
 from cornea.core import shell as shell_module
-from cornea.core import window as window_module
-from cornea.core.window import SimulatedWindow
+from cornea.core.window import window as window_module
+from cornea.core.window.window import SimulatedWindow
 
 
 @pytest.fixture

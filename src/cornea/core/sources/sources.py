@@ -5,17 +5,14 @@ import importlib.resources
 import os
 import re
 import sys
-from collections.abc import Awaitable, Callable, Iterable, MutableMapping
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 from urllib.parse import urlsplit
 
-Scope = MutableMapping[str, Any]
-Message = MutableMapping[str, Any]
-Receive = Callable[[], Awaitable[Message]]
-Send = Callable[[Message], Awaitable[None]]
-AsgiApp = Callable[[Scope, Receive, Send], Awaitable[None]]
+from cornea.core.asgi import AsgiApp
+
 WsgiApp = Callable[..., Iterable[bytes]]
 
 _IMPORT_STRING = re.compile(r"^[A-Za-z_][\w.]*:[A-Za-z_][\w.]*$")

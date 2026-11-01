@@ -5,7 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from cornea.core.window import WindowController
+from cornea.core.window.window import WindowController
 
 
 class TitleBody(BaseModel):

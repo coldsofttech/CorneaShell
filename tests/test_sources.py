@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 
 from cornea import Asgi, Static, Url, WebSource, Wsgi
-from cornea.core.sources import coerce_source
+from cornea.core.sources.sources import coerce_source
 
 
 @pytest.fixture

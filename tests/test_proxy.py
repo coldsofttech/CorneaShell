@@ -26,7 +26,7 @@ from websockets.exceptions import ConnectionClosed, InvalidStatus
 from websockets.sync.client import connect
 
 from cornea import Security, Shell, Url, Window
-from cornea.core.proxy import HOP_BY_HOP, ProxyApp, without_session_cookie
+from cornea.core.sources.proxy import HOP_BY_HOP, ProxyApp, without_session_cookie
 
 # ----- a real upstream server to proxy ----------------------------------------------------------
 

@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 
 from cornea import Shell, Static, Window
-from cornea.core import window as window_module
-from cornea.core.window import create_native_window
+from cornea.core.window import window as window_module
+from cornea.core.window.window import create_native_window
 from test_window import FakeWebview
 
 ICON = Path(__file__).resolve().parent.parent / "examples" / "static_html" / "icon.png"

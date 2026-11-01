@@ -8,8 +8,8 @@ import pytest
 
 from cornea import Process, Shell, Static, Timings, Window
 from cornea.core import shell as shell_module
-from cornea.core import window as window_module
-from cornea.core.window import create_native_window
+from cornea.core.window import window as window_module
+from cornea.core.window.window import create_native_window
 from test_window import FakeWebview
 
 DEVSERVER = Path(__file__).with_name("devserver.py")

@@ -9,10 +9,9 @@ from typing import Any
 import pytest
 
 from cornea import Bridge, Shell, Static, Window
-from cornea.core import notifications as notifications_module
-from cornea.core.bridge import ActionRegistry, invoke_action
-from cornea.core.notifications import Notifier, check_notification, toast_xml
-from cornea.core.window import NativeWindow, Unavailable, create_native_window
+from cornea.core.bridge import ActionRegistry
+from cornea.core.page import Notifier
+from cornea.core.window.window import NativeWindow, Unavailable, create_native_window
 from test_window import FakeWebview, FakeWindow
 
 
@@ -79,7 +78,7 @@ def windows(monkeypatch: pytest.MonkeyPatch) -> Shown:
     ):
         monkeypatch.setitem(sys.modules, name, module)
     monkeypatch.setattr(Notifier, "_register", lambda self: None)
-    notifications_module._alive.clear()
+    Notifier._alive.clear()
     return shown
 
 
@@ -87,7 +86,7 @@ def windows(monkeypatch: pytest.MonkeyPatch) -> Shown:
 
 
 def test_the_text_is_escaped_so_it_cannot_add_markup() -> None:
-    xml = toast_xml("A <b>&", "x </text><actions>")
+    xml = Notifier.toast_xml("A <b>&", "x </text><actions>")
 
     assert "<b>" not in xml
     assert "&lt;b&gt;&amp;" in xml
@@ -108,11 +107,11 @@ def test_the_text_is_escaped_so_it_cannot_add_markup() -> None:
 )
 def test_bad_input_is_refused(title: Any, message: Any, identifier: Any, problem: str) -> None:
     with pytest.raises(ValueError, match=problem):
-        check_notification(title, message, identifier)
+        Notifier.check(title, message, identifier)
 
 
 def test_a_good_notification_passes() -> None:
-    check_notification("Done", "The export finished.", "export-1")
+    Notifier.check("Done", "The export finished.", "export-1")
 
 
 # ----- showing ----------------------------------------------------------------------------------
@@ -147,11 +146,11 @@ def test_a_click_runs_the_callback_once_and_frees_the_toast(
 
     Notifier(None, "Notes").show("Saved", "Done.", lambda: clicks.append("click"))
     toast = windows.toasts[0]
-    assert toast in notifications_module._alive
+    assert toast in Notifier._alive
     toast.handlers["activated"](None, None)
 
     assert clicks == ["click"]
-    assert toast not in notifications_module._alive
+    assert toast not in Notifier._alive
 
 
 def test_a_failing_click_handler_is_logged_not_raised(
@@ -173,7 +172,7 @@ def test_a_dismissed_toast_is_freed(windows: Shown, monkeypatch: pytest.MonkeyPa
     Notifier(None, "Notes").show("Saved", "Done.")
     windows.toasts[0].handlers["dismissed"](None, None)
 
-    assert not notifications_module._alive
+    assert not Notifier._alive
 
 
 def test_other_systems_say_it_is_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -244,7 +243,7 @@ def test_a_click_activates_the_window_and_tells_the_page(
     webview: FakeWebview, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _, controller, scripts = make(webview)
-    monkeypatch.setattr("cornea.core.window.bring_to_front", lambda window: None)
+    monkeypatch.setattr("cornea.core.window.window.bring_to_front", lambda window: None)
     shown: list[Any] = []
 
     class Recording:
@@ -269,7 +268,7 @@ def test_without_a_notifier_the_window_says_it_is_unavailable(webview: FakeWebvi
 
 
 def run(registry: ActionRegistry, arguments: dict[str, Any], window: Any = None) -> tuple[int, Any]:
-    return asyncio.run(invoke_action(registry, "show_notification", arguments, window))
+    return asyncio.run(registry.invoke("show_notification", arguments, window))
 
 
 def test_the_action_is_off_by_default() -> None:

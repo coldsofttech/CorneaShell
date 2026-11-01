@@ -11,9 +11,9 @@ from typing import Any
 import pytest
 
 from cornea import Bridge, Shell, Static, Window, create_app
-from cornea.core import bridge as bridge_module
-from cornea.core.bridge import ActionRegistry, BadArguments, UnknownAction
-from cornea.core.window import NativeWindow, SimulatedWindow, Unavailable
+from cornea.core.bridge import BuiltinActions
+from cornea.core.bridge.bridge import ActionRegistry, BadArguments, UnknownAction
+from cornea.core.window.window import NativeWindow, SimulatedWindow, Unavailable
 
 
 @pytest.fixture
@@ -201,15 +201,15 @@ def test_async_actions_are_awaited() -> None:
 def test_choose_folder_returns_the_first_path_or_none() -> None:
     window = FakeDialogs(["C:/data"])
 
-    assert bridge_module.choose_folder(window, directory="C:/") == "C:/data"  # type: ignore[arg-type]
+    assert BuiltinActions.choose_folder(window, directory="C:/") == "C:/data"  # type: ignore[arg-type]
     assert window.asked == [{"kind": "folder", "directory": "C:/"}]
-    assert bridge_module.choose_folder(FakeDialogs(None)) is None  # type: ignore[arg-type]
+    assert BuiltinActions.choose_folder(FakeDialogs(None)) is None  # type: ignore[arg-type]
 
 
 def test_choose_file_passes_the_options_through() -> None:
     window = FakeDialogs(["a.png", "b.png"])
 
-    result = bridge_module.choose_file(
+    result = BuiltinActions.choose_file(
         window,  # type: ignore[arg-type]
         directory="C:/pics",
         file_types=("Images (*.png)",),
@@ -230,23 +230,23 @@ def test_choose_file_passes_the_options_through() -> None:
 def test_save_file_only_chooses_a_path() -> None:
     window = FakeDialogs(["C:/out/report.pdf"])
 
-    assert bridge_module.save_file(window, filename="report.pdf") == "C:/out/report.pdf"  # type: ignore[arg-type]
+    assert BuiltinActions.save_file(window, filename="report.pdf") == "C:/out/report.pdf"  # type: ignore[arg-type]
     assert window.asked[0]["kind"] == "save"
     assert window.asked[0]["filename"] == "report.pdf"
-    assert bridge_module.save_file(FakeDialogs(None)) is None  # type: ignore[arg-type]
+    assert BuiltinActions.save_file(FakeDialogs(None)) is None  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("call_dialog", ["choose_folder", "choose_file", "save_file"])
 def test_dialogs_without_a_window_are_unavailable(call_dialog: str) -> None:
     with pytest.raises(Unavailable, match="no window"):
-        getattr(bridge_module, call_dialog)(None)
+        getattr(BuiltinActions, call_dialog)(None)
 
 
 def test_open_external_opens_only_safe_addresses(monkeypatch: pytest.MonkeyPatch) -> None:
     opened = fake_browser(monkeypatch)
 
     for good in ("https://example.com/a?b=1", "http://localhost:3000", " mailto:me@example.com "):
-        assert bridge_module.open_external(None, good) == {"opened": True}
+        assert BuiltinActions.open_external(None, good) == {"opened": True}
 
     assert opened == ["https://example.com/a?b=1", "http://localhost:3000", "mailto:me@example.com"]
 
@@ -270,17 +270,17 @@ def test_open_external_rejects_everything_else(bad: Any, monkeypatch: pytest.Mon
     monkeypatch.setattr("webbrowser.open", lambda url: pytest.fail("opened"))
 
     with pytest.raises(BadArguments):
-        bridge_module.open_external(None, bad)
+        BuiltinActions.open_external(None, bad)
 
 
 def test_platform_info_describes_the_system() -> None:
-    info = bridge_module.platform_info(SimpleNamespace(headless=False))
+    info = BuiltinActions.platform_info(SimpleNamespace(headless=False))
 
     assert info["platform"] == ("windows" if sys.platform == "win32" else sys.platform)
     assert {"release", "version", "python", "cornea", "webview2", "window"} <= set(info)
     assert info["window"] is True
-    assert bridge_module.platform_info(SimulatedWindow("t"))["window"] is False
-    assert bridge_module.platform_info(None)["window"] is False
+    assert BuiltinActions.platform_info(SimulatedWindow("t"))["window"] is False
+    assert BuiltinActions.platform_info(None)["window"] is False
 
 
 # ----- over HTTP, headless --------------------------------------------------------------------
@@ -391,7 +391,7 @@ def test_a_crash_in_an_action_is_logged_but_not_shown(
     def crash() -> None:
         raise RuntimeError("secret path C:/Users/someone")
 
-    with shell, caplog.at_level(logging.ERROR, logger="cornea.core.bridge"):
+    with shell, caplog.at_level(logging.ERROR, logger="cornea.core.bridge.bridge"):
         status, body = call(shell, "crash")
 
     assert (status, body) == (500, {"error": "The action failed"})
@@ -445,10 +445,10 @@ def test_the_hosts_routers_cannot_shadow_the_bridge(bundle: Path) -> None:
 
 def test_the_bridge_without_a_window_object_says_unavailable() -> None:
     from asgi_client import AsgiClient
-    from cornea.core.app import allow_host
+    from cornea.core.app import AppFactory
 
     app = create_app()
-    allow_host(app, "127.0.0.1:8000")
+    AppFactory.allow_host(app, "127.0.0.1:8000")
     client = AsgiClient(app)
     cookie = (
         client.request("/", query=f"cornea_token={app.state.bootstrap_token}").header("set-cookie")
