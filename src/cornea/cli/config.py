@@ -52,7 +52,11 @@ SECTIONS: dict[str, dict[str, str]] = {
         "public-path": "public_path",
         "require-origin": "require_origin",
     },
-    "bridge": {"disable-action": "disable_action"},
+    "bridge": {
+        "disable-action": "disable_action",
+        "open-files": "open_files",
+        "notifications": "notifications",
+    },
     "window": {
         "title": "title",
         "size": "size",
@@ -65,6 +69,7 @@ SECTIONS: dict[str, dict[str, str]] = {
         "devtools": "devtools",
         "debug": "debug",
         "js-api": "js_api",
+        "drop-files": "drop_files",
         "icon": "icon",
     },
     "app": {

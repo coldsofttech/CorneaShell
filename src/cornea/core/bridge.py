@@ -2,17 +2,21 @@
 
 import inspect
 import logging
+import os
 import platform
 import re
+import subprocess
 import sys
 import webbrowser
 from collections.abc import Callable, Iterable, Sequence
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
 from fastapi.encoders import jsonable_encoder
 from starlette.concurrency import run_in_threadpool
 
+from cornea.core.notifications import check_notification
 from cornea.core.window import Unavailable, WindowController
 
 logger = logging.getLogger(__name__)
@@ -75,6 +79,79 @@ def open_external(window: WindowController | None, url: str) -> Any:
     return {"opened": bool(webbrowser.open(address))}
 
 
+BLOCKED_SUFFIXES = frozenset(
+    {
+        ".exe", ".com", ".scr", ".pif", ".msi", ".msp", ".dll", ".sys", ".cpl", ".msc",
+        ".bat", ".cmd", ".ps1", ".psm1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh",
+        ".hta", ".reg", ".jar", ".lnk", ".url", ".appref-ms", ".gadget", ".inf", ".application",
+    }
+)  # fmt: skip
+"""Types that run code or point somewhere else. ``open_file`` never opens them."""
+MAX_PATH_LENGTH = 4096
+
+
+def _windows() -> bool:
+    return sys.platform == "win32"
+
+
+def _existing_path(path: object) -> Path:
+    """The path as an absolute one, if it names something that exists and is not on the network."""
+    if not isinstance(path, str) or not path.strip() or "\0" in path:
+        raise BadArguments("path must be a non-empty string")
+    if len(path) > MAX_PATH_LENGTH:
+        raise BadArguments("path is too long")
+    if path.startswith(("\\\\", "//")):
+        raise BadArguments("network paths cannot be opened")
+    target = Path(path).resolve()
+    if str(target).startswith("\\\\"):  # a link that leads to the network
+        raise BadArguments("network paths cannot be opened")
+    if not target.exists():
+        raise BadArguments("that path does not exist")
+    return target
+
+
+def open_file(window: WindowController | None, path: str) -> Any:
+    """Open a file in the program Windows has for it. Programs and scripts are refused."""
+    target = _existing_path(path)
+    if target.is_dir():
+        raise BadArguments("that is a folder; use reveal to show it")
+    suffix = target.suffix.lower()
+    if not suffix or suffix in BLOCKED_SUFFIXES:
+        raise BadArguments("files of that type cannot be opened from a page")
+    if not _windows():
+        raise Unavailable("Opening files only works on Windows for now.")
+    os.startfile(target)  # noqa: S606 - the type was checked above
+    return {"opened": True}
+
+
+def reveal(window: WindowController | None, path: str) -> Any:
+    """Show a file or folder in Explorer, selecting a file."""
+    target = _existing_path(path)
+    if not _windows():
+        raise Unavailable("Showing files only works on Windows for now.")
+    arguments = (
+        ["explorer", str(target)] if target.is_dir() else ["explorer", "/select,", str(target)]
+    )
+    subprocess.Popen(arguments)  # noqa: S603 - a fixed program with a checked path
+    return {"shown": True}
+
+
+def show_notification(
+    window: WindowController | None,
+    title: str,
+    message: str,
+    notification_id: str | None = None,
+) -> Any:
+    """Show a Windows toast with a title and a plain-text message.
+
+    A click brings the window to the front and sends the page a ``cornea:notification-click``
+    event carrying ``notification_id``.
+    """
+    check_notification(title, message, notification_id)
+    _window(window, "a notification").show_notification(title, message, notification_id)
+    return {"shown": True}
+
+
 def platform_info(window: WindowController | None) -> Any:
     """Describe the system, the Python in use and whether a window exists."""
     from cornea import __version__
@@ -100,12 +177,19 @@ BUILTINS: dict[str, Callable[..., Any]] = {
     "save_file": save_file,
     "open_external": open_external,
     "platform_info": platform_info,
+    "open_file": open_file,
+    "reveal": reveal,
+    "show_notification": show_notification,
 }
+OPT_IN_FILES = frozenset({"open_file", "reveal"})
+"""Built-in actions that are off until ``Bridge(open_files=True)``."""
+OPT_IN_NOTIFICATIONS = frozenset({"show_notification"})
+"""Built-in actions that are off until ``Bridge(notifications=True)``."""
 
 
-def _window(window: WindowController | None) -> WindowController:
+def _window(window: WindowController | None, what: str = "a dialog") -> WindowController:
     if window is None:
-        raise Unavailable("There is no window to show a dialog in.")
+        raise Unavailable(f"There is no window to show {what} in.")
     return window
 
 
@@ -157,12 +241,24 @@ class ActionRegistry:
         True
     """
 
-    def __init__(self, disabled: Iterable[str] = ()) -> None:
+    def __init__(
+        self,
+        disabled: Iterable[str] = (),
+        *,
+        open_files: bool = False,
+        notifications: bool = False,
+    ) -> None:
         off = set(disabled)
         unknown = off - set(BUILTINS)
         if unknown:
             raise ValueError(f"cannot disable unknown built-in actions: {sorted(unknown)}")
-        self._builtins = {name: fn for name, fn in BUILTINS.items() if name not in off}
+        self._builtins = {
+            name: fn
+            for name, fn in BUILTINS.items()
+            if name not in off
+            and (open_files or name not in OPT_IN_FILES)
+            and (notifications or name not in OPT_IN_NOTIFICATIONS)
+        }
         self._custom: dict[str, Callable[..., Any]] = {}
 
     def register(self, name: str, function: Callable[..., Any]) -> Callable[..., Any]:

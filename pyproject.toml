@@ -55,6 +55,13 @@ proxy = [
     "httpx>=0.28.1",
     "websockets>=17.4",
 ]
+notifications = [
+    "winrt-runtime>=3 ; sys_platform == 'win32'",
+    "winrt-windows-data-xml-dom>=4!10.0.28000.2957 ; sys_platform == 'win32'",
+    "winrt-windows-foundation>=4!10.0.28000.2957 ; sys_platform == 'win32'",
+    "winrt-windows-foundation-collections>=4!10.0.28000.2957 ; sys_platform == 'win32'",
+    "winrt-windows-ui-notifications>=4!10.0.28000.2957 ; sys_platform == 'win32'",
+]
 
 [dependency-groups]
 dev = [
@@ -104,6 +111,11 @@ select = ["B", "C4", "E", "F", "I", "PT", "RUF", "S", "SIM", "T20", "UP", "W"]
 [tool.mypy]
 strict = true
 files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+# Only installed with the optional "notifications" extra, so it is not there in a plain `uv sync`.
+module = ["winrt", "winrt.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

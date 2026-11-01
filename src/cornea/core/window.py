@@ -2,7 +2,9 @@
 
 import contextlib
 import importlib
+import json
 import logging
+import re
 import sys
 import threading
 from collections.abc import Callable, Sequence
@@ -11,11 +13,13 @@ from types import ModuleType
 from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 from cornea.core.appdata import data_dir
+from cornea.core.close_guard import CloseGuard
 from cornea.core.config import App, Window
 from cornea.core.window_memory import Remembered, WindowMemory, fit_to_screens
 
 if TYPE_CHECKING:
     from cornea.core.bridge import ActionRegistry
+    from cornea.core.notifications import Notifier
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +32,17 @@ CLOSE_DELAY = 0.05
 
 
 DialogKind = Literal["folder", "open", "save"]
+
+
+EVENT_PREFIX = "cornea:"
+"""Every event sent to the page is a DOM event on ``window`` named with this prefix."""
+EVENT_NAME = re.compile(r"^[a-z][a-z0-9_.-]*$")
+
+
+def check_event_name(event: str) -> None:
+    """Event names are lowercase words, like ``export-done`` (sent as ``cornea:export-done``)."""
+    if not EVENT_NAME.match(event):
+        raise ValueError(f"event names look like 'export-done', got {event!r}")
 
 
 class Unavailable(Exception):
@@ -45,7 +60,23 @@ class WindowController(Protocol):
     def minimize(self) -> None: ...
     def maximize(self) -> None: ...
     def restore(self) -> None: ...
-    def close(self) -> None: ...
+    def close(self, force: bool = False) -> bool:
+        """Close the window, unless the app holds it open and ``force`` is not given.
+
+        Returns whether the window is closing.
+        """
+        ...
+
+    def notify(self, event: str, detail: object = None) -> None:
+        """Tell the page something happened: a ``cornea:<event>`` event on its ``window``."""
+        ...
+
+    def show_notification(
+        self, title: str, message: str, notification_id: str | None = None
+    ) -> None:
+        """Show a Windows toast. Clicking it activates the window and tells the page."""
+        ...
+
     def set_title(self, title: str) -> None: ...
     def state(self) -> dict[str, Any]: ...
     def dialog(
@@ -136,6 +167,12 @@ class NativeWindow:
         else:
             self._x, self._y = settings.position if settings.position else (None, None)
             self._width, self._height = settings.size
+        self.guard: CloseGuard | None = None
+        """Decides whether closing is held back. Set by the shell."""
+        self.notifier: Notifier | None = None
+        """Shows toasts for this app. Set by the shell."""
+        self._forced = False
+        window.events.closing += self._on_closing
         window.events.maximized += self._on_maximized
         window.events.minimized += self._on_minimized
         window.events.restored += self._on_restored
@@ -179,6 +216,36 @@ class NativeWindow:
     def _on_closed(self) -> None:
         self._closed = True
 
+    def _on_closing(self) -> bool:
+        """The window is being closed by any means (Alt+F4, the taskbar): hold it if asked to."""
+        if self._forced or self.guard is None or not self.guard.holds():
+            return True
+        self.notify("close-blocked")
+        return False
+
+    def show_notification(
+        self, title: str, message: str, notification_id: str | None = None
+    ) -> None:
+        if self.notifier is None:
+            raise Unavailable("There is no window to show a notification from.")
+
+        def clicked() -> None:
+            self.activate()
+            self.notify("notification-click", {"id": notification_id})
+
+        self.notifier.show(title, message, clicked)
+
+    def notify(self, event: str, detail: object = None) -> None:
+        check_event_name(event)
+        script = (
+            f"window.dispatchEvent(new CustomEvent({json.dumps(EVENT_PREFIX + event)}, "
+            f"{{detail: {json.dumps(detail)}}}))"
+        )
+        try:
+            self._window.evaluate_js(script)
+        except Exception:
+            logger.debug("Could not send the %r event to the page", event, exc_info=True)
+
     @property
     def headless(self) -> bool:
         return False
@@ -192,9 +259,18 @@ class NativeWindow:
     def restore(self) -> None:
         self._window.restore()
 
-    def close(self) -> None:
-        """Close the window shortly after, so the request that asked for it is answered first."""
+    def close(self, force: bool = False) -> bool:
+        """Close the window shortly after, so the request that asked for it is answered first.
+
+        If the app holds the window open the page is told with a ``cornea:close-blocked`` event
+        and nothing closes, unless ``force`` is given.
+        """
+        if not force and self.guard is not None and self.guard.holds():
+            self.notify("close-blocked")
+            return False
+        self._forced = True
         threading.Timer(CLOSE_DELAY, self._window.destroy).start()
+        return True
 
     def set_title(self, title: str) -> None:
         self._title = title
@@ -264,8 +340,17 @@ class SimulatedWindow:
     def restore(self) -> None:
         self._maximized, self._minimized = False, False
 
-    def close(self) -> None:
+    def close(self, force: bool = False) -> bool:
         self._closed = True
+        return True
+
+    def notify(self, event: str, detail: object = None) -> None:
+        check_event_name(event)  # there is no page to tell
+
+    def show_notification(
+        self, title: str, message: str, notification_id: str | None = None
+    ) -> None:
+        raise Unavailable("There is no window to show a notification from.")
 
     def set_title(self, title: str) -> None:
         self._title = title
@@ -362,6 +447,34 @@ def apply_webview_settings(window: Any, settings: Window) -> None:
     _invoke(window.native, apply)
 
 
+def _install_drop(window: Any, controller: "NativeWindow") -> None:
+    """Send the full paths of files dropped on the window to the page, once it has loaded."""
+    installed = False
+
+    def on_drop(event: dict[str, Any]) -> None:
+        files = (event.get("dataTransfer") or {}).get("files") or []
+        paths = [f["pywebviewFullPath"] for f in files if f.get("pywebviewFullPath")]
+        logger.debug("%d dropped file(s) sent to the page", len(paths))
+        controller.notify("drop", {"paths": paths})
+
+    def install() -> None:
+        nonlocal installed
+        if installed:
+            return
+        try:
+            from webview.dom import DOMEventHandler
+
+            events = window.dom.document.events
+            events.dragover += DOMEventHandler(lambda _event: None, True, True)
+            events.drop += DOMEventHandler(on_drop, True, True)
+        except Exception:
+            logger.warning("Dropping files on the window is not available", exc_info=True)
+        else:
+            installed = True
+
+    window.events.loaded += install
+
+
 def create_native_window(
     webview: ModuleType,
     url: str,
@@ -446,6 +559,8 @@ def create_native_window(
         window.events.shown += lambda: on_event("window_shown")
         window.events.loaded += lambda: on_event("page_loaded")
     controller = NativeWindow(window, settings, webview, start)
+    if settings.drop_files:
+        _install_drop(window, controller)
     if api is not None:
         api._controller = controller
     if memory is not None:

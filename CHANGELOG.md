@@ -24,6 +24,9 @@ All notable changes to this project are documented here. The format follows [Kee
 - A refused request with the wrong Host or Origin is now reported as a warning, so a wrong `allowed_hosts` setting is no longer silent.
 - `cornea info` also shows the WebView2 runtime, pywebview and the log folder.
 - Settings for the `cornea` command can be kept in `cornea.toml` or in `[tool.cornea]` of `pyproject.toml`.
+- Your Python code can send events to the page, and can keep the window open while the app is busy: the page is told and can ask before closing. The page can also set this itself.
+- Windows notifications: `shell.show_notification()` from Python, and the `show_notification` action for a page once you allow it (`--notifications`). Needs `pip install "cornea-shell[notifications]"`.
+- Files dropped on the window can be passed to the page (`--drop-files`), and the page can open a file or show it in Explorer (`--open-files`). Both are off by default; programs and scripts are never opened.
 - `--measure` (and `measure=True` in Python) shows how long start-up took; the numbers can be saved as JSON. There is a documented target.
 - `open` and `serve` show a short summary of what they are about to do.
 - Logging for troubleshooting: `--log-level` and `--log-file`, and `--debug` (and debug mode in Python) now turns on debug logging too, writing to your local app data folder if you set nothing up. The start-up token is never written to a log.

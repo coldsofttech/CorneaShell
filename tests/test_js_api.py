@@ -33,8 +33,17 @@ class Recorder:
     def restore(self) -> None:
         self.calls.append(("restore", None))
 
-    def close(self) -> None:
-        self.calls.append(("close", None))
+    def close(self, force: bool = False) -> bool:
+        self.calls.append(("close", force))
+        return True
+
+    def notify(self, event: str, detail: object = None) -> None:
+        self.calls.append((f"notify:{event}", detail))
+
+    def show_notification(
+        self, title: str, message: str, notification_id: str | None = None
+    ) -> None:
+        self.calls.append(("show_notification", (title, message, notification_id)))
 
     def set_title(self, title: str) -> None:
         self.calls.append(("set_title", title))
@@ -68,7 +77,7 @@ def test_the_controls_reach_the_window() -> None:
         ("minimize", None),
         ("maximize", None),
         ("restore", None),
-        ("close", None),
+        ("close", False),
         ("set_title", "New"),
     ]
 

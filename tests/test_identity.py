@@ -367,7 +367,8 @@ def test_a_window_is_not_saved_unless_asked(webview: FakeWebview) -> None:
     window.events.closing.fire()
 
     assert not (data_dir("notes") / "window.json").exists()
-    assert not window.events.closing.handlers
+    # Only the close guard listens, and it lets the window close.
+    assert len(window.events.closing.handlers) == 1
 
 
 def test_a_save_that_fails_never_stops_the_window_closing(

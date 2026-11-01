@@ -68,6 +68,8 @@ Which built-in native actions the page may call. All of them are on by default.
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `disabled` | `tuple[str, ...]` | `()` | Built-in actions to switch off. A disabled action answers like an unknown one. |
+| `notifications` | `bool` | `False` | Add the `show_notification` action, which shows a Windows toast. Off by default, so a page cannot raise alerts unless you allow it. Needs the `notifications` extra. |
+| `open_files` | `bool` | `False` | Add the `open_file` and `reveal` actions, which open a file in the program Windows has for it and show a file in Explorer. Off by default. A page can name any path, so `open_file` still refuses programs, scripts and shortcuts, network paths and missing files. |
 
 Example:
 
@@ -195,6 +197,9 @@ Properties:
 Methods:
 
 - `action(name: str) -> Callable[...]`: Register a function as a native action: `@shell.action("pick_report")`.
+- `close_guard(function: Callable[...]`: Hold the window open while `function()` returns true: `@shell.close_guard`.
+- `notify(event: str, detail: Any = None) -> None`: Tell the page something happened, as a `cornea:<event>` event on its `window`.
+- `show_notification(title: str, message: str, notification_id: str | None = None) -> None`: Show a Windows toast with a plain-text `title` and `message`.
 - `start() -> Self`: Bind the port and start serving in a background thread.
 - `stop() -> None`: Stop serving and release the port. Safe to call more than once.
 - `run(on_ready: Callable[...] | None = None) -> None`: Show the window and wait until it closes, or just serve when there is no window.
@@ -313,6 +318,7 @@ Native window options. The context menu and developer tools are off unless enabl
 | `devtools` | `bool` | `False` | Enable the developer tools. Off by default. |
 | `debug` | `bool` | `False` | Debug mode turns on the context menu and developer tools. |
 | `icon` | `Path \| str \| None` | `None` | Icon for the window and its taskbar button: an `.ico` file or an image (`.png`, `.bmp`, `.gif`, `.jpg`). A relative path is relative to the current folder. |
+| `drop_files` | `bool` | `False` | Tell the page which files were dropped on the window, with their full paths, as a `cornea:drop` event. Off by default, because a full path says where a person keeps things. |
 | `js_api` | `bool` | `False` | Give the page `window.pywebview.api`: the window controls and the native actions. It lets a frameless window show an address that Cornea does not serve. Every page that loads in the window gets these powers, so use it only for pages you trust. |
 
 Properties:

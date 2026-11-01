@@ -39,6 +39,8 @@ src/cornea/core/window_memory.py   remembered window size and position
 src/cornea/core/single_instance.py one copy at a time, and waking the first copy
 src/cornea/core/window_api.py      the opt-in js_api object
 src/cornea/core/logs.py      configure_logging(): stderr and file handlers, token redaction
+src/cornea/core/close_guard.py     holds the window open while the app is busy
+src/cornea/core/notifications.py   Windows toast notifications through the winrt bindings
 src/cornea/core/window.py    pywebview window, window controller, environment checks
 src/cornea/core/window_routes.py   /api/window routes
 src/cornea/core/bridge.py    native actions and the action registry
@@ -163,6 +165,24 @@ The target, with about three times the margin for slower machines, counted from 
 | First page loaded | under 3 s |
 
 The target is a guide, not a test. A test that fails on speed would be flaky on shared CI machines, so nothing enforces it; run your app with `--measure` to check.
+
+## Telling the page, and the close guard
+
+`Shell.notify(event, detail)` sends a DOM `CustomEvent` named `cornea:<event>` on the page's `window`, using pywebview's `evaluate_js`. The detail is JSON-encoded, never concatenated into the script, and event names are limited to lowercase words so a name cannot carry code. Without a window it does nothing. A page that has not loaded yet misses the event.
+
+The close guard (`close_guard.py`) answers one question: should closing be held back now? It holds if the page switched it on (`POST /api/window/close-guard`) or if any function registered with `@shell.close_guard` returns true. A guard that raises is logged and never holds, so a buggy app can still be closed. `NativeWindow` asks it in two places: `close()` (the close route and `js_api`) and pywebview's `closing` event, which covers Alt+F4 and the taskbar. When it holds, the window stays and the page gets `cornea:close-blocked`. `close(force=True)` skips the guard, which is how the page closes after the person confirms.
+
+Dropped files use pywebview's DOM events. They are installed once, after the first page load, only when `Window(drop_files=True)`. The event carries paths only, never contents, and only for files a person dropped.
+
+`open_file` and `reveal` are built-in actions that exist only with `Bridge(open_files=True)`. `open_file` resolves the path, refuses network paths (a link to a share would leak the Windows login to it), folders, missing files, files without an extension and the types in `BLOCKED_SUFFIXES` (programs, scripts, shortcuts), and then calls `os.startfile`. `reveal` runs `explorer` with the path as one argument; it is allowed for any existing path because showing a file does not run it. Page and line hints, as VethuQ passes to its PDF viewer, are not supported: they need a program-specific command line.
+
+## Notifications
+
+`show_notification` is a built-in action that exists only with `Bridge(notifications=True)`; `Shell.show_notification()` is always available to the host. Both go through `Notifier` (`notifications.py`), which uses the optional `winrt` packages (the `notifications` extra), imported only when a toast is shown so the package imports without them. A missing extra or a non-Windows system answers like a missing window: `available: false` for the page, `RuntimeError` for Python.
+
+The text is limited (title 64, message 256 characters), plain, and XML-escaped when the toast is built, so it cannot add markup, buttons or images. A toast needs an app identity to show a name and icon. `Notifier` registers one for the current user under `HKEY_CURRENT_USER\Software\Classes\AppUserModelId\<id>` with a `DisplayName` (the window title) and an `IconUri` (the window icon). It uses `App(id=...)`, or `Cornea.Shell` when there is none. No Start-menu shortcut is made. The key is left in place; removing it is harmless.
+
+Windows calls back on a thread of its own when a toast is clicked, dismissed or fails. Live toasts are kept in a set until then, because a toast that is freed early never calls back. A click activates the window and sends the page `cornea:notification-click` with the `notification_id`. Click callbacks for unpackaged apps depend on Windows delivering the event to the running process; this was not tested with a real click.
 
 ## Logging
 

@@ -521,6 +521,7 @@ class FakeNativeWindow:
             minimized=_Event(),
             restored=_Event(),
             closed=_Event(),
+            closing=_Event(),
             moved=_Event(),
             resized=_Event(),
         )

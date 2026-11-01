@@ -79,6 +79,8 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--public-path <str>`: Path reachable without a session. Repeatable.
 * `--require-origin / --no-require-origin`: Reject state-changing requests without an Origin (default on).
 * `--disable-action <str>`: Switch a built-in action off. Repeatable.
+* `--open-files`: Let the page open a file in its program and show it in Explorer.
+* `--notifications`: Let the page show Windows notifications (needs the notifications extra).
 * `--title <str>`: Window title.
 * `--size <str>`: Window size, like 1200x800.
 * `--min-size <str>`: Smallest window size, like 400x300.
@@ -90,6 +92,7 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--devtools`: Allow the developer tools.
 * `--debug`: Turn on the context menu, the developer tools and debug logging.
 * `--js-api`: Give the page the window controls and native actions. Trusted pages only.
+* `--drop-files`: Tell the page the full paths of files dropped on the window.
 * `--icon <path>`: Window and taskbar icon: .ico, .png, .bmp, .gif or .jpg.
 * `--app-id <str>`: Name of the app, like com.example.notes.
 * `--single-instance`: Run one copy; a second start shows the first.
@@ -144,6 +147,8 @@ $ cornea serve [OPTIONS] [SOURCE]
 * `--public-path <str>`: Path reachable without a session. Repeatable.
 * `--require-origin / --no-require-origin`: Reject state-changing requests without an Origin (default on).
 * `--disable-action <str>`: Switch a built-in action off. Repeatable.
+* `--open-files`: Let the page open a file in its program and show it in Explorer.
+* `--notifications`: Let the page show Windows notifications (needs the notifications extra).
 * `--log-level <debug|info|warning|error>`: Show log messages of this level and above on stderr (default: warning).
 * `--log-file <path>`: Also write a full debug log to this file.
 * `--measure`: Print how long start-up took (on stderr) once the first page has loaded.
@@ -181,6 +186,7 @@ $ cornea open web/dist --icon examples/static_html/icon.png
 $ cornea open http://localhost:5173 --frameless --js-api
 $ cornea open web/dist --log-level debug --log-file cornea.log
 $ cornea open web/dist --measure
+$ cornea open web/dist --drop-files --open-files --notifications
 ```
 
 ### `cornea serve`

@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from cornea.core.window import WindowController
@@ -12,6 +12,18 @@ class TitleBody(BaseModel):
     """The new window title."""
 
     title: str = Field(min_length=1, max_length=200)
+
+
+class CloseBody(BaseModel):
+    """Close the window even if the app holds it open."""
+
+    force: bool = False
+
+
+class GuardBody(BaseModel):
+    """Whether the page is busy and wants closing held back."""
+
+    enabled: bool
 
 
 def _controller(request: Request) -> WindowController:
@@ -50,9 +62,20 @@ def restore(controller: Controller) -> dict[str, bool]:
 
 
 @router.post("/close")
-def close(controller: Controller) -> dict[str, bool]:
-    controller.close()
-    return {"ok": True}
+def close(
+    controller: Controller, body: Annotated[CloseBody | None, Body()] = None
+) -> dict[str, bool]:
+    """Close the window. If the app holds it open this answers ``blocked`` unless ``force``."""
+    if controller.close(force=body.force if body else False):
+        return {"ok": True}
+    return {"ok": False, "blocked": True}
+
+
+@router.post("/close-guard")
+def close_guard(body: GuardBody, request: Request) -> dict[str, bool]:
+    """Let the page say it is busy (``enabled``), so closing the window is held back."""
+    request.app.state.close_guard.page_holds = body.enabled
+    return {"ok": True, "enabled": body.enabled}
 
 
 @router.post("/title")

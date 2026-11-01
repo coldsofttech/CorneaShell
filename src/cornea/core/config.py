@@ -136,6 +136,13 @@ class Bridge:
 
     disabled: tuple[str, ...] = ()
     """Built-in actions to switch off. A disabled action answers like an unknown one."""
+    notifications: bool = False
+    """Add the ``show_notification`` action, which shows a Windows toast. Off by default, so a
+    page cannot raise alerts unless you allow it. Needs the ``notifications`` extra."""
+    open_files: bool = False
+    """Add the ``open_file`` and ``reveal`` actions, which open a file in the program Windows has
+    for it and show a file in Explorer. Off by default. A page can name any path, so ``open_file``
+    still refuses programs, scripts and shortcuts, network paths and missing files."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -174,6 +181,9 @@ class Window:
     icon: Path | str | None = None
     """Icon for the window and its taskbar button: an ``.ico`` file or an image
     (``.png``, ``.bmp``, ``.gif``, ``.jpg``). A relative path is relative to the current folder."""
+    drop_files: bool = False
+    """Tell the page which files were dropped on the window, with their full paths, as a
+    ``cornea:drop`` event. Off by default, because a full path says where a person keeps things."""
     js_api: bool = False
     """Give the page ``window.pywebview.api``: the window controls and the native actions.
 

@@ -49,6 +49,7 @@ EXAMPLES: dict[str, tuple[str, ...]] = {
         "cornea open http://localhost:5173 --frameless --js-api",
         "cornea open web/dist --log-level debug --log-file cornea.log",
         "cornea open web/dist --measure",
+        "cornea open web/dist --drop-files --open-files --notifications",
     ),
     "serve": (
         "cornea serve web/dist",
@@ -208,6 +209,30 @@ RequireOrigin = Annotated[
 DisableAction = Annotated[
     list[str] | None,
     _flag("--disable-action", help="Switch a built-in action off. Repeatable.", panel=NATIVE),
+]
+OpenFiles = Annotated[
+    bool | None,
+    _flag(
+        "--open-files",
+        help="Let the page open a file in its program and show it in Explorer.",
+        panel=NATIVE,
+    ),
+]
+Notifications = Annotated[
+    bool | None,
+    _flag(
+        "--notifications",
+        help="Let the page show Windows notifications (needs the notifications extra).",
+        panel=NATIVE,
+    ),
+]
+DropFiles = Annotated[
+    bool | None,
+    _flag(
+        "--drop-files",
+        help="Tell the page the full paths of files dropped on the window.",
+        panel=WINDOW,
+    ),
 ]
 IconFlag = Annotated[
     Path | None,
@@ -601,6 +626,8 @@ def open_window(
     public_path: PublicPath = None,
     require_origin: RequireOrigin = None,
     disable_action: DisableAction = None,
+    open_files: OpenFiles = None,
+    notifications: Notifications = None,
     title: Title = None,
     size: Size = None,
     min_size: MinSize = None,
@@ -612,6 +639,7 @@ def open_window(
     devtools: DevTools = None,
     debug: Debug = None,
     js_api: JsApi = None,
+    drop_files: DropFiles = None,
     icon: IconFlag = None,
     app_id: AppIdFlag = None,
     single_instance: SingleInstanceFlag = None,
@@ -656,6 +684,7 @@ def open_window(
             devtools=devtools,
             debug=debug,
             js_api=js_api,
+            drop_files=drop_files,
             icon=icon,
         )
         server = options.build_server(host=host, port=port)
@@ -669,7 +698,9 @@ def open_window(
             require_origin=require_origin,
             csp_profile=csp_profile,
         )
-        bridge = options.build_bridge(disable_action=disable_action)
+        bridge = options.build_bridge(
+            disable_action=disable_action, open_files=open_files, notifications=notifications
+        )
         identity = options.build_app(
             app_id=app_id, single_instance=single_instance, remember_window=remember_window
         )
@@ -717,6 +748,8 @@ def serve(
     public_path: PublicPath = None,
     require_origin: RequireOrigin = None,
     disable_action: DisableAction = None,
+    open_files: OpenFiles = None,
+    notifications: Notifications = None,
     log_level: LogLevelFlag = None,
     log_file: LogFileFlag = None,
     measure: MeasureFlag = None,
@@ -760,7 +793,9 @@ def serve(
             require_origin=require_origin,
             csp_profile=csp_profile,
         )
-        bridge = options.build_bridge(disable_action=disable_action)
+        bridge = options.build_bridge(
+            disable_action=disable_action, open_files=open_files, notifications=notifications
+        )
     except ValueError as exc:
         output.error(str(exc))
         raise typer.Exit(code=1) from exc

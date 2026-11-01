@@ -18,14 +18,18 @@ from fastapi import APIRouter, FastAPI
 
 from cornea.core.app import allow_host, create_app
 from cornea.core.bridge import ActionRegistry
+from cornea.core.close_guard import CloseGuard
 from cornea.core.config import App, Bridge, Security, Server, Window
 from cornea.core.environment import environment_details
 from cornea.core.logs import enable_debug_logging
+from cornea.core.notifications import Notifier, check_notification
 from cornea.core.process import ProcessRunner
 from cornea.core.single_instance import AlreadyRunning, InstanceLock, activate_existing
 from cornea.core.sources import Process, Url, WebSource, coerce_source
 from cornea.core.window import (
     SimulatedWindow,
+    Unavailable,
+    check_event_name,
     create_native_window,
     load_webview,
     require_webview2,
@@ -154,6 +158,7 @@ class Shell:
         self.app: FastAPI = create_app(
             web_source, routers=routers, security=self.security, bridge=bridge
         )
+        self._guard: CloseGuard = self.app.state.close_guard
         if window is None:
             self.app.state.window = SimulatedWindow(DEFAULT_WINDOW.title)
         self._socket: socket.socket | None = None
@@ -211,6 +216,49 @@ class Shell:
         arguments; the return value comes back as ``{"available": true, "result": ...}``.
         """
         return self.actions.action(name)
+
+    def close_guard(self, function: Callable[[], bool]) -> Callable[[], bool]:
+        """Hold the window open while ``function()`` returns true: ``@shell.close_guard``.
+
+        It is asked whenever the window is about to close, by the close button, Alt+F4 or the
+        taskbar. When it holds, the window stays and the page gets a ``cornea:close-blocked``
+        event, so it can ask the person. The page then closes with ``force``. A function that
+        raises never holds the window.
+        """
+        self._guard.add(function)
+        return function
+
+    def notify(self, event: str, detail: Any = None) -> None:
+        """Tell the page something happened, as a ``cornea:<event>`` event on its ``window``.
+
+        ``detail`` must be JSON. Without a window this does nothing, and a page that has not
+        loaded yet does not hear it.
+        """
+        controller = self.app.state.window
+        if controller is None:
+            check_event_name(event)
+            return
+        controller.notify(event, detail)
+
+    def show_notification(
+        self, title: str, message: str, notification_id: str | None = None
+    ) -> None:
+        """Show a Windows toast with a plain-text ``title`` and ``message``.
+
+        Windows draws it, so its look and place are Windows'. A click brings the window to the
+        front and sends the page a ``cornea:notification-click`` event with ``notification_id``.
+        This is always available to your code; ``Bridge(notifications=True)`` is what lets the
+        page ask for one.
+
+        Raises:
+            ValueError: If the title, message or id is not allowed.
+            RuntimeError: If there is no window, or the ``notifications`` extra is missing.
+        """
+        check_notification(title, message, notification_id)
+        try:
+            self.app.state.window.show_notification(title, message, notification_id)
+        except Unavailable as exc:
+            raise RuntimeError(str(exc)) from exc
 
     @property
     def is_direct(self) -> bool:
@@ -405,6 +453,8 @@ class Shell:
         )
         if self._lock is not None:
             self._lock.serve(controller.activate)
+        controller.guard = self._guard
+        controller.notifier = Notifier(self.identity.id, settings.title, settings.icon)
         self.app.state.window = controller
         show_window(webview, settings)
 

@@ -38,10 +38,11 @@ class WindowApi:
         self._window().restore()
         return {"ok": True}
 
-    def close(self) -> dict[str, bool]:
-        """Close the window."""
-        self._window().close()
-        return {"ok": True}
+    def close(self, force: bool = False) -> dict[str, bool]:
+        """Close the window. If the app holds it open this answers ``blocked`` unless ``force``."""
+        if self._window().close(force=bool(force)):
+            return {"ok": True}
+        return {"ok": False, "blocked": True}
 
     def set_title(self, title: str) -> dict[str, bool]:
         """Change the window title."""

@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from cornea.core.bridge import ActionRegistry
 from cornea.core.bridge_routes import router as bridge_router
+from cornea.core.close_guard import CloseGuard
 from cornea.core.config import Bridge, Security
 from cornea.core.proxy import ProxyApp
 from cornea.core.security import SecurityMiddleware, SessionGate, new_token
@@ -53,7 +54,11 @@ def create_app(
     app.state.security = security
     app.state.allowed_hosts = allowed_hosts
     app.state.window = None  # set by the shell once a window exists
-    app.state.actions = ActionRegistry((bridge or Bridge()).disabled)
+    app.state.close_guard = CloseGuard()
+    settings = bridge or Bridge()
+    app.state.actions = ActionRegistry(
+        settings.disabled, open_files=settings.open_files, notifications=settings.notifications
+    )
 
     @app.get("/health")
     def health() -> dict[str, str]:

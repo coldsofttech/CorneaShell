@@ -127,6 +127,70 @@ Give the empty part of your bar the class `pywebview-drag-region` so it drags th
 
 If a page comes straight from an address (the direct way) and you still want a frameless window, add `--js-api`. Cornea then gives the page the window controls and the native actions itself. Every page the window loads gets those powers, so use `--js-api` only for pages you trust. The proxy way needs no `--js-api`.
 
+## Talking to your page, and keeping the window open
+
+Your Python code can tell the page that something happened. The page hears it as an ordinary event on `window`, named with the prefix `cornea:`:
+
+```python
+shell.notify("export-done", {"rows": 3})  # the page gets a "cornea:export-done" event
+```
+
+```javascript
+window.addEventListener("cornea:export-done", (event) => console.log(event.detail.rows));
+```
+
+**Don't lose unsaved work.** Mark the window as busy and closing it is held back, whether the person uses the close button, Alt+F4 or the taskbar. The page then gets a `cornea:close-blocked` event so it can ask:
+
+```python
+@shell.close_guard
+def has_unsaved_work() -> bool:
+    return editor.dirty
+```
+
+```javascript
+window.addEventListener("cornea:close-blocked", () => {
+  if (confirm("Close without saving?")) {
+    fetch("/api/window/close", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ force: true }),
+    });
+  }
+});
+```
+
+A page can also switch the hold on and off itself, which works from the command line too: `POST /api/window/close-guard` with `{"enabled": true}`.
+
+**Dropped files** are off by default, because a full path says where a person keeps things. Turn them on with `--drop-files` (or `Window(drop_files=True)`) and the page gets a `cornea:drop` event whose `detail.paths` lists the full paths.
+
+**Opening files** is off by default too. With `--open-files` (or `Bridge(open_files=True)`) the page can call the `open_file` action, which opens a document in the program Windows has for it, and `reveal`, which shows a file or folder in Explorer. Programs, scripts and shortcuts (`.exe`, `.bat`, `.ps1`, `.lnk` and similar), network paths and missing files are refused.
+
+## Windows notifications
+
+Windows can show a notification (a toast) with a title and a message, even while your window is minimized. Windows draws and places it, so its look is Windows' own. It needs the optional extra:
+
+```bash
+pip install "cornea-shell[notifications]"
+```
+
+Your Python code can always show one:
+
+```python
+shell.show_notification("Export finished", "3 files were saved.", notification_id="export-1")
+```
+
+A page can show one only if you allow it with `--notifications` (or `Bridge(notifications=True)`), so a page cannot raise alerts on its own:
+
+```javascript
+await fetch("/api/bridge/show_notification", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ title: "Export finished", message: "3 files were saved.", notification_id: "export-1" }),
+});
+```
+
+The title (up to 64 characters) and message (up to 256) are plain text. Clicking the notification brings the window to the front and sends the page a `cornea:notification-click` event whose `detail.id` is the `notification_id`. The notification appears under your app's name and icon: Cornea registers the app id (or `Cornea.Shell`), the window title and the window icon for the current user. For a toast drawn by your own page instead, use `shell.notify()` and draw it in HTML.
+
 ## A window icon
 
 `--icon path/to/icon.ico` shows an icon on the window and its taskbar button. `.ico`, `.png`, `.bmp`, `.gif` and `.jpg` files work. A missing file is reported before anything starts.

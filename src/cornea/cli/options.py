@@ -190,8 +190,19 @@ def build_app(
     )
 
 
-def build_bridge(*, disable_action: list[str] | None) -> Bridge:
-    return Bridge(**_given(disabled=tuple(disable_action) if disable_action else None))
+def build_bridge(
+    *,
+    disable_action: list[str] | None,
+    open_files: bool | None = None,
+    notifications: bool | None = None,
+) -> Bridge:
+    return Bridge(
+        **_given(
+            disabled=tuple(disable_action) if disable_action else None,
+            open_files=open_files,
+            notifications=notifications,
+        )
+    )
 
 
 def build_window(
@@ -208,6 +219,7 @@ def build_window(
     debug: bool | None,
     js_api: bool | None = None,
     icon: Path | None = None,
+    drop_files: bool | None = None,
 ) -> Window:
     return Window(
         **_given(
@@ -223,5 +235,6 @@ def build_window(
             debug=debug,
             js_api=js_api,
             icon=icon,
+            drop_files=drop_files,
         )
     )

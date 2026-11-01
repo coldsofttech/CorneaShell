@@ -31,6 +31,17 @@ Start with two commands. `cornea info` shows the versions Cornea runs on, includ
 | `Something is already listening on ...` | Stop the other server, or use `--url` alone to show it. |
 | `could not start ...` | The program is not installed or not on the path. |
 
+## Notifications, dropped files and opened files
+
+| Sign | What to do |
+| --- | --- |
+| `Notifications need the extra: pip install "cornea-shell[notifications]"` | Install the extra. |
+| The page gets `available: false` from `show_notification` | There is no window (`serve`), the extra is missing, or this is not Windows. |
+| `Unknown action` for `show_notification`, `open_file` or `reveal` | They are off until you add `--notifications` or `--open-files`. |
+| `cornea:drop` never arrives | Start with `--drop-files`, and drop on the page, not on the title bar. |
+| `files of that type cannot be opened from a page` | `open_file` never opens programs, scripts or shortcuts. Use `reveal` to show them. |
+| The window will not close | An app close guard or the page is holding it. Look for `cornea:close-blocked` in the page; `POST /api/window/close` with `{"force": true}` closes anyway. |
+
 ## Settings and files
 
 | Message | What to do |

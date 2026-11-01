@@ -101,7 +101,7 @@ Failures print one short message and exit with code 1: the command ended before 
 
 ### Other options
 
-Every setting of the Python API has a flag, grouped in `--help`: server (`--host`, `--port`), security (`--allowed-host`, `--csp`, `--csp-profile`, `--api-prefix`, `--token-ttl`, `--cookie-samesite`, `--public-path`, `--require-origin/--no-require-origin`), native actions (`--disable-action`) and, for `open`, the window (`--title`, `--size`, `--min-size`, `--position`, `--frameless`, `--icon`, `--js-api`, `--resizable/--no-resizable`, `--on-top`, `--context-menu`, `--devtools`, `--debug`) the app (`--app-id`, `--single-instance`, `--remember-window`) and logging (`--log-level`, `--log-file`). Sizes look like `1200x800` and positions like `100,50`. The context menu and developer tools stay off unless you ask for them or use `--debug`. The command line never reads environment variables.
+Every setting of the Python API has a flag, grouped in `--help`: server (`--host`, `--port`), security (`--allowed-host`, `--csp`, `--csp-profile`, `--api-prefix`, `--token-ttl`, `--cookie-samesite`, `--public-path`, `--require-origin/--no-require-origin`), native actions (`--disable-action`) and, for `open`, the window (`--title`, `--size`, `--min-size`, `--position`, `--frameless`, `--icon`, `--js-api`, `--resizable/--no-resizable`, `--on-top`, `--context-menu`, `--devtools`, `--debug`) files and notifications (`--drop-files`, `--open-files`, `--notifications`), the app (`--app-id`, `--single-instance`, `--remember-window`) and logging (`--log-level`, `--log-file`). Sizes look like `1200x800` and positions like `100,50`. The context menu and developer tools stay off unless you ask for them or use `--debug`. The command line never reads environment variables.
 
 ### The app (`open` only)
 
@@ -140,6 +140,16 @@ The steps are `process_ready` (only with `--run`), `server_ready`, `window_shown
 $ cornea open web/dist --measure
 $ cornea serve web/dist --measure --json-friendly --json-file timings.json
 ```
+
+### Files (`open` only)
+
+| Option | Effect |
+| --- | --- |
+| `--drop-files` | Tell the page the full paths of files dropped on the window, as a `cornea:drop` event. Off by default. |
+| `--notifications` | Add the `show_notification` action, which shows a Windows notification (needs `pip install "cornea-shell[notifications]"`). Off by default. |
+| `--open-files` | Add the `open_file` and `reveal` actions. Off by default. Works with `serve` too, where Windows cannot open files, so they report that they are unavailable. |
+
+`open_file` refuses programs, scripts and shortcuts, network paths, folders and missing files. `reveal` shows any existing path in Explorer without running it.
 
 ### The window icon (`open` only)
 
