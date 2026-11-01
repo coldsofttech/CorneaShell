@@ -103,6 +103,7 @@ FLAGS: dict[type, dict[str, str]] = {
         "debug": "--debug",
         "js_api": "--js-api",
         "drop_files": "--drop-files",
+        "downloads": "--downloads",
         "icon": "--icon",
     },
     Bridge: {

@@ -214,7 +214,7 @@ def test_the_upstream_page_is_served_from_cornea(proxied: tuple[Shell, Browser])
 
     assert (status, body) == (200, b"<html>upstream page</html>")
     assert headers["Content-Type"] == "text/html; charset=utf-8"
-    assert headers["Content-Security-Policy"] == Security().csp
+    assert headers["Content-Security-Policy"] == f"{Security().csp}; report-uri /api/csp-report"
     assert headers["X-Content-Type-Options"] == "nosniff"
     assert shell.url.startswith(f"http://127.0.0.1:{shell.port}/?cornea_token=")
 

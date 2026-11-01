@@ -318,6 +318,7 @@ Native window options. The context menu and developer tools are off unless enabl
 | `devtools` | `bool` | `False` | Enable the developer tools. Off by default. |
 | `debug` | `bool` | `False` | Debug mode turns on the context menu and developer tools. |
 | `icon` | `Path \| str \| None` | `None` | Icon for the window and its taskbar button: an `.ico` file or an image (`.png`, `.bmp`, `.gif`, `.jpg`). A relative path is relative to the current folder. |
+| `downloads` | `bool` | `False` | Let the page download files. The person chooses where to save each one in a native dialog. Off by default, so a page cannot put files on disk. |
 | `drop_files` | `bool` | `False` | Tell the page which files were dropped on the window, with their full paths, as a `cornea:drop` event. Off by default, because a full path says where a person keeps things. |
 | `js_api` | `bool` | `False` | Give the page `window.pywebview.api`: the window controls and the native actions. It lets a frameless window show an address that Cornea does not serve. Every page that loads in the window gets these powers, so use it only for pages you trust. |
 

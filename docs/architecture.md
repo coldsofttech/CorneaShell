@@ -40,6 +40,9 @@ src/cornea/core/single_instance.py one copy at a time, and waking the first copy
 src/cornea/core/window_api.py      the opt-in js_api object
 src/cornea/core/logs.py      configure_logging(): stderr and file handlers, token redaction
 src/cornea/core/close_guard.py     holds the window open while the app is busy
+src/cornea/core/page_routes.py     /api/client.js and /api/csp-report
+src/cornea/core/client.js          the script served as /api/client.js
+src/cornea/cli/doctor.py           the checks behind `cornea doctor`
 src/cornea/core/notifications.py   Windows toast notifications through the winrt bindings
 src/cornea/core/window.py    pywebview window, window controller, environment checks
 src/cornea/core/window_routes.py   /api/window routes
@@ -47,7 +50,7 @@ src/cornea/core/bridge.py    native actions and the action registry
 src/cornea/core/bridge_routes.py   /api/bridge route
 src/cornea/cli/              the cornea command: a thin wrapper over run()
 src/cornea/cli/config.py     cornea.toml and [tool.cornea]: defaults for the command
-src/cornea/core/environment.py   versions and places, for `cornea info` and the debug log
+src/cornea/core/environment.py   versions and places, for the top of the debug log
 tests/                       unit tests; tests/integration/ runs real processes and a real window
 examples/                    runnable example projects
 ```
@@ -175,6 +178,16 @@ The close guard (`close_guard.py`) answers one question: should closing be held 
 Dropped files use pywebview's DOM events. They are installed once, after the first page load, only when `Window(drop_files=True)`. The event carries paths only, never contents, and only for files a person dropped.
 
 `open_file` and `reveal` are built-in actions that exist only with `Bridge(open_files=True)`. `open_file` resolves the path, refuses network paths (a link to a share would leak the Windows login to it), folders, missing files, files without an extension and the types in `BLOCKED_SUFFIXES` (programs, scripts, shortcuts), and then calls `os.startfile`. `reveal` runs `explorer` with the path as one argument; it is allowed for any existing path because showing a file does not run it. Page and line hints, as VethuQ passes to its PDF viewer, are not supported: they need a program-specific command line.
+
+## The page client, and reports of blocked content
+
+`page_routes.py` serves two things under the API prefix. `GET /client.js` is the data file `client.js`, with the placeholder `__API_PREFIX__` replaced by the configured prefix; it sits behind the session like any API route, and as a classic script on the page's own origin it satisfies the default policy. The file is read once from the package, so a frozen app needs `--collect-data cornea` (see [packaging](packaging.md)).
+
+`POST /csp-report` receives the browser's report of what the content security policy blocked. The middleware adds `report-uri <prefix>/csp-report` to the policy unless the policy already names `report-uri` or `report-to`. A browser sends this report by itself, possibly without an `Origin`, so this one path is public and exempt from the `Origin` check; it can only write a log line. The body is untrusted: reports over 8 KB are dropped, a body that is not JSON is ignored, and a report is logged at `debug` with the directive, the blocked address, the page and the source file, all without query strings (the start-up link carries its token there). Whether a given WebView2 version delivers these reports was not checked in a real window.
+
+## Downloads
+
+`Window(downloads=True)` sets pywebview's `ALLOW_DOWNLOADS`, which is otherwise forced off in `show_window`. With it on, pywebview shows its own save dialog for each download, so the person chooses the location; Cornea does not pick a folder or save silently.
 
 ## Notifications
 

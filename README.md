@@ -191,6 +191,32 @@ await fetch("/api/bridge/show_notification", {
 
 The title (up to 64 characters) and message (up to 256) are plain text. Clicking the notification brings the window to the front and sends the page a `cornea:notification-click` event whose `detail.id` is the `notification_id`. The notification appears under your app's name and icon: Cornea registers the app id (or `Cornea.Shell`), the window title and the window icon for the current user. For a toast drawn by your own page instead, use `shell.notify()` and draw it in HTML.
 
+## One small script for your page
+
+Every page that talks to its window makes the same `fetch()` calls. Cornea serves them as one script, so you do not write them yourself:
+
+```html
+<script src="/api/client.js"></script>
+<script type="module" src="app.js"></script>
+```
+
+```javascript
+await cornea.window.minimize();                       // also maximize, restore, close, setTitle
+const folder = await cornea.call("choose_folder");    // any built-in or your own action
+await cornea.closeGuard(true);                        // hold the window open while busy
+const stop = cornea.on("drop", (detail) => console.log(detail.paths));   // a cornea:drop event
+```
+
+`cornea.call` resolves with the action's result and rejects with a `CorneaError` (`error.unavailable` is true when the action is not available, for example a dialog with no window). The script comes from Cornea's own address, so it works under the strict security policy.
+
+## Downloads
+
+A page cannot save files to disk unless you allow it. With `--downloads` (or `Window(downloads=True)`) a download starts a save dialog, and the person chooses where it goes each time.
+
+## Checking your machine
+
+`cornea doctor` checks that Python, the WebView2 runtime and pywebview are there, that a loopback port can be opened, that your `cornea.toml` is valid, and that the log folder can be written. It exits with code 1 if something is wrong, and `--json` prints the result for other programs.
+
 ## A window icon
 
 `--icon path/to/icon.ico` shows an icon on the window and its taskbar button. `.ico`, `.png`, `.bmp`, `.gif` and `.jpg` files work. A missing file is reported before anything starts.
@@ -272,6 +298,7 @@ See the [command line guide](https://github.com/coldsofttech/CorneaShell/blob/ma
 - [Python API reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/api-reference.md)
 - [How it works](https://github.com/coldsofttech/CorneaShell/blob/main/docs/architecture.md)
 - [Troubleshooting](https://github.com/coldsofttech/CorneaShell/blob/main/docs/troubleshooting.md)
+- [Packaging an app](https://github.com/coldsofttech/CorneaShell/blob/main/docs/packaging.md)
 
 ## Development
 

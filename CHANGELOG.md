@@ -22,9 +22,13 @@ All notable changes to this project are documented here. The format follows [Kee
 - Frameless windows can show pages Cornea does not serve, if you opt in to give the page the window controls (trusted pages only).
 - Windows can have an icon.
 - A refused request with the wrong Host or Origin is now reported as a warning, so a wrong `allowed_hosts` setting is no longer silent.
-- `cornea info` also shows the WebView2 runtime, pywebview and the log folder.
 - Settings for the `cornea` command can be kept in `cornea.toml` or in `[tool.cornea]` of `pyproject.toml`.
 - Your Python code can send events to the page, and can keep the window open while the app is busy: the page is told and can ask before closing. The page can also set this itself.
+- `cornea doctor` shows the versions Cornea runs on and checks that the machine is ready: WebView2, pywebview, a free port, your settings file and the log folder.
+- Pages can load one script from Cornea, `/api/client.js`, for the window controls, native actions and `cornea:*` events instead of writing the calls themselves.
+- Debug logs now say what the content security policy blocked, and where.
+- Downloads are blocked unless you allow them with `--downloads`; the person then chooses where to save each file.
+- A guide to packaging an app with PyInstaller, with a test that builds one.
 - Windows notifications: `shell.show_notification()` from Python, and the `show_notification` action for a page once you allow it (`--notifications`). Needs `pip install "cornea-shell[notifications]"`.
 - Files dropped on the window can be passed to the page (`--drop-files`), and the page can open a file or show it in Explorer (`--open-files`). Both are off by default; programs and scripts are never opened.
 - `--measure` (and `measure=True` in Python) shows how long start-up took; the numbers can be saved as JSON. There is a documented target.

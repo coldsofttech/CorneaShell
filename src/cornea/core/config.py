@@ -181,6 +181,9 @@ class Window:
     icon: Path | str | None = None
     """Icon for the window and its taskbar button: an ``.ico`` file or an image
     (``.png``, ``.bmp``, ``.gif``, ``.jpg``). A relative path is relative to the current folder."""
+    downloads: bool = False
+    """Let the page download files. The person chooses where to save each one in a native dialog.
+    Off by default, so a page cannot put files on disk."""
     drop_files: bool = False
     """Tell the page which files were dropped on the window, with their full paths, as a
     ``cornea:drop`` event. Off by default, because a full path says where a person keeps things."""

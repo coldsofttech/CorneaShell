@@ -1,4 +1,4 @@
-"""What Cornea runs on, for ``cornea info`` and for the top of a debug log."""
+"""What Cornea runs on, for the top of a debug log."""
 
 import importlib.metadata
 import platform

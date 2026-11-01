@@ -32,4 +32,6 @@ Headless runs pass `window=None` and print `ready_line(shell)` from `on_ready`.
 
 `tests/test_example_projects.py` runs the examples that need only Python and Node. `tests/test_toolchain_examples.py` (marker `toolchains`, off by default) runs every external-tool example twice, once through its `main.py` and once through `cornea serve --run ... --url ... --mode proxy`, and skips what is not installed. `.github/workflows/examples.yml` installs each toolchain on Windows and runs it weekly, on manual dispatch and on pull requests that touch `examples/`. It is not part of the required `ci` check.
 
+The packaging test (`tests/test_packaging.py`) is part of the same workflow: it builds a small app with PyInstaller and checks that the frozen program serves its page.
+
 The .NET, Java, PHP and Go servers were written without those toolchains installed; the workflow is their only test.

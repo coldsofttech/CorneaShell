@@ -220,6 +220,7 @@ def build_window(
     js_api: bool | None = None,
     icon: Path | None = None,
     drop_files: bool | None = None,
+    downloads: bool | None = None,
 ) -> Window:
     return Window(
         **_given(
@@ -236,5 +237,6 @@ def build_window(
             js_api=js_api,
             icon=icon,
             drop_files=drop_files,
+            downloads=downloads,
         )
     )

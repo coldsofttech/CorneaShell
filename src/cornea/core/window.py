@@ -578,6 +578,8 @@ def show_window(webview: ModuleType, settings: Window) -> None:
     """Run the window's event loop. It must be called on the main thread and blocks until closed."""
     # The developer tools are available when wanted but never pop up by themselves.
     webview.settings["OPEN_DEVTOOLS_IN_DEBUG"] = False
+    # Downloads are blocked unless asked for; when allowed, pywebview asks where to save each one.
+    webview.settings["ALLOW_DOWNLOADS"] = settings.downloads
     webview.start(
         gui="edgechromium",
         debug=settings.context_menu_enabled or settings.devtools_enabled,

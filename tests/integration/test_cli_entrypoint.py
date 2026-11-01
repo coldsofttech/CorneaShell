@@ -26,7 +26,7 @@ def test_console_script() -> None:
 
 
 def test_errors_go_to_stderr() -> None:
-    result = _run(sys.executable, "-m", "cornea.cli", "--verbose", "--quiet", "info")
+    result = _run(sys.executable, "-m", "cornea.cli", "--verbose", "--quiet", "doctor")
 
     assert result.returncode == 2
     assert result.stdout == ""

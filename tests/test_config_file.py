@@ -226,7 +226,13 @@ def test_a_bad_file_stops_the_command(calls: Calls, tmp_path: Path) -> None:
     assert not calls.items
 
 
-def test_info_ignores_a_bad_file(calls: Calls, tmp_path: Path) -> None:
+def test_doctor_reports_a_bad_file(
+    calls: Calls, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
     write(tmp_path / "cornea.toml", "[window]\ncolour = 'red'\n")
 
-    assert runner.invoke(app, ["info"]).exit_code == 0
+    result = runner.invoke(app, ["doctor"])
+
+    assert result.exit_code == 1  # a problem, not a crash: the other commands refuse with 2
+    assert "unknown key" in result.stdout

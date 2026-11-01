@@ -70,6 +70,7 @@ SECTIONS: dict[str, dict[str, str]] = {
         "debug": "debug",
         "js-api": "js_api",
         "drop-files": "drop_files",
+        "downloads": "downloads",
         "icon": "icon",
     },
     "app": {

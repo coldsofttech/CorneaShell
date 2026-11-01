@@ -84,6 +84,9 @@ examples = [
 hooks = [
   "pre-commit>=4.7.0",
 ]
+packaging = [
+    "pyinstaller>=6.22.3",
+]
 
 [tool.uv]
 # `uv sync` installs both. CI test jobs skip `hooks`: pre-commit needs PyYAML, which can lack a

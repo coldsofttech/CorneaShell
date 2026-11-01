@@ -11,6 +11,7 @@ from cornea.core.bridge import ActionRegistry
 from cornea.core.bridge_routes import router as bridge_router
 from cornea.core.close_guard import CloseGuard
 from cornea.core.config import Bridge, Security
+from cornea.core.page_routes import router as page_router
 from cornea.core.proxy import ProxyApp
 from cornea.core.security import SecurityMiddleware, SessionGate, new_token
 from cornea.core.sources import Asgi, Process, Static, Url, WebSource, Wsgi, coerce_source
@@ -66,6 +67,7 @@ def create_app(
 
     app.include_router(window_router, prefix=security.api_prefix)
     app.include_router(bridge_router, prefix=security.api_prefix)
+    app.include_router(page_router, prefix=security.api_prefix)
     for router in routers:
         app.include_router(router, prefix=security.api_prefix)
     _reserve_api_prefix(app, security.api_prefix)

@@ -15,6 +15,7 @@ from http.cookies import CookieError, SimpleCookie
 from urllib.parse import parse_qsl, quote, urlencode
 
 from cornea.core.config import Security
+from cornea.core.page_routes import REPORT_PATH
 from cornea.core.sources import AsgiApp, Message, Receive, Scope, Send
 
 logger = logging.getLogger(__name__)
@@ -182,8 +183,20 @@ class SecurityMiddleware:
         }
         return origin.lower() in accepted
 
+    @property
+    def _report_path(self) -> str:
+        return self.security.api_prefix + REPORT_PATH
+
+    def _csp_with_reports(self) -> str:
+        """The policy, plus where the browser should report what it blocked (unless it says)."""
+        csp = self.security.csp
+        lowered = csp.lower()
+        if "report-uri" in lowered or "report-to" in lowered:
+            return csp
+        return f"{csp.rstrip().rstrip(';')}; report-uri {self._report_path}"
+
     def _is_public(self, path: str) -> bool:
-        return any(
+        return path == self._report_path or any(
             path == entry or (entry.endswith("/") and path.startswith(entry))
             for entry in self.security.public_paths
         )
@@ -200,7 +213,9 @@ class SecurityMiddleware:
             await _error(send, 403, "Unexpected Host")
             return
         method = scope["method"]
-        if method in UNSAFE_METHODS and not self._origin_allowed(scope):
+        # A browser's blocked-content report may carry no Origin, and it only writes a log line.
+        is_report = scope["path"] == self._report_path
+        if method in UNSAFE_METHODS and not is_report and not self._origin_allowed(scope):
             _refused(scope, "unexpected Origin header", misconfigured=True)
             await _error(send, 403, "Unexpected Origin")
             return
@@ -247,7 +262,7 @@ class SecurityMiddleware:
         if is_api:
             fixed.append((b"cache-control", b"no-store"))
         replaced = {name for name, _ in fixed}
-        csp = self.security.csp.encode("latin-1")
+        csp = self._csp_with_reports().encode("latin-1")
 
         async def secured(message: Message) -> None:
             if message["type"] == "http.response.start":

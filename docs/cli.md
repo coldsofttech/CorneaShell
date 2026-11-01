@@ -12,7 +12,7 @@ uvx --from cornea-shell cornea --help   # one-off, no install
 
 ## Global options
 
-These go before the command name, for example `cornea --quiet info`.
+These go before the command name, for example `cornea --quiet doctor`.
 
 | Option | Short | Description |
 | --- | --- | --- |
@@ -65,6 +65,17 @@ $ cornea open http://localhost:5173 --frameless --js-api
 
 pywebview puts that object into every page the window loads, including one it later navigates to, so the page gets the window controls and the native actions (dialogs, opening a link, platform information). Use `--js-api` only for pages you trust. You can still switch off single actions with `--disable-action`. `--mode proxy` is the alternative that needs no `--js-api`.
 
+### `doctor`
+
+Check that this machine is ready, and show what Cornea runs on: the Cornea and Python versions, the platform, the WebView2 runtime and pywebview (on Windows), the optional extras, the settings file (read and checked), a loopback port that can be opened, and the log folder. Each line is `ok`, a `warning` (worth knowing) or a `problem`. The exit code is 1 if there is a problem and 0 otherwise.
+
+```console
+$ cornea doctor
+$ cornea doctor --port 8765 --json
+```
+
+`--port N` checks that port `N` is free on `127.0.0.1`. `--json` prints a list of `{name, status, detail}` for other programs.
+
 ### `serve [SOURCE]`
 
 Serve the web UI without a window, for a browser or another program. It prints one JSON line to stdout and then serves until you press Ctrl+C:
@@ -101,7 +112,7 @@ Failures print one short message and exit with code 1: the command ended before 
 
 ### Other options
 
-Every setting of the Python API has a flag, grouped in `--help`: server (`--host`, `--port`), security (`--allowed-host`, `--csp`, `--csp-profile`, `--api-prefix`, `--token-ttl`, `--cookie-samesite`, `--public-path`, `--require-origin/--no-require-origin`), native actions (`--disable-action`) and, for `open`, the window (`--title`, `--size`, `--min-size`, `--position`, `--frameless`, `--icon`, `--js-api`, `--resizable/--no-resizable`, `--on-top`, `--context-menu`, `--devtools`, `--debug`) files and notifications (`--drop-files`, `--open-files`, `--notifications`), the app (`--app-id`, `--single-instance`, `--remember-window`) and logging (`--log-level`, `--log-file`). Sizes look like `1200x800` and positions like `100,50`. The context menu and developer tools stay off unless you ask for them or use `--debug`. The command line never reads environment variables.
+Every setting of the Python API has a flag, grouped in `--help`: server (`--host`, `--port`), security (`--allowed-host`, `--csp`, `--csp-profile`, `--api-prefix`, `--token-ttl`, `--cookie-samesite`, `--public-path`, `--require-origin/--no-require-origin`), native actions (`--disable-action`) and, for `open`, the window (`--title`, `--size`, `--min-size`, `--position`, `--frameless`, `--icon`, `--js-api`, `--resizable/--no-resizable`, `--on-top`, `--context-menu`, `--devtools`, `--debug`) files and notifications (`--drop-files`, `--downloads`, `--open-files`, `--notifications`), the app (`--app-id`, `--single-instance`, `--remember-window`) and logging (`--log-level`, `--log-file`). Sizes look like `1200x800` and positions like `100,50`. The context menu and developer tools stay off unless you ask for them or use `--debug`. The command line never reads environment variables.
 
 ### The app (`open` only)
 
@@ -145,6 +156,7 @@ $ cornea serve web/dist --measure --json-friendly --json-file timings.json
 
 | Option | Effect |
 | --- | --- |
+| `--downloads` | Let the page download files. Each download opens a save dialog. Off by default. |
 | `--drop-files` | Tell the page the full paths of files dropped on the window, as a `cornea:drop` event. Off by default. |
 | `--notifications` | Add the `show_notification` action, which shows a Windows notification (needs `pip install "cornea-shell[notifications]"`). Off by default. |
 | `--open-files` | Add the `open_file` and `reveal` actions. Off by default. Works with `serve` too, where Windows cannot open files, so they report that they are unavailable. |
@@ -154,10 +166,6 @@ $ cornea serve web/dist --measure --json-friendly --json-file timings.json
 ### The window icon (`open` only)
 
 `--icon PATH` shows an icon on the window and its taskbar button. `.ico`, `.png`, `.bmp`, `.gif`, `.jpg` and `.jpeg` files are accepted. A missing file is an error before anything starts; a file that cannot be loaded only logs a warning.
-
-### `info`
-
-Show the tool version, the Python version and the platform in a table. Add `--json` for machine-readable output.
 
 ## The settings file
 

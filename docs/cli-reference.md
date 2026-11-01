@@ -20,22 +20,23 @@ $ cornea [OPTIONS] COMMAND [ARGS]...
 
 **Commands**:
 
-* `info`: Show version and environment details.
+* `doctor`: Check that this machine is ready to show a...
 * `open`: Show the web UI in a native window (Windows).
 * `serve`: Serve the web UI without a window, for a...
 
-## `cornea info`
+## `cornea doctor`
 
-Show version and environment details.
+Check that this machine is ready to show a Cornea window.
 
 **Usage**:
 
 ```console
-$ cornea info [OPTIONS]
+$ cornea doctor [OPTIONS]
 ```
 
 **Options**:
 
+* `--port <int>`: Check that this port is free on 127.0.0.1 (0 checks that one can be opened).  [default: 0]
 * `--json`: Output as JSON.
 * `--help`: Show this message and exit.
 
@@ -93,6 +94,7 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--debug`: Turn on the context menu, the developer tools and debug logging.
 * `--js-api`: Give the page the window controls and native actions. Trusted pages only.
 * `--drop-files`: Tell the page the full paths of files dropped on the window.
+* `--downloads`: Let the page download files; the person chooses where to save each one.
 * `--icon <path>`: Window and taskbar icon: .ico, .png, .bmp, .gif or .jpg.
 * `--app-id <str>`: Name of the app, like com.example.notes.
 * `--single-instance`: Run one copy; a second start shows the first.
@@ -162,15 +164,15 @@ $ cornea serve [OPTIONS] [SOURCE]
 
 ```console
 $ cornea --version
-$ cornea --quiet info
-$ cornea --no-color info
+$ cornea --quiet doctor
+$ cornea --no-color doctor
 ```
 
-### `cornea info`
+### `cornea doctor`
 
 ```console
-$ cornea info
-$ cornea info --json
+$ cornea doctor
+$ cornea doctor --port 8765 --json
 ```
 
 ### `cornea open`

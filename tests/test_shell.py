@@ -82,7 +82,9 @@ def test_serves_the_ui_after_the_sign_in(shell: Shell) -> None:
     page, body = get(shell, "/", cookie=cookie)
     assert page.status == 200
     assert body == b"<html>shell</html>"
-    assert page.getheader("Content-Security-Policy") == Security().csp
+    assert page.getheader("Content-Security-Policy") == (
+        f"{Security().csp}; report-uri /api/csp-report"
+    )
 
 
 def test_the_ui_is_closed_without_the_cookie(shell: Shell) -> None:

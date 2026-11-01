@@ -328,7 +328,10 @@ def test_security_headers_are_added(make_client: Callable[..., AsgiClient]) -> N
     client = make_client()
     response = client.request("/", cookie=sign_in(client))
 
-    assert response.header("content-security-policy") == Security().csp
+    assert (
+        response.header("content-security-policy")
+        == f"{Security().csp}; report-uri /api/csp-report"
+    )
     assert response.header("x-content-type-options") == "nosniff"
     assert response.header("referrer-policy") == "no-referrer"
     assert response.header("cross-origin-opener-policy") == "same-origin"
@@ -350,7 +353,19 @@ def test_csp_is_configurable(make_client: Callable[..., AsgiClient]) -> None:
     response = client.request("/", cookie=sign_in(client))
 
     assert response.header("content-security-policy") == (
-        "default-src 'self'; style-src 'self' 'unsafe-inline'"
+        "default-src 'self'; style-src 'self' 'unsafe-inline'; report-uri /api/csp-report"
+    )
+
+
+def test_a_policy_that_names_its_own_reporting_is_left_alone(
+    make_client: Callable[..., AsgiClient],
+) -> None:
+    client = make_client(Security(csp="default-src 'self'; report-uri /my-reports"))
+
+    response = client.request("/", cookie=sign_in(client))
+
+    assert (
+        response.header("content-security-policy") == "default-src 'self'; report-uri /my-reports"
     )
 
 

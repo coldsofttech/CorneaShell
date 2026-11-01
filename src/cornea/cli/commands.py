@@ -2,7 +2,7 @@
 
 import json
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -31,13 +31,13 @@ from cornea import (
 )
 from cornea import run as run_shell
 from cornea.cli import config, options, output
-from cornea.core.environment import environment_details
+from cornea.cli.doctor import run_checks
 from cornea.core.logs import start_debug_logging
 from cornea.core.single_instance import AlreadyRunning
 
 EXAMPLES: dict[str, tuple[str, ...]] = {
-    "": ("cornea --version", "cornea --quiet info", "cornea --no-color info"),
-    "info": ("cornea info", "cornea info --json"),
+    "": ("cornea --version", "cornea --quiet doctor", "cornea --no-color doctor"),
+    "doctor": ("cornea doctor", "cornea doctor --port 8765 --json"),
     "open": (
         "cornea open web/dist",
         'cornea open web/dist --title "My App" --size 1200x800 --frameless --debug',
@@ -226,6 +226,14 @@ Notifications = Annotated[
         panel=NATIVE,
     ),
 ]
+Downloads = Annotated[
+    bool | None,
+    _flag(
+        "--downloads",
+        help="Let the page download files; the person chooses where to save each one.",
+        panel=WINDOW,
+    ),
+]
 DropFiles = Annotated[
     bool | None,
     _flag(
@@ -399,17 +407,36 @@ def main(
         raise typer.Exit(code=2) from exc
 
 
-@app.command(epilog=_epilog("info"))
-def info(json_output: JsonOption = False) -> None:
-    """Show version and environment details."""
-    details = environment_details()
+@app.command(epilog=_epilog("doctor"))
+def doctor(
+    port: Annotated[
+        int,
+        typer.Option(
+            help="Check that this port is free on 127.0.0.1 (0 checks that one can be opened)."
+        ),
+    ] = 0,
+    json_output: JsonOption = False,
+) -> None:
+    """Check that this machine is ready to show a Cornea window."""
+    checks = run_checks(port=port)
+    failed = any(check.status == "fail" for check in checks)
     if json_output:
-        output.console.print_json(data=details)
-        return
-    table = Table(title="cornea", show_header=False)
-    for key, value in details.items():
-        table.add_row(key.capitalize(), value)
-    output.console.print(table)
+        output.console.print_json(data=[asdict(check) for check in checks])
+    else:
+        table = Table(title="cornea doctor")
+        table.add_column("Check")
+        table.add_column("Result")
+        table.add_column("Details", overflow="fold")
+        marks = {
+            "ok": "[green]ok[/green]",
+            "warn": "[yellow]warning[/yellow]",
+            "fail": "[red]problem[/red]",
+        }
+        for check in checks:
+            table.add_row(check.name, marks[check.status], Text(check.detail))
+        output.console.print(table)
+    if failed:
+        raise typer.Exit(code=1)
 
 
 # ----- open and serve -------------------------------------------------------------------------
@@ -640,6 +667,7 @@ def open_window(
     debug: Debug = None,
     js_api: JsApi = None,
     drop_files: DropFiles = None,
+    downloads: Downloads = None,
     icon: IconFlag = None,
     app_id: AppIdFlag = None,
     single_instance: SingleInstanceFlag = None,
@@ -685,6 +713,7 @@ def open_window(
             debug=debug,
             js_api=js_api,
             drop_files=drop_files,
+            downloads=downloads,
             icon=icon,
         )
         server = options.build_server(host=host, port=port)
