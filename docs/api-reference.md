@@ -648,6 +648,7 @@ def create_app(
     security: Security | None = None,
     bridge: Bridge | None = None,
     bootstrap_token: str | None = None,
+    app_id: str | None = None,
 ) -> FastAPI
 ```
 
@@ -657,7 +658,8 @@ Build the FastAPI app that the shell serves.
 `routers` are mounted under `security.api_prefix`. The shell's own routes (the API
 prefix and `/health`) always win over the source. The bootstrap token and the
 allowed-host set are on `app.state` for the shell; add the bound address with
-`AppFactory.allow_host` once the port is known.
+`AppFactory.allow_host` once the port is known. `app_id` is part of the session
+cookie's name.
 
 Example:
 
