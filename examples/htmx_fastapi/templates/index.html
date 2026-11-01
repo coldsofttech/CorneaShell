@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- htmx would add an inline <style> for its indicators, which the strict policy blocks. -->
+    <meta name="htmx-config" content='{"includeIndicatorStyles": false}' />
+    <title>Cornea: HTMX</title>
+    <link rel="stylesheet" href="/static/style.css" />
+    <script src="/static/htmx.min.js"></script>
+  </head>
+  <body>
+    <main>
+      <h1>Hello from HTMX</h1>
+      <p>FastAPI sends HTML fragments; htmx puts them in the page. No JavaScript of our own.</p>
+      <p>
+        <input name="name" value="Ada" aria-label="Your name" />
+        <button hx-get="/greeting" hx-include="[name=name]" hx-target="#result">Greet</button>
+        <button hx-post="/count" hx-target="#result">Count</button>
+      </p>
+      <div id="result" class="result">Press a button.</div>
+    </main>
+  </body>
+</html>

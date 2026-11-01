@@ -1,0 +1,67 @@
+name: Examples
+
+# Runs the examples that need an outside tool (Go, PHP, Java, .NET, Node, Streamlit, MkDocs).
+# Every example runs twice, through its Python script and through the `cornea` command.
+# This is not part of the required `ci` check yet.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "examples/**"
+      - "tests/core/examples/**"
+      - ".github/workflows/examples.yml"
+  schedule:
+    - cron: "0 6 * * 1" # every Monday
+
+permissions:
+  contents: read
+
+concurrency:
+  group: examples-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  examples:
+    name: ${{ matrix.example }}
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        example:
+          - dotnet_server
+          - java_server
+          - php_server
+          - go_server
+          - node_server
+          - streamlit_app
+          - mkdocs_site
+          - packaging
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.2
+      - uses: actions/setup-dotnet@v6
+        if: matrix.example == 'dotnet_server'
+        with:
+          dotnet-version: 8.0.x
+      - uses: actions/setup-java@v6
+        if: matrix.example == 'java_server'
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: shivammathur/setup-php@v2
+        if: matrix.example == 'php_server'
+        with:
+          php-version: "8.3"
+      - uses: actions/setup-go@v7
+        if: matrix.example == 'go_server'
+        with:
+          go-version: "1.22"
+      - uses: actions/setup-node@v7
+        if: matrix.example == 'node_server'
+        with:
+          node-version: "22"
+      - run: uv sync --locked --no-group hooks --group examples --group packaging
+      # --no-sync: `uv run` would otherwise install the default groups again.
+      - run: uv run --no-sync pytest -m toolchains -k ${{ matrix.example }} --no-cov -rs

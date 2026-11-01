@@ -1,0 +1,56 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+}
+
+main {
+  padding: 1.5rem 2rem;
+}
+
+pre {
+  padding: 1rem;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  border-radius: 6px;
+  overflow: auto;
+}
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  height: 36px;
+  background: #1f3a5f;
+  color: white;
+  user-select: none;
+}
+
+.title {
+  padding: 0 12px;
+  font-size: 13px;
+}
+
+/* The free space of the bar: the part of a frameless window that drags it. */
+.drag {
+  flex: 1;
+  height: 100%;
+}
+
+.titlebar button {
+  width: 46px;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 14px;
+}
+
+.titlebar button:hover {
+  background: rgb(255 255 255 / 15%);
+}
+
+.titlebar .close:hover {
+  background: #c42b1c;
+}

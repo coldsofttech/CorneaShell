@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Cornea: Node.js</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+      main { padding: 1.5rem 2rem; }
+      pre { padding: 1rem; background: color-mix(in srgb, currentColor 8%, transparent); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Hello from Node.js</h1>
+      <p>
+        This page comes from a Node server, not from Cornea. Cornea only opens the window.
+      </p>
+      <p>
+        <input id="name" value="Ada" aria-label="Your name" />
+        <button id="greet">Call the Node server</button>
+      </p>
+      <pre id="output">Press the button.</pre>
+    </main>
+    <script>
+      document.querySelector("#greet").addEventListener("click", async () => {
+        const name = document.querySelector("#name").value;
+        const response = await fetch(`/hello?name=${encodeURIComponent(name)}`);
+        document.querySelector("#output").textContent = JSON.stringify(await response.json(), null, 2);
+      });
+    </script>
+  </body>
+</html>

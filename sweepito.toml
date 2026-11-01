@@ -1,10 +1,46 @@
 [defaults]
-profiles = ["python"]
+profiles = ["python", "cornea"]
 risk = "safe"
 
 [clean]
+# Opt in to build output from `uv build` (wheel and sdist, build metadata).
+enable = ["python.build", "python.dist", "python.eggs", "python.pycache", "python.pytest", "python.ruff", "python.mypy", "python.coverage"]
 # Exclusions always win over cleanup rules. Keep the uv environment between commits.
 exclude = [".venv/"]
 
+# Cornea's own rules. A profile without markers is always active.
+[profile.cornea]
+
+# `--log-file cornea.log` writes a log (and cornea.log.1 to .3 when it rotates) in the folder the
+# command was run from. Debug mode's own log lives in %LOCALAPPDATA%\Cornea\logs, outside the repo.
+[[rule]]
+id = "cornea.log"
+profile = "cornea"
+paths = ["cornea.log*"]
+description = "Cornea debug logs"
+
+# The React example's build output and packages. Both are git-ignored and come back with
+# `npm install && npm run build` in examples/react_vite.
+[[rule]]
+id = "cornea.react-vite"
+profile = "cornea"
+paths = ["examples/react_vite/dist/", "examples/react_vite/node_modules/"]
+description = "React example build output and node_modules"
+
+# The same for the Vue example, in examples/vue_vite.
+[[rule]]
+id = "cornea.vue-vite"
+profile = "cornea"
+paths = ["examples/vue_vite/dist/", "examples/vue_vite/node_modules/"]
+description = "Vue example build output and node_modules"
+
+# The MkDocs example's built site; examples/mkdocs_site/main.py builds it again on every start.
+[[rule]]
+id = "cornea.mkdocs-site"
+profile = "cornea"
+paths = ["examples/mkdocs_site/site/"]
+description = "MkDocs example built site"
+
 [hook]
+risk = "safe"
 quiet = true

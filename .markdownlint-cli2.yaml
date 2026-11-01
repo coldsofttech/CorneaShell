@@ -2,3 +2,7 @@ config:
   MD013: false # line length
   MD033: false # inline HTML
   MD041: false # first line heading (templates start with a subheading)
+  MD004: false # list style
+  MD010: false # hard tabs (Go code blocks)
+  MD014: false # $ prompts in command examples
+  MD024: false # repeated headings in the references

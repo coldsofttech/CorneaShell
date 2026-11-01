@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cornea: plain HTML</title>
+    <link rel="stylesheet" href="style.css" />
+    <script type="module" src="app.js"></script>
+  </head>
+  <body>
+    <!-- Only shown in a frameless window, where there is no native title bar. -->
+    <header id="titlebar" class="titlebar" hidden>
+      <span id="title" class="title"></span>
+      <span class="drag pywebview-drag-region"></span>
+      <button id="minimize" title="Minimize">&#8211;</button>
+      <button id="maximize" title="Maximize">&#9633;</button>
+      <button id="close" class="close" title="Close">&#10005;</button>
+    </header>
+
+    <main>
+      <h1>Hello from plain HTML</h1>
+      <p>
+        This page is a folder of static files. Cornea serves it on a local, secured server and
+        shows it in a window.
+      </p>
+      <p>
+        <button id="platform">Ask the system (native action)</button>
+        <button id="rename">Rename the window</button>
+      </p>
+      <pre id="output">Press a button.</pre>
+    </main>
+  </body>
+</html>

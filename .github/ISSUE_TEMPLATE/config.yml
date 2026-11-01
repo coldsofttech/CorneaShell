@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security issue privately
+    url: https://github.com/coldsofttech/CorneaShell/security/advisories/new
+    about: Anything that lets another program or website reach the local server, or lets a page do more than it was allowed to.
+  - name: Ask a question
+    url: https://github.com/coldsofttech/CorneaShell/discussions
+    about: Questions about using Cornea Shell, if Discussions is enabled.

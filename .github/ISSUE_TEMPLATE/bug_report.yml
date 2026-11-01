@@ -2,6 +2,10 @@ name: Bug report
 description: Report something that is not working as expected
 labels: [bug]
 body:
+  - type: markdown
+    attributes:
+      value: |
+        Security problems do not belong here. Please report them privately, as described in the security policy.
   - type: textarea
     id: what-happened
     attributes:
@@ -13,18 +17,45 @@ body:
     id: steps
     attributes:
       label: Steps to reproduce
+      description: The command or code you ran, and the smallest page that shows the problem.
       placeholder: |
         1. ...
         2. ...
     validations:
       required: true
+  - type: dropdown
+    id: how
+    attributes:
+      label: How are you running Cornea Shell?
+      options:
+        - The cornea command
+        - The Python package
+        - A packaged app (PyInstaller or similar)
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: What are you showing?
+      options:
+        - A folder of built files
+        - An ASGI or WSGI app (FastAPI, Flask, Django)
+        - A dev server or other server (proxy mode)
+        - A direct address
+        - Not sure
   - type: input
     id: version
     attributes:
       label: Version
-      description: Release or commit you are using.
+      description: Output of `cornea --version`.
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `cornea doctor`
+      description: Shows your Windows, Python and WebView2 versions.
+      render: text
   - type: textarea
     id: logs
     attributes:
       label: Logs or screenshots
-      description: Remove any secrets or personal information first.
+      description: Run with `--log-level debug --log-file cornea.log` and attach the file. Remove any secrets or personal information first.

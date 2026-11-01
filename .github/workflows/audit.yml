@@ -14,7 +14,8 @@ permissions:
 
 jobs:
   pip-audit:
-    runs-on: ubuntu-latest
+    # Windows, so the audited set includes pywebview and pythonnet, which are installed only there.
+    runs-on: windows-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
