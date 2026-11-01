@@ -1,32 +1,16 @@
 # Example entry points
 
-Each folder in `examples/` has a `main.py` that builds a `Shell` in `build_shell(...)` and runs it in `main()`. Tests load these files and call `build_shell(headless=True)`.
+Each folder in `examples/` has a `main.py` that builds a `Shell` in `build_shell(...)` and runs it in `main()`, and a README with the steps to create that kind of app and run it. Tests load these files and call `build_shell(headless=True)`. See [examples/README.md](../examples/README.md) for the list.
 
-| Example | Source | Notes |
-| --- | --- | --- |
-| static_html | `Static(HERE)` | Frameless, `icon="icon.png"`; `--remember` adds `App(id=..., remember_window=True)` |
-| react_vite | `Static(dist)` or `Process("npm run dev ...", mode="proxy")` | `--dev` needs `Security(csp=DEV_CSP)`; built mode exits with a hint when `dist/` is missing |
-| fastapi_app | `Static` plus routers, or `Asgi("main:app")` with `--mount` | When mounted, `/api` still belongs to Cornea, so the app serves `/greeting` and the page reads the URL from a `<meta>` tag |
-| flask_app | `Wsgi("flask_example:app")` | |
-| django_app | `Asgi("django_example:application")` | |
-| node_server | `Process(("node", "server.js", port))` or `Url(...)` with `--external` | `server.js` takes the port as an argument; a direct address needs a window, so `--headless` needs `--mode proxy` |
+| Example | Source |
+| --- | --- |
+| static_html, react_vite, vue_vite | `Static(folder)`; the Vite examples can use `Process("npm run dev ...", mode="proxy")` with `DEV_CSP` |
+| fastapi_app, htmx_fastapi | `Static` plus routers, or `Asgi("main:app")` |
+| flask_app, django_app | `Wsgi(...)`, `Asgi(...)` |
+| node_server, streamlit_app, mkdocs_site | `Process(...)` or `Url(...)`, usually in proxy mode |
+| dotnet_server, java_server, php_server, go_server | `Process(command, mode="proxy")`; each takes its port from the command line |
 
 Headless runs pass `window=None` and print `ready_line(shell)` from `on_ready`.
-
-## Servers started by a command
-
-| Example | Command Cornea runs | Notes |
-| --- | --- | --- |
-| vue_vite | `Static(dist)` or `Process("npm run dev ...", mode="proxy")` | Same as react_vite; `--dev` needs `DEV_CSP` |
-| htmx_fastapi | `Asgi("main:app")` | htmx is vendored; strict policy, no inline script or style |
-| streamlit_app | `python -m streamlit run app.py --server.port N ...` | Proxy plus `DEV_CSP`; the WebSocket handshake works with Streamlit's default origin checks |
-| mkdocs_site | `python -m mkdocs serve -a 127.0.0.1:N` (`--live`), or `Static(site)` after `mkdocs build` | Live uses a WebSocket and `DEV_CSP` |
-| dotnet_server | `dotnet run --project DIR --urls http://127.0.0.1:N` | Timeout 120 s for the first compile |
-| java_server | `java Server.java N` | JDK 21 |
-| php_server | `php -S 127.0.0.1:N -t DIR DIR/index.php` | The router argument is needed so `/hello` reaches `index.php` |
-| go_server | `go run . N` | Timeout 120 s |
-
-`Process` takes no environment, so each server takes its port from the command line (and from `PORT` as a fallback).
 
 ## Tests and the workflow
 
