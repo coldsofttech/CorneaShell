@@ -5,7 +5,7 @@ How to turn a Cornea app into a program people can install without Python. This 
 
 What was tested: a one-folder build (`--onedir`) of a small app, built with PyInstaller 6.22 on
 Python 3.11, started without a window and asked for its page and `/api/client.js`
-(`tests/test_packaging.py`, run by the examples workflow). A real window, a one-file build
+(`tests/core/examples/test_packaging.py`, run by the examples workflow). A real window, a one-file build
 (`--onefile`), an installer and code signing were not tested here, so treat those parts as advice.
 
 ## 1. Find your files from the frozen program

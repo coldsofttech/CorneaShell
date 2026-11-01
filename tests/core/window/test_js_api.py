@@ -13,7 +13,7 @@ from cornea.core.bridge.bridge import ActionRegistry
 from cornea.core.window import window as window_module
 from cornea.core.window.api import WindowApi
 from cornea.core.window.window import SimulatedWindow, create_native_window
-from test_window import FakeWebview
+from window_fakes import FakeWebview
 
 
 class Recorder:

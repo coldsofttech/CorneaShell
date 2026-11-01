@@ -52,7 +52,7 @@ src/cornea/core/page/notifications.py     Notifier: Windows toast notifications 
 src/cornea/cli/                           the cornea command: a thin wrapper over run()
 src/cornea/cli/config.py                  cornea.toml and [tool.cornea]: defaults for the command
 src/cornea/cli/doctor.py                  the checks behind `cornea doctor`
-tests/                                    unit tests; tests/integration/ runs real processes and a real window
+tests/                                    unit tests in core/ and cli/; each has integration/ (real processes and a real window) and examples/
 examples/                                 runnable example projects
 ```
 

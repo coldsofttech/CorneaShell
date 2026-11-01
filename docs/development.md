@@ -6,7 +6,7 @@
 src/cornea/            package source (src layout, typed)
 src/cornea/core/       server, security, sources, window and bridge
 src/cornea/cli/        command line interface (thin wrapper over the Python API)
-tests/                 pytest tests
+tests/                 pytest tests: core/ and cli/, each with integration/ and examples/
 pyproject.toml         metadata, dependencies and tool configuration
 uv.lock                locked dependencies (commit this file)
 ```
@@ -34,7 +34,7 @@ uv build                   # build sdist and wheel
 
 ## Integration tests
 
-Tests under `tests/integration/` are marked `integration` automatically by that folder's `conftest.py`. They are excluded from the default `pytest` run, and therefore from the pre-commit hook, and run as their own job in CI. Put slower or end-to-end tests there.
+Tests under any `integration/` folder (`tests/core/integration/`, `tests/cli/integration/`) are marked `integration` automatically by `tests/conftest.py`. They are excluded from the default `pytest` run, and therefore from the pre-commit hook, and run as their own job in CI. Put slower or end-to-end tests there.
 
 ## Start-up time
 
@@ -42,7 +42,7 @@ Tests under `tests/integration/` are marked `integration` automatically by that 
 
 ## The stand-in dev server
 
-`tests/devserver.py` is a tiny dev server that the `Process` tests start as their command, so they need neither Node nor a real framework. The crash test under `tests/integration/` uses it to prove that the server is gone after Cornea dies.
+`tests/devserver.py` is a tiny dev server that the `Process` tests start as their command, so they need neither Node nor a real framework. The crash test under `tests/core/integration/` uses it to prove that the server is gone after Cornea dies.
 
 ## Continuous integration
 

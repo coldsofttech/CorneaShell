@@ -25,7 +25,7 @@ from cornea import Shell
 
 pytestmark = pytest.mark.toolchains
 
-EXAMPLES = Path(__file__).resolve().parent.parent / "examples"
+EXAMPLES = Path(__file__).resolve().parents[3] / "examples"
 STARTUP_SECONDS = 180
 
 

@@ -5,9 +5,9 @@ import pytest
 from cornea import Shell, Static, Window
 from cornea.core.window import window as window_module
 from cornea.core.window.window import create_native_window
-from test_window import FakeWebview
+from window_fakes import FakeWebview
 
-ICON = Path(__file__).resolve().parent.parent / "examples" / "static_html" / "icon.png"
+ICON = Path(__file__).resolve().parents[3] / "examples" / "static_html" / "icon.png"
 
 
 @pytest.mark.parametrize("name", ["a.ico", "a.PNG", "a.bmp", "a.gif", "a.jpg", "a.jpeg"])

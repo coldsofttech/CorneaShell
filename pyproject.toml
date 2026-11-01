@@ -122,7 +122,8 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-m 'not integration and not toolchains' --strict-markers --cov=cornea --cov-report=term-missing --cov-fail-under=80"
+pythonpath = ["tests"]
+addopts = "-m 'not integration and not toolchains' --import-mode=importlib --strict-markers --cov=cornea --cov-report=term-missing --cov-fail-under=80"
 markers = [
   "integration: slower end-to-end tests, run in CI but not by default or in pre-commit",
   "toolchains: examples that need Go, PHP, Java, .NET, Node, Streamlit or MkDocs; run by the examples workflow",

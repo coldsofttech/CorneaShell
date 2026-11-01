@@ -15,7 +15,7 @@ from cornea.core.bridge import ActionRegistry, BadArguments, BuiltinActions
 from cornea.core.security.close_guard import CloseGuard
 from cornea.core.window import window as window_module
 from cornea.core.window.window import NativeWindow, Unavailable, create_native_window
-from test_window import FakeWebview, FakeWindow
+from window_fakes import FakeWebview, FakeWindow
 
 
 @pytest.fixture

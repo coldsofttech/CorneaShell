@@ -13,7 +13,7 @@ from typer.testing import CliRunner
 from cornea import Security, Shell, Static, Window
 from cornea.cli import app, doctor
 from cornea.core.window.window import show_window
-from test_window import FakeWebview
+from window_fakes import FakeWebview
 
 runner = CliRunner()
 

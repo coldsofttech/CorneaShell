@@ -10,7 +10,7 @@ from pathlib import Path
 from cornea import Process
 from cornea.core.sources.process import ProcessRunner
 
-DEVSERVER = Path(__file__).resolve().parent.parent / "devserver.py"
+DEVSERVER = Path(__file__).resolve().parents[2] / "devserver.py"
 
 
 def main() -> None:

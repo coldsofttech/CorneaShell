@@ -10,9 +10,9 @@ from cornea import Process, Shell, Static, Timings, Window
 from cornea.core import shell as shell_module
 from cornea.core.window import window as window_module
 from cornea.core.window.window import create_native_window
-from test_window import FakeWebview
+from window_fakes import FakeWebview
 
-DEVSERVER = Path(__file__).with_name("devserver.py")
+DEVSERVER = Path(__file__).resolve().parent.parent / "devserver.py"
 
 
 @pytest.fixture

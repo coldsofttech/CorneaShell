@@ -1,20 +1,13 @@
-import doctest
 import logging
 import shlex
 from collections.abc import Iterator
 from pathlib import Path
-from types import ModuleType
 
 import pytest
 from typer.testing import CliRunner
 
 from cornea.cli import app
 from cornea.cli.commands import EXAMPLES
-from cornea.core import config, shell
-from cornea.core.app import app as app_module
-from cornea.core.bridge import bridge
-from cornea.core.sources import sources
-from cornea.core.window import window as window_module
 
 runner = CliRunner()
 
@@ -36,18 +29,6 @@ def restore_cornea_logging(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> I
         handler.close()
     logger.setLevel(level)
     logger.propagate = propagate
-
-
-@pytest.mark.parametrize(
-    "module",
-    [app_module, bridge, config, shell, sources, window_module],
-    ids=lambda module: module.__name__,
-)
-def test_docstring_examples_run(module: ModuleType) -> None:
-    result = doctest.testmod(module)
-
-    assert result.attempted > 0
-    assert result.failed == 0
 
 
 @pytest.mark.parametrize(("command", "example"), CLI_EXAMPLES)

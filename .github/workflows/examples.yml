@@ -9,7 +9,7 @@ on:
   pull_request:
     paths:
       - "examples/**"
-      - "tests/test_toolchain_examples.py"
+      - "tests/core/examples/**"
       - ".github/workflows/examples.yml"
   schedule:
     - cron: "0 6 * * 1" # every Monday

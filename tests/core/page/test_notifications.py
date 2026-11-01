@@ -12,7 +12,7 @@ from cornea import Bridge, Shell, Static, Window
 from cornea.core.bridge import ActionRegistry
 from cornea.core.page import Notifier
 from cornea.core.window.window import NativeWindow, Unavailable, create_native_window
-from test_window import FakeWebview, FakeWindow
+from window_fakes import FakeWebview, FakeWindow
 
 
 class FakeXml:

@@ -14,7 +14,7 @@ import pytest
 
 from cornea import Asgi, Shell, Static, Wsgi
 
-EXAMPLES = Path(__file__).resolve().parent.parent / "examples"
+EXAMPLES = Path(__file__).resolve().parents[3] / "examples"
 
 
 def load(name: str, path: Path) -> ModuleType:

@@ -21,7 +21,7 @@ from cornea.core.security.single_instance import (
 from cornea.core.window import window as window_module
 from cornea.core.window.memory import MIN_VISIBLE, Remembered, WindowMemory, fit_to_screens
 from cornea.core.window.window import NativeWindow, create_native_window
-from test_window import FakeEvent, FakeWebview, FakeWindow
+from window_fakes import FakeEvent, FakeWebview, FakeWindow
 
 SCREEN = (0, 0, 1920, 1080)
 
