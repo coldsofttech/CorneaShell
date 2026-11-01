@@ -78,10 +78,10 @@ Example:
 ('open_external',)
 ```
 
-## `Literal`
+## `LogLevel`
 
 ```python
-def Literal(
+def LogLevel(
     *args,
     **kwargs,
 )
@@ -173,10 +173,10 @@ The server listens on the loopback address by default and picks a free port. The
 `url`, carries a one-time token that is exchanged for a session cookie. With a
 `window`, `run` opens a native window on that URL (Windows only, and on the main
 thread) and stops the server when the window closes. With `window=None` it only serves, and
-the window routes answer from a `cornea.core.window.window.SimulatedWindow`, so the page can
+the window routes answer from a `cornea.core.window.SimulatedWindow`, so the page can
 be tried in a normal browser.
 
-A direct `cornea.core.sources.sources.Url` source is different: the window opens that address
+A direct `cornea.core.sources.Url` source is different: the window opens that address
 itself and no server is started, so it needs a window with the native frame (the page cannot
 reach the window controls) and `url` is the address you gave.
 
@@ -395,11 +395,11 @@ def create_app(
 
 Build the FastAPI app that the shell serves.
 
-`source` is where the UI comes from; `None` gives an API-only app. The host's `routers`
-are mounted under `security.api_prefix`. The shell's own routes (the API prefix and
-`/health`) always win over the source. The bootstrap token and the allowed-host set are on
-`app.state` for the shell; add the bound address with `AppFactory.allow_host` once the port is
-known.
+`source` is where the UI comes from; `None` gives an API-only app. The host's
+`routers` are mounted under `security.api_prefix`. The shell's own routes (the API
+prefix and `/health`) always win over the source. The bootstrap token and the
+allowed-host set are on `app.state` for the shell; add the bound address with
+`AppFactory.allow_host` once the port is known.
 
 Example:
 

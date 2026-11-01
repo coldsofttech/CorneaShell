@@ -12,8 +12,22 @@ body:
     id: solution
     attributes:
       label: Proposed solution
+      description: For anything the page could do on the machine, say how it would stay off by default.
     validations:
       required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Window
+        - Native actions or notifications
+        - Web sources and the proxy
+        - Security
+        - Command line
+        - Packaging
+        - Examples or docs
+        - Other
   - type: textarea
     id: alternatives
     attributes:

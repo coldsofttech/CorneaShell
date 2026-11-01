@@ -1,12 +1,20 @@
 # Cornea Shell
 
 [![CI](https://github.com/coldsofttech/CorneaShell/actions/workflows/ci.yml/badge.svg)](https://github.com/coldsofttech/CorneaShell/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/coldsofttech/CorneaShell?logo=github)](https://github.com/coldsofttech/CorneaShell/releases)
 [![PyPI](https://img.shields.io/pypi/v/cornea-shell)](https://pypi.org/project/cornea-shell/)
 [![Python versions](https://img.shields.io/pypi/pyversions/cornea-shell)](https://pypi.org/project/cornea-shell/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit)](https://github.com/pre-commit/pre-commit)
 [![License](https://img.shields.io/github/license/coldsofttech/CorneaShell)](https://github.com/coldsofttech/CorneaShell/blob/main/LICENSE)
 
 Show a web UI in a native Windows window, backed by a secured local server. You bring the UI, whether it is plain HTML, a React build, a Flask or Django site, or a page from a Node server. Cornea handles the window, the local security and the bridge to native features.
+
+## Why Cornea Shell?
+
+Putting a web UI on the desktop usually means bundling a whole browser, or opening a local server that every program and web page on the machine can talk to. Cornea Shell takes a smaller path: your page runs in the Windows WebView2 window that is already installed, and it is served by a local server that only that window can use.
+
+You keep the UI you already have, and Cornea Shell adds the parts around it: the window, the security and a short, switched-off-by-default list of native features.
 
 ## What you get
 
@@ -16,6 +24,7 @@ Show a web UI in a native Windows window, backed by a secured local server. You 
 - **Your own Python routes** next to the UI, called with ordinary `fetch()`.
 - **Your dev server, started for you.** Cornea runs `npm run dev` (or any command), shows it, and stops it when the window closes.
 - **Native actions your page can call:** choose a folder or file, choose where to save, open a link in the browser, read platform info, and your own.
+- **Opt-in native features:** Windows notifications, opening files, dropped files and downloads. Each one stays off until you allow it.
 - **A command line and a Python API** that do the same things.
 
 ## Requirements
@@ -274,13 +283,16 @@ cornea serve path/to/your/web/folder
 
 prints one line of JSON with an address. Open that address in a browser to try the page without a window. The window buttons still answer, and dialogs report that they are unavailable.
 
-## Security in short
+## Security model
 
-- The server listens on your own machine only, on a free port.
-- The first address carries a one-time token. The window exchanges it for a session cookie, and nothing else can reach the server without that cookie.
-- Requests from other sites, and requests that change something without the right `Origin`, are refused.
-- The page can only use a short list of native actions, plus any you add yourself. The built-in ones never read or write files: a dialog only returns the path you chose.
-- The right-click menu and developer tools are off. Turn them on with `--devtools`, `--context-menu`, or `--debug` for both.
+| Guarantee | How |
+| --- | --- |
+| Only your window can use the server | It listens on your own machine on a free port, and every request needs the session cookie |
+| The start-up link is one-time | It carries a token that the window exchanges for the cookie, and it expires |
+| Other sites are kept out | Requests with the wrong `Host`, or that change something without the right `Origin`, are refused |
+| The page gets a short list of native actions | The built-in ones never read or write files: a dialog only returns the path you chose |
+| Risky features are opt-in | Opening files, notifications, dropped files, downloads and `--js-api` are all off until you turn them on |
+| Developer tools are off | Turn them on with `--devtools`, `--context-menu`, or `--debug` for both |
 
 ## Command line
 
@@ -291,29 +303,36 @@ cornea serve --help    # serve without a window
 
 See the [command line guide](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli.md) for every option.
 
-## More
+## Documentation
 
-- [Examples](https://github.com/coldsofttech/CorneaShell/tree/main/examples)
+- [Examples](https://github.com/coldsofttech/CorneaShell/tree/main/examples) (each has its own README)
 - [Command line guide](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli.md) and [reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli-reference.md)
 - [Python API reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/api-reference.md)
 - [How it works](https://github.com/coldsofttech/CorneaShell/blob/main/docs/architecture.md)
 - [Troubleshooting](https://github.com/coldsofttech/CorneaShell/blob/main/docs/troubleshooting.md)
 - [Packaging an app](https://github.com/coldsofttech/CorneaShell/blob/main/docs/packaging.md)
 
-## Development
+## Development setup
 
 ```bash
 git clone https://github.com/coldsofttech/CorneaShell.git
 cd CorneaShell
-uv sync
+uv sync                       # uses Python 3.11, the minimum supported version
+uv run pre-commit install --hook-type pre-commit --hook-type post-commit
 uv run pytest
+uv run ruff check . && uv run ruff format --check .
+uv run mypy
 ```
 
 See the [development guide](https://github.com/coldsofttech/CorneaShell/blob/main/docs/development.md) for linting, type checking and releasing.
 
 ## Contributing
 
-See [CONTRIBUTING.md](https://github.com/coldsofttech/CorneaShell/blob/main/CONTRIBUTING.md). Please report security issues privately as described in [SECURITY.md](https://github.com/coldsofttech/CorneaShell/blob/main/SECURITY.md).
+Contributions are welcome. Please read [CONTRIBUTING.md](https://github.com/coldsofttech/CorneaShell/blob/main/CONTRIBUTING.md) first; every change keeps the security model and comes with tests. Everyone taking part is expected to follow the [Code of Conduct](https://github.com/coldsofttech/CorneaShell/blob/main/CODE_OF_CONDUCT.md). For help, see [SUPPORT.md](https://github.com/coldsofttech/CorneaShell/blob/main/SUPPORT.md).
+
+## Security
+
+Cornea Shell sits between a web page and your computer, so a bug that lets another program or website reach the local server, or lets a page do more than it was allowed to, is a security issue. Please report it privately as described in [SECURITY.md](https://github.com/coldsofttech/CorneaShell/blob/main/SECURITY.md) and do not open a public issue.
 
 ## License
 

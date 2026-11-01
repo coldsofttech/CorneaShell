@@ -182,8 +182,12 @@ def parameter_text(parameter: inspect.Parameter) -> str:
     return text
 
 
-def signature_block(function: Any, prefix: str = "def ") -> str:
-    """A ``def`` block with one parameter per line, module paths and quotes removed."""
+def signature_block(function: Any, prefix: str = "def ", name: str | None = None) -> str:
+    """A ``def`` block with one parameter per line, module paths and quotes removed.
+
+    ``name`` is the public name, for a function that is exported under another name.
+    """
+    name = name or function.__name__
     signature = inspect.signature(function)
     params = [parameter_text(parameter) for parameter in signature.parameters.values()]
     kinds = [parameter.kind for parameter in signature.parameters.values()]
@@ -193,29 +197,32 @@ def signature_block(function: Any, prefix: str = "def ") -> str:
     if prefix and signature.return_annotation is not inspect.Signature.empty:
         returns = f" -> {tidy(type_name(signature.return_annotation))}"
     if not params:
-        return f"{prefix}{function.__name__}(){returns}"
+        return f"{prefix}{name}(){returns}"
     inner = ",\n".join(f"    {param}" for param in params)
-    return f"{prefix}{function.__name__}(\n{inner},\n){returns}"
+    return f"{prefix}{name}(\n{inner},\n){returns}"
 
 
-def render_callable(obj: Any) -> list[str]:
-    return [
-        f"## `{obj.__name__}`",
+def render_callable(obj: Any, name: str) -> list[str]:
+    """A function or method, shown under the name ``cornea`` exports it as."""
+    lines = [
+        f"## `{name}`",
         "",
         "```python",
-        signature_block(obj),
+        signature_block(obj, name=name),
         "```",
         "",
         body_text(obj),
         *render_example(obj),
         "",
     ]
+    # A method exported as a function (create_app = AppFactory.create) shows its public name.
+    return [line.replace(f"{obj.__qualname__}(", f"{name}(") for line in lines]
 
 
 def constant_doc(name: str) -> str:
     """The string literal that follows ``NAME = ...`` in any ``cornea.core`` module."""
-    for info in pkgutil.iter_modules(cornea.core.__path__):
-        module = importlib.import_module(f"cornea.core.{info.name}")
+    for info in pkgutil.walk_packages(cornea.core.__path__, "cornea.core."):
+        module = importlib.import_module(info.name)
         tree = ast.parse(inspect.getsource(module))
         for current, following in zip(tree.body, tree.body[1:], strict=False):
             names = [t.id for t in getattr(current, "targets", []) if isinstance(t, ast.Name)]
@@ -254,7 +261,7 @@ def render(module: ModuleType) -> str:
         elif inspect.isclass(obj):
             lines += render_class(obj)
         elif callable(obj):
-            lines += render_callable(obj)
+            lines += render_callable(obj, name)
         elif isinstance(obj, str):
             lines += render_constant(name, obj)
     return "\n".join(lines).rstrip("\n") + "\n"

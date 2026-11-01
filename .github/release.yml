@@ -7,5 +7,7 @@ changelog:
       labels: [enhancement]
     - title: Bug fixes
       labels: [bug]
+    - title: Documentation
+      labels: [documentation]
     - title: Other changes
       labels: ["*"]

@@ -4,9 +4,10 @@
 
 ```text
 src/cornea/            package source (src layout, typed)
-src/cornea/core/       server, security, sources, window and bridge
+src/cornea/core/       app/, window/, bridge/, sources/, security/ and page/, plus config, shell and logs
 src/cornea/cli/        command line interface (thin wrapper over the Python API)
 tests/                 pytest tests: core/ and cli/, each with integration/ and examples/
+scripts/               generators for docs/api-reference.md and docs/cli-reference.md
 pyproject.toml         metadata, dependencies and tool configuration
 uv.lock                locked dependencies (commit this file)
 ```
