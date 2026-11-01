@@ -587,3 +587,14 @@ def test_window_kinds_say_whether_they_are_headless() -> None:
     assert SimulatedWindow("t").headless is True
     with pytest.raises(Unavailable):
         SimulatedWindow("t").dialog("open")
+
+
+@pytest.mark.parametrize(
+    "name", ["run.py", "macro.docm", "page.html", "setup.exe", "README", "a.lnk"]
+)
+def test_open_file_refuses_types_that_are_not_documents(tmp_path: Path, name: str) -> None:
+    target = tmp_path / name
+    target.write_text("x", encoding="utf-8")
+
+    with pytest.raises(BadArguments, match="cannot be opened"):
+        BuiltinActions.open_file(None, str(target))

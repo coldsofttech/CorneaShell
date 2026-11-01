@@ -399,7 +399,17 @@ def main(
     try:
         found = config_file if config_file is not None else config.find_config(Path.cwd())
         if found is not None:
-            ctx.default_map = config.load_config(found)
+            defaults = config.load_config(found)
+            # A file chosen with --config or sitting in this folder may start a command or import
+            # code; one found in a parent folder may not, so a cloned repository cannot run any.
+            trusted = config_file is not None or found.parent.resolve() == Path.cwd().resolve()
+            if not trusted and config.drop_code(defaults):
+                typer.echo(
+                    f"Ignoring run, asgi, wsgi and app-dir from {found}: it is in a parent folder. "
+                    "Pass them as options or use --config to run code.",
+                    err=True,
+                )
+            ctx.default_map = defaults
             state.config = found
     except config.ConfigError as exc:
         output.error(str(exc))

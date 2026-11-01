@@ -33,14 +33,16 @@ class UnknownAction(LookupError):
     """No such action, or it is switched off."""
 
 
-BLOCKED_SUFFIXES = frozenset(
+SAFE_SUFFIXES = frozenset(
     {
-        ".exe", ".com", ".scr", ".pif", ".msi", ".msp", ".dll", ".sys", ".cpl", ".msc",
-        ".bat", ".cmd", ".ps1", ".psm1", ".vbs", ".vbe", ".js", ".jse", ".wsf", ".wsh",
-        ".hta", ".reg", ".jar", ".lnk", ".url", ".appref-ms", ".gadget", ".inf", ".application",
+        ".txt", ".md", ".csv", ".tsv", ".log", ".json", ".xml", ".yaml", ".yml", ".rtf",
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".odt", ".ods", ".odp",
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".tif", ".tiff", ".ico",
+        ".mp3", ".wav", ".flac", ".ogg", ".m4a", ".mp4", ".mkv", ".mov", ".avi", ".webm",
     }
 )  # fmt: skip
-"""Types that run code or point somewhere else. ``open_file`` never opens them."""
+"""The only types ``open_file`` opens: documents, images, audio and video. Anything else can run
+code or load active content, so it is refused."""
 MAX_PATH_LENGTH = 4096
 OPT_IN_FILES = frozenset({"open_file", "reveal"})
 """Built-in actions that are off until ``Bridge(open_files=True)``."""
@@ -116,12 +118,12 @@ class BuiltinActions:
 
     @staticmethod
     def open_file(window: WindowController | None, path: str) -> Any:
-        """Open a file in the program Windows has for it. Programs and scripts are refused."""
+        """Open a file in the program Windows has for it: documents, images, audio and video."""
         target = BuiltinActions._existing_path(path)
         if target.is_dir():
             raise BadArguments("that is a folder; use reveal to show it")
         suffix = target.suffix.lower()
-        if not suffix or suffix in BLOCKED_SUFFIXES:
+        if suffix not in SAFE_SUFFIXES:
             raise BadArguments("files of that type cannot be opened from a page")
         if not BuiltinActions._windows():
             raise Unavailable("Opening files only works on Windows for now.")

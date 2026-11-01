@@ -35,3 +35,10 @@ All notable changes to this project are documented here. The format follows [Kee
 - `open` and `serve` show a short summary of what they are about to do.
 - Logging for troubleshooting: `--log-level` and `--log-file`, and `--debug` (and debug mode in Python) now turns on debug logging too, writing to your local app data folder if you set nothing up. The start-up token is never written to a log.
 - More examples: Vue, HTMX, Streamlit, MkDocs, and .NET, Java, PHP and Go servers, checked weekly by an automated workflow.
+
+### Security
+
+- `open_file` now opens only documents, images, audio and video.
+- Settings that run code (`run`, `asgi`, `wsgi`, `app-dir`) are ignored when the settings file is in a parent folder, so a cloned project cannot run code for you.
+- Each app has its own session cookie, and a session ends after 12 hours without use.
+- A stray local connection can no longer stop the "bring the running copy to the front" feature.

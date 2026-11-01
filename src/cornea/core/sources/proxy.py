@@ -14,7 +14,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from cornea.core.asgi import Receive, Scope, Send
-from cornea.core.security.security import SESSION_COOKIE
+from cornea.core.security.security import SESSION_COOKIE_PATTERN
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ def without_session_cookie(cookie_header: str) -> str | None:
     kept = [
         part.strip()
         for part in cookie_header.split(";")
-        if part.strip() and not part.strip().startswith(f"{SESSION_COOKIE}=")
+        if part.strip() and not SESSION_COOKIE_PATTERN.match(part.partition("=")[0].strip())
     ]
     return "; ".join(kept) or None
 

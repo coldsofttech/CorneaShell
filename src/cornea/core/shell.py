@@ -156,7 +156,11 @@ class Shell:
         if self._direct_url is not None:
             self._check_direct_window(window)
         self.app: FastAPI = AppFactory.create(
-            web_source, routers=routers, security=self.security, bridge=bridge
+            web_source,
+            routers=routers,
+            security=self.security,
+            bridge=bridge,
+            app_id=self.identity.id,
         )
         self._guard: CloseGuard = self.app.state.close_guard
         if window is None:

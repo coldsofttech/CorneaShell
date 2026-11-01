@@ -46,8 +46,15 @@ async def csp_report(request: Request) -> Response:
     The browser sends this by itself, so the body is untrusted: it is size-limited, parsed
     defensively and only ever logged at ``debug``, without any query string.
     """
-    body = await request.body()
-    if len(body) <= MAX_REPORT_BYTES:
+    declared = request.headers.get("content-length", "")
+    if declared.isdigit() and int(declared) > MAX_REPORT_BYTES:
+        return Response(status_code=204)
+    body = b""
+    async for chunk in request.stream():
+        body += chunk
+        if len(body) > MAX_REPORT_BYTES:
+            return Response(status_code=204)
+    if body:
         try:
             report = json.loads(body).get("csp-report", {})
         except (ValueError, AttributeError):

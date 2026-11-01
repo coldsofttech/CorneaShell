@@ -8,10 +8,11 @@ from asgi_client import AsgiClient
 from cornea import Security
 from cornea.core.security.security import (
     BOOTSTRAP_PARAM,
-    SESSION_COOKIE,
+    SESSION_COOKIE_PATTERN,
     SecurityMiddleware,
     SessionGate,
     new_token,
+    session_cookie_name,
 )
 
 HOST = "127.0.0.1:8000"
@@ -171,7 +172,7 @@ def test_bootstrap_sets_cookie_and_redirects(make_client: Callable[..., AsgiClie
     cookie = response.header("set-cookie") or ""
     assert response.status == 303
     assert response.header("location") == "/"
-    assert cookie.startswith(f"{SESSION_COOKIE}=")
+    assert cookie.startswith("cornea_session_8000=")
     assert {"HttpOnly", "Path=/", "SameSite=Strict"} <= set(cookie.split("; "))
     assert "Max-Age" not in cookie
     assert "Expires" not in cookie
@@ -249,7 +250,7 @@ def test_token_is_ignored_on_unsafe_methods(make_client: Callable[..., AsgiClien
 
 
 def test_forged_cookie_is_rejected(make_client: Callable[..., AsgiClient]) -> None:
-    response = make_client().request("/", cookie=f"{SESSION_COOKIE}=forged")
+    response = make_client().request("/", cookie="cornea_session_8000=forged")
 
     assert response.status == 401
 
@@ -458,3 +459,34 @@ def test_a_plain_t_parameter_is_not_the_start_up_token(
     assert BOOTSTRAP_PARAM == "cornea_token"
     assert client.request("/main.jsx", query="t=1793482450924", cookie=cookie).status == 200
     assert client.request("/main.jsx", query="t=1793482450924").status == 401
+
+
+# ----- cookie name and idle expiry --------------------------------------------------------------
+
+
+def test_cookie_name_carries_the_app_id_and_port() -> None:
+    assert session_cookie_name("notes", "127.0.0.1:8765") == "cornea_notes_session_8765"
+    assert session_cookie_name(None, "[::1]:9") == "cornea_session_9"
+    assert session_cookie_name(None, "app.local") == "cornea_session"
+    assert SESSION_COOKIE_PATTERN.match(session_cookie_name("a.b-c_d", "h:1"))
+
+
+def test_cookie_of_another_port_is_not_accepted(make_client: Callable[..., AsgiClient]) -> None:
+    client = make_client()
+    session_id = client.request("/", query=f"{BOOTSTRAP_PARAM}={TOKEN}").header("set-cookie") or ""
+    value = session_id.split(";")[0].split("=", 1)[1]
+
+    assert client.request("/", cookie=f"cornea_session_9999={value}").status == 401
+    assert client.request("/", cookie=f"cornea_session_8000={value}").status == 200
+
+
+def test_idle_session_expires_but_activity_keeps_it(clock: Clock) -> None:
+    gate = SessionGate(TOKEN, idle=100, clock=clock)
+    session_id = gate.redeem(TOKEN)
+
+    clock.now += 80
+    assert gate.is_valid(session_id)
+    clock.now += 80
+    assert gate.is_valid(session_id)
+    clock.now += 101
+    assert not gate.is_valid(session_id)

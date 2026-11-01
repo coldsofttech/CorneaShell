@@ -7,6 +7,7 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 import secrets
 import threading
 import time
@@ -21,6 +22,11 @@ from cornea.core.page.routes import REPORT_PATH
 logger = logging.getLogger(__name__)
 
 SESSION_COOKIE = "cornea_session"
+"""The cookie's name when there is no app id or port to tell it from another app's."""
+SESSION_COOKIE_PATTERN = re.compile(r"^cornea_(?:[A-Za-z0-9._-]+_)?session(?:_\d+)?$")
+"""Every name :func:`session_cookie_name` can produce."""
+SESSION_IDLE = 12 * 60 * 60.0
+"""Seconds a session may go without a request before it must start again."""
 BOOTSTRAP_PARAM = "cornea_token"
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 POLICY_VIOLATION = 1008
@@ -39,6 +45,23 @@ def new_token() -> str:
     return secrets.token_urlsafe(32)
 
 
+def session_cookie_name(app_id: str | None, host: str | None) -> str:
+    """The session cookie's name for ``app_id`` on ``host``.
+
+    Cookies are shared between ports on the same address, so the name carries the app id and the
+    port: another app on ``127.0.0.1`` neither receives nor replaces this one's session.
+
+    Example:
+        >>> session_cookie_name("notes", "127.0.0.1:8765")
+        'cornea_notes_session_8765'
+        >>> session_cookie_name(None, "127.0.0.1:8765")
+        'cornea_session_8765'
+    """
+    port = host.rpartition(":")[2] if host else ""
+    parts = ["cornea", app_id or "", "session", port if port.isdigit() else ""]
+    return "_".join(part for part in parts if part)
+
+
 def _digest(session_id: str) -> str:
     return hashlib.sha256(session_id.encode()).hexdigest()
 
@@ -51,12 +74,14 @@ class SessionGate:
         bootstrap_token: str,
         *,
         ttl: float = 60.0,
+        idle: float = SESSION_IDLE,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._token: str | None = bootstrap_token
         self._clock = clock
         self._expires = clock() + ttl
-        self._sessions: set[str] = set()
+        self._idle = idle
+        self._sessions: dict[str, float] = {}
         self._lock = threading.Lock()
 
     def redeem(self, candidate: str) -> str | None:
@@ -72,15 +97,24 @@ class SessionGate:
                 return None
             self._token = None
             session_id = secrets.token_urlsafe(32)
-            self._sessions.add(_digest(session_id))
+            self._sessions[_digest(session_id)] = self._clock()
             return session_id
 
     def is_valid(self, session_id: str | None) -> bool:
-        """Whether ``session_id`` was issued by :meth:`redeem`."""
+        """Whether ``session_id`` was issued by :meth:`redeem` and has not sat idle too long."""
         if not session_id:
             return False
+        key = _digest(session_id)
         with self._lock:
-            return _digest(session_id) in self._sessions
+            last_seen = self._sessions.get(key)
+            if last_seen is None:
+                return False
+            now = self._clock()
+            if now - last_seen > self._idle:
+                del self._sessions[key]
+                return False
+            self._sessions[key] = now
+            return True
 
 
 def _header(scope: Scope, name: bytes) -> str | None:
@@ -90,7 +124,7 @@ def _header(scope: Scope, name: bytes) -> str | None:
     return None
 
 
-def _session_id(scope: Scope) -> str | None:
+def _session_id(scope: Scope, cookie_name: str) -> str | None:
     raw = "; ".join(
         value.decode("latin-1") for key, value in scope.get("headers", ()) if key == b"cookie"
     )
@@ -101,7 +135,7 @@ def _session_id(scope: Scope) -> str | None:
         jar.load(raw)
     except CookieError:
         return None
-    morsel = jar.get(SESSION_COOKIE)
+    morsel = jar.get(cookie_name)
     return morsel.value if morsel else None
 
 
@@ -144,9 +178,14 @@ class SecurityMiddleware:
         gate: SessionGate,
         security: Security | None = None,
         allowed_hosts: Iterable[str] = (),
+        app_id: str | None = None,
     ) -> None:
-        """Guard ``app``. A ``set`` passed as ``allowed_hosts`` is shared, so additions count."""
+        """Guard ``app``. A ``set`` passed as ``allowed_hosts`` is shared, so additions count.
+
+        ``app_id`` and the port of the request's ``Host`` name the session cookie.
+        """
         self.app = app
+        self.app_id = app_id
         self.gate = gate
         self.security = security or Security()
         hosts = allowed_hosts if isinstance(allowed_hosts, set) else set(allowed_hosts)
@@ -201,8 +240,11 @@ class SecurityMiddleware:
             for entry in self.security.public_paths
         )
 
+    def _cookie_name(self, scope: Scope) -> str:
+        return session_cookie_name(self.app_id, _header(scope, b"host"))
+
     def _signed_in(self, scope: Scope) -> bool:
-        return self.gate.is_valid(_session_id(scope))
+        return self.gate.is_valid(_session_id(scope, self._cookie_name(scope)))
 
     # ----- HTTP -------------------------------------------------------------------------------
 
@@ -243,7 +285,7 @@ class SecurityMiddleware:
         path = "/" + (scope.get("root_path", "") + scope["path"]).lstrip("/")
         location = quote(path, safe="/") + (f"?{urlencode(remaining)}" if remaining else "")
         cookie = (
-            f"{SESSION_COOKIE}={session_id}; HttpOnly; Path=/; "
+            f"{self._cookie_name(scope)}={session_id}; HttpOnly; Path=/; "
             f"SameSite={self.security.cookie_samesite.capitalize()}"
         )
         await _respond(

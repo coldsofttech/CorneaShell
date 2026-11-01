@@ -178,7 +178,7 @@ The close guard (`close_guard.py`) answers one question: should closing be held 
 
 Dropped files use pywebview's DOM events. They are installed once, after the first page load, only when `Window(drop_files=True)`. The event carries paths only, never contents, and only for files a person dropped.
 
-`open_file` and `reveal` are built-in actions that exist only with `Bridge(open_files=True)`. `open_file` resolves the path, refuses network paths (a link to a share would leak the Windows login to it), folders, missing files, files without an extension and the types in `BLOCKED_SUFFIXES` (programs, scripts, shortcuts), and then calls `os.startfile`. `reveal` runs `explorer` with the path as one argument; it is allowed for any existing path because showing a file does not run it. Page and line hints, as VethuQ passes to its PDF viewer, are not supported: they need a program-specific command line.
+`open_file` and `reveal` are built-in actions that exist only with `Bridge(open_files=True)`. `open_file` resolves the path, refuses network paths (a link to a share would leak the Windows login to it), folders, missing files, and every type not in `SAFE_SUFFIXES` (documents, images, audio and video), and then calls `os.startfile`. `reveal` runs `explorer` with the path as one argument; it is allowed for any existing path because showing a file does not run it. Page and line hints, as VethuQ passes to its PDF viewer, are not supported: they need a program-specific command line.
 
 ## The page client, and reports of blocked content
 

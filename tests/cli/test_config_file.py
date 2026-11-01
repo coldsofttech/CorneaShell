@@ -236,3 +236,14 @@ def test_doctor_reports_a_bad_file(
 
     assert result.exit_code == 1  # a problem, not a crash: the other commands refuse with 2
     assert "unknown key" in result.stdout
+
+
+def test_drop_code_removes_the_settings_that_run_code() -> None:
+    defaults = {
+        "open": {"run": "x", "run_cwd": "y", "asgi": "m:app", "app_dir": "z", "mode": "proxy"},
+        "serve": {"run": "x", "wsgi": "m:app"},
+    }
+
+    assert config.drop_code(defaults) is True
+    assert defaults == {"open": {"mode": "proxy"}, "serve": {}}
+    assert config.drop_code(defaults) is False

@@ -155,6 +155,19 @@ def load_config(path: Path) -> dict[str, dict[str, Any]]:
     return {"open": values, "serve": dict(values)}
 
 
+CODE_PARAMETERS = ("run", "run_cwd", "run_timeout", "asgi", "wsgi", "app_dir")
+"""Settings that start a command or import code from a folder."""
+
+
+def drop_code(defaults: dict[str, dict[str, Any]]) -> bool:
+    """Remove the settings that run code from ``defaults``. ``True`` if there were any."""
+    found = False
+    for values in defaults.values():
+        for name in CODE_PARAMETERS:
+            found = values.pop(name, None) is not None or found
+    return found
+
+
 def _convert(name: str, value: Any, folder: Path) -> Any:
     if name in LIST_PARAMETERS:
         items = value if isinstance(value, list) else [value]

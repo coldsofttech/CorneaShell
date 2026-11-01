@@ -18,6 +18,7 @@ from cornea.core.app.appdata import AppData
 
 ERROR_ALREADY_EXISTS = 183
 CONNECT_TIMEOUT = 2.0
+MAX_LINE = 256
 INFO_FILE = "instance.json"
 
 
@@ -90,7 +91,7 @@ class InstanceLock:
             kernel32.CloseHandle(handle)
 
     def _listen(self, listener: socket.socket, on_activate: Callable[[], None]) -> None:
-        expected = f"ACTIVATE {self._secret}"
+        expected = f"ACTIVATE {self._secret}".encode()
         while self._listener is listener:
             try:
                 connection, _ = listener.accept()
@@ -101,8 +102,8 @@ class InstanceLock:
             with connection:
                 connection.settimeout(CONNECT_TIMEOUT)
                 try:
-                    received = connection.makefile("r", encoding="utf-8").readline().strip()
-                except (OSError, UnicodeDecodeError):
+                    received = connection.makefile("rb").readline(MAX_LINE).strip()
+                except OSError:
                     continue
                 if secrets.compare_digest(received, expected):
                     with contextlib.suppress(Exception):  # a failed focus must not stop the loop
