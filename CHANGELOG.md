@@ -37,6 +37,7 @@ All notable changes to this project are documented here. The format follows [Kee
 - `open` and `serve` show a short summary of what they are about to do.
 - Logging for troubleshooting: `--log-level` and `--log-file`, and `--debug` (and debug mode in Python) now turns on debug logging too, writing to your local app data folder if you set nothing up. The start-up token is never written to a log.
 - More examples: Vue, HTMX, Streamlit, MkDocs, and .NET, Java, PHP and Go servers, checked weekly by an automated workflow.
+- Type checks and Markdown checks now pass on Linux as well as Windows.
 
 ### Security
 

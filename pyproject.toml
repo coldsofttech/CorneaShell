@@ -113,11 +113,12 @@ select = ["B", "C4", "E", "F", "I", "PT", "RUF", "S", "SIM", "T20", "UP", "W"]
 
 [tool.mypy]
 strict = true
+platform = "win32"
 files = ["src", "tests"]
 
 [[tool.mypy.overrides]]
-# Only installed with the optional "notifications" extra, so it is not there in a plain `uv sync`.
-module = ["winrt", "winrt.*"]
+# winrt comes with the optional "notifications" extra and pywebview is Windows-only, so neither is there in a plain `uv sync` on Linux.
+module = ["winrt", "winrt.*", "webview.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

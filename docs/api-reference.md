@@ -364,7 +364,6 @@ Where the UI comes from. A plain path or address is turned into one of these for
 
 Base class for everything that can supply the web layer.
 
-
 ### `Static`
 
 A built bundle (React, Vite, Next export, plain HTML) served by the shell.

@@ -26,7 +26,7 @@ def greeting(request: Request, name: str = "world"):
     return templates.TemplateResponse(request, "greeting.html", {"name": name})
 ```
 
-3. Use HTMX attributes in the page: `<button hx-get="/greeting?name=Ada" hx-target="#out">Greet</button>`.
+1. Use HTMX attributes in the page: `<button hx-get="/greeting?name=Ada" hx-target="#out">Greet</button>`.
 
 HTMX adds an inline `<style>` by default, which the policy blocks; turn that off with `<meta name="htmx-config" content='{"includeIndicatorStyles": false}'>`. Your routes may be anywhere except under `/api` and `/health`.
 

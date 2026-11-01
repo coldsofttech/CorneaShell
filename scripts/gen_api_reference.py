@@ -336,7 +336,7 @@ def render(module: ModuleType) -> str:
         lines += [f"## {title}", "", intro, ""] if intro else [f"## {title}", ""]
         for name in shown:
             lines += render_export(module, name)
-    return "\n".join(lines).rstrip("\n")
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).rstrip("\n")
 
 
 def refresh(text: str, module: ModuleType) -> str:
