@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cornea Shell social preview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 640px; background: #0D1117; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+    color: #FFFFFF;
+    position: relative;
+    overflow: hidden;
+  }
+  .card {
+    position: absolute; inset: 0;
+    padding: 64px 64px 64px 72px;
+    display: flex; align-items: center;
+  }
+  .text { width: 720px; }
+  h1 { font-size: 112px; font-weight: 800; line-height: 1.05; letter-spacing: -2px; white-space: nowrap; }
+  h1 span { color: #2DD4BF; }
+  .sub { margin-top: 24px; font-size: 42px; color: #C9D1D9; line-height: 1.25; }
+  .chips { margin-top: 40px; display: flex; gap: 14px; }
+  .chip {
+    font-size: 26px; font-weight: 600; padding: 8px 20px; border-radius: 999px;
+    border: 2px solid #2DD4BF; color: #2DD4BF;
+  }
+  .icon { position: absolute; right: 72px; top: 120px; width: 400px; height: 400px; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="text">
+      <h1>Cornea <span>Shell</span></h1>
+      <p class="sub">Web UI in a native Windows window</p>
+      <div class="chips">
+        <span class="chip">Python 3.11+</span>
+        <span class="chip">WebView2</span>
+        <span class="chip">Secured</span>
+      </div>
+    </div>
+  </div>
+  <!-- Window frame with an eye (cornea) in the middle -->
+  <svg class="icon" viewBox="0 0 400 400" fill="none" stroke="#2DD4BF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="10" y="40" width="380" height="320" rx="28"/>
+    <line x1="10" y1="108" x2="390" y2="108"/>
+    <circle cx="52" cy="74" r="6" fill="#2DD4BF" stroke="none"/>
+    <circle cx="80" cy="74" r="6" fill="#2DD4BF" stroke="none"/>
+    <circle cx="108" cy="74" r="6" fill="#2DD4BF" stroke="none"/>
+    <path d="M70 236 Q200 130 330 236 Q200 342 70 236 Z"/>
+    <circle cx="200" cy="236" r="40"/>
+    <circle cx="200" cy="236" r="14" fill="#2DD4BF" stroke="none"/>
+  </svg>
+</body>
+</html>
