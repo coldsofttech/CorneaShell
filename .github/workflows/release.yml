@@ -19,7 +19,8 @@ jobs:
         env:
           TAG: ${{ github.event.release.tag_name }}
         run: |
-          version="$(uv version --short)"
+          version="$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' src/cornea/__init__.py)"
+          [ -n "$version" ] || { echo "Could not read __version__"; exit 1; }
           [ "$TAG" = "v$version" ] || { echo "Tag $TAG does not match version $version"; exit 1; }
       - run: uv build
       - name: Check the package metadata

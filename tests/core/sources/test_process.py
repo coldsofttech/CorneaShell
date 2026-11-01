@@ -217,7 +217,9 @@ def test_only_the_last_lines_of_output_are_kept() -> None:
             time.sleep(0.05)
         lines = runner.output_tail.splitlines()
         assert len(lines) == OUTPUT_LINES
-        assert lines[-1] == "line 199"
+        # the server may append its own noise (e.g. a reset-connection traceback) after the output
+        assert "line 199" in lines
+        assert "line 0" not in lines
     finally:
         runner.stop()
 
