@@ -1,5 +1,7 @@
 # MkDocs
 
+![Cornea Shell](https://img.shields.io/badge/Cornea%20Shell-0.1-0A7EA4?logo=windows&logoColor=white) ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white) ![MkDocs](https://img.shields.io/badge/MkDocs-site-526CFE?logo=materialformkdocs&logoColor=white) [![Examples workflow](https://github.com/coldsofttech/CorneaShell/actions/workflows/examples.yml/badge.svg)](https://github.com/coldsofttech/CorneaShell/actions/workflows/examples.yml)
+
 A small MkDocs site shown in a window, like an offline help viewer.
 
 **You need:** MkDocs (`uv sync --group examples`).

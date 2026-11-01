@@ -22,7 +22,7 @@ More detail is in [docs/development.md](docs/development.md) and [docs/architect
 - `src/cornea/cli/` is the `cornea` command, a thin wrapper over the Python API.
 - `tests/core/` and `tests/cli/` mirror those folders. Slower tests go in an `integration/` folder next to them and run with `pytest -m integration`. Tests that run the example projects go in `examples/`.
 - `examples/` has one folder per example, each with its own README.
-- `docs/api-reference.md` and `docs/cli-reference.md` are generated: run `uv run python scripts/gen_api_reference.py` and `uv run python scripts/gen_cli_reference.py` after changing the public API or the command line. CI fails if they are out of date.
+- `docs/api-reference.md` and `docs/cli-reference.md` are written by hand, except for the blocks between `GENERATED` markers (the API from the code and docstrings, the usage, options and examples from the CLI). After changing the public API or the command line, run `uv run python scripts/gen_api_reference.py` and `uv run python scripts/gen_cli_reference.py`. CI fails if they are out of date.
 
 ## Ground rules
 

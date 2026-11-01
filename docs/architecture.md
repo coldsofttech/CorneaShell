@@ -1,6 +1,6 @@
 # Architecture
 
-How Cornea Shell works, for people who change it or build on it. For day-to-day commands see [development](development.md). For what each option does see the [command line guide](cli.md) and the [Python API reference](api-reference.md).
+How Cornea Shell works, for people who change it or build on it. For day-to-day commands see [development](development.md). For what each option does see the [command line reference](cli-reference.md) and the [Python API reference](api-reference.md).
 
 ## Overview
 

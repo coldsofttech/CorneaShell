@@ -213,7 +213,21 @@ class Shell:
         """Register a function as a native action: ``@shell.action("pick_report")``.
 
         The page calls it with ``POST {api_prefix}/bridge/pick_report`` and a JSON body of named
-        arguments; the return value comes back as ``{"available": true, "result": ...}``.
+        arguments; the return value comes back as ``{"available": true, "result": ...}``. From
+        the page, ``cornea.call("pick_report", {...})`` does the same (see ``/api/client.js``).
+        Actions are Python code, so the command line cannot register them.
+
+        Raises:
+            ValueError: If the name is not lowercase words joined by underscores, is a built-in
+                action, or is already registered.
+
+        Example:
+            >>> shell = Shell(window=None)
+            >>> @shell.action("shout")
+            ... def shout(text: str) -> str:
+            ...     return text.upper()
+            >>> "shout" in shell.actions.names()
+            True
         """
         return self.actions.action(name)
 
@@ -224,6 +238,15 @@ class Shell:
         taskbar. When it holds, the window stays and the page gets a ``cornea:close-blocked``
         event, so it can ask the person. The page then closes with ``force``. A function that
         raises never holds the window.
+
+        Example:
+            >>> shell = Shell(window=None)
+            >>> export_running = False
+            >>> @shell.close_guard
+            ... def busy() -> bool:
+            ...     return export_running
+            >>> busy()
+            False
         """
         self._guard.add(function)
         return function
@@ -233,6 +256,13 @@ class Shell:
 
         ``detail`` must be JSON. Without a window this does nothing, and a page that has not
         loaded yet does not hear it.
+
+        Raises:
+            ValueError: If the event name is not allowed.
+
+        Example:
+            >>> shell = Shell(window=None)
+            >>> shell.notify("export-done", {"rows": 3})  # the page hears "cornea:export-done"
         """
         controller = self.app.state.window
         if controller is None:
@@ -253,6 +283,13 @@ class Shell:
         Raises:
             ValueError: If the title, message or id is not allowed.
             RuntimeError: If there is no window, or the ``notifications`` extra is missing.
+
+        Example:
+            >>> shell = Shell(window=None)
+            >>> shell.show_notification("Export finished", "3 files were saved.")
+            Traceback (most recent call last):
+            ...
+            RuntimeError: There is no window to show a notification from.
         """
         Notifier.check(title, message, notification_id)
         try:
@@ -293,7 +330,17 @@ class Shell:
     # ----- lifecycle ------------------------------------------------------------------------
 
     def start(self) -> Self:
-        """Bind the port and start serving in a background thread."""
+        """Bind the port and start serving in a background thread.
+
+        Use it (or ``with Shell(...)``) when you want the server without :meth:`run`, for example
+        in a test. Call :meth:`stop` when you are done.
+
+        Example:
+            >>> shell = Shell(window=None).start()
+            >>> shell.running
+            True
+            >>> shell.stop()
+        """
         self._require_server()
         if self._thread is not None:
             raise RuntimeError("the server was already started")
@@ -324,7 +371,14 @@ class Shell:
         return self
 
     def stop(self) -> None:
-        """Stop serving and release the port. Safe to call more than once."""
+        """Stop serving and release the port. Safe to call more than once.
+
+        Example:
+            >>> shell = Shell(window=None).start()
+            >>> shell.stop()
+            >>> shell.running
+            False
+        """
         server, thread, listener = self._uvicorn, self._thread, self._socket
         if server is not None and thread is not None and thread.is_alive():
             server.should_exit = True
@@ -345,6 +399,15 @@ class Shell:
         ``on_ready`` is called with the shell once it is serving, before the window is shown. Use
         it to announce the address, for example with :func:`ready_line`. Serving ends on Ctrl+C
         or :meth:`stop`. The server is stopped in every case.
+
+        Raises:
+            RuntimeError: If the window could not be set up, or WebView2 or pywebview is missing.
+
+        Example:
+            >>> shell = Shell(Static("web/dist"), window=Window(title="My App"))  # doctest: +SKIP
+            >>> shell.run()  # opens the window; returns when it is closed  # doctest: +SKIP
+            >>> shell = Shell(Static("web/dist"), window=None)  # doctest: +SKIP
+            >>> shell.run(on_ready=lambda s: print(ready_line(s)))  # doctest: +SKIP
         """
         self._started_at = time.perf_counter()
         if self.window is not None and self.window.debug:
@@ -518,6 +581,10 @@ def run(
     ``title`` and ``debug`` are shorthands for the same ``window`` settings. ``on_ready`` is
     called once the shell is serving; see :meth:`Shell.run`. ``measure`` reports the start-up
     time: see :class:`Shell`.
+
+    Example:
+        >>> run("web/dist", title="My App")  # doctest: +SKIP
+        >>> run(Static("web/dist"), window=Window(frameless=True), measure=True)  # doctest: +SKIP
     """
     if window is None:
         if title is not None or debug is not None:

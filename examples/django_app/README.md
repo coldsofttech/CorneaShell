@@ -1,5 +1,7 @@
 # Django
 
+![Cornea Shell](https://img.shields.io/badge/Cornea%20Shell-0.1-0A7EA4?logo=windows&logoColor=white) ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white) ![Django](https://img.shields.io/badge/Django-ASGI-092E20?logo=django&logoColor=white) ![JavaScript](https://img.shields.io/badge/JavaScript-ES%20modules-F7DF1E?logo=javascript&logoColor=white) [![CI](https://github.com/coldsofttech/CorneaShell/actions/workflows/ci.yml/badge.svg)](https://github.com/coldsofttech/CorneaShell/actions/workflows/ci.yml)
+
 A whole Django site in one file, mounted in the same process as Cornea.
 
 **You need:** Django (`uv sync --group examples`, or `pip install django`).

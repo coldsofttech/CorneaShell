@@ -1,5 +1,7 @@
 # Go
 
+![Cornea Shell](https://img.shields.io/badge/Cornea%20Shell-0.1-0A7EA4?logo=windows&logoColor=white) ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white) ![Go](https://img.shields.io/badge/Go-1.21%2B-00ADD8?logo=go&logoColor=white) [![Examples workflow](https://github.com/coldsofttech/CorneaShell/actions/workflows/examples.yml/badge.svg)](https://github.com/coldsofttech/CorneaShell/actions/workflows/examples.yml)
+
 A Go `net/http` server that Cornea starts and shows. *Not run on the author's machine; tested by the examples workflow.*
 
 **You need:** Go 1.21. The first start compiles, so it takes a while.

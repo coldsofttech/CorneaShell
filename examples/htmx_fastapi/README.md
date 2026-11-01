@@ -1,5 +1,7 @@
 # HTMX with FastAPI
 
+![Cornea Shell](https://img.shields.io/badge/Cornea%20Shell-0.1-0A7EA4?logo=windows&logoColor=white) ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-ASGI-009688?logo=fastapi&logoColor=white) ![HTMX](https://img.shields.io/badge/HTMX-2-3366CC?logo=htmx&logoColor=white) ![Jinja2](https://img.shields.io/badge/Jinja2-templates-B41717?logo=jinja&logoColor=white) [![CI](https://github.com/coldsofttech/CorneaShell/actions/workflows/ci.yml/badge.svg)](https://github.com/coldsofttech/CorneaShell/actions/workflows/ci.yml)
+
 FastAPI answers with small pieces of HTML (Jinja2 templates) and HTMX puts them in the page, with no JavaScript of your own.
 
 **You need:** `uv sync --group examples` (FastAPI and Jinja2).

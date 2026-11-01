@@ -257,7 +257,7 @@ title = "My App"
 frameless = true
 ```
 
-Cornea also reads a `[tool.cornea]` table in `pyproject.toml`. Flags on the command line win over the file, and `--no-config` ignores it. See the [command line guide](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli.md#the-settings-file) for every setting.
+Cornea also reads a `[tool.cornea]` table in `pyproject.toml`. Flags on the command line win over the file, and `--no-config` ignores it. See the [command line reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli-reference.md#the-settings-file) for every setting.
 
 ## When something goes wrong
 
@@ -301,16 +301,17 @@ cornea open --help     # show a window
 cornea serve --help    # serve without a window
 ```
 
-See the [command line guide](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli.md) for every option.
+See the [command line reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli-reference.md) for every option.
 
 ## Documentation
 
 - [Examples](https://github.com/coldsofttech/CorneaShell/tree/main/examples) (each has its own README)
-- [Command line guide](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli.md) and [reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli-reference.md)
+- [Command line reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli-reference.md)
 - [Python API reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/api-reference.md)
 - [How it works](https://github.com/coldsofttech/CorneaShell/blob/main/docs/architecture.md)
 - [Troubleshooting](https://github.com/coldsofttech/CorneaShell/blob/main/docs/troubleshooting.md)
 - [Packaging an app](https://github.com/coldsofttech/CorneaShell/blob/main/docs/packaging.md)
+- [Third-party notices](https://github.com/coldsofttech/CorneaShell/blob/main/docs/third-party-notices.md)
 
 ## Development setup
 

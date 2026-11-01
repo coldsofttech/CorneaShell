@@ -1,5 +1,7 @@
 # Streamlit
 
+![Cornea Shell](https://img.shields.io/badge/Cornea%20Shell-0.1-0A7EA4?logo=windows&logoColor=white) ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white) ![Streamlit](https://img.shields.io/badge/Streamlit-proxy-FF4B4B?logo=streamlit&logoColor=white) [![Examples workflow](https://github.com/coldsofttech/CorneaShell/actions/workflows/examples.yml/badge.svg)](https://github.com/coldsofttech/CorneaShell/actions/workflows/examples.yml)
+
 A small Streamlit app shown in a window. Streamlit talks over a WebSocket, so this also shows that the proxy forwards WebSockets.
 
 **You need:** Streamlit (`uv sync --group examples`) and `pip install "cornea-shell[proxy]"`.

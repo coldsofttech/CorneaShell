@@ -1,5 +1,7 @@
 # ASP.NET Core
 
+![Cornea Shell](https://img.shields.io/badge/Cornea%20Shell-0.1-0A7EA4?logo=windows&logoColor=white) ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white) ![.NET](https://img.shields.io/badge/.NET-8-512BD4?logo=dotnet&logoColor=white) [![Examples workflow](https://github.com/coldsofttech/CorneaShell/actions/workflows/examples.yml/badge.svg)](https://github.com/coldsofttech/CorneaShell/actions/workflows/examples.yml)
+
 A tiny ASP.NET Core server that Cornea starts and shows. It has a page at `/` and a JSON answer at `/hello?name=Zed`. *Not run on the author's machine; tested by the examples workflow.*
 
 **You need:** the .NET 8 SDK. The first start restores and compiles, so it takes a while.

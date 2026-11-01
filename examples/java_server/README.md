@@ -1,5 +1,7 @@
 # Java
 
+![Cornea Shell](https://img.shields.io/badge/Cornea%20Shell-0.1-0A7EA4?logo=windows&logoColor=white) ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white) ![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white) [![Examples workflow](https://github.com/coldsofttech/CorneaShell/actions/workflows/examples.yml/badge.svg)](https://github.com/coldsofttech/CorneaShell/actions/workflows/examples.yml)
+
 A JDK `HttpServer` that Cornea starts and shows. *Not run on the author's machine; tested by the examples workflow.*
 
 **You need:** JDK 21 (single-file source launch).

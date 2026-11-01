@@ -1,5 +1,7 @@
 # PHP
 
+![Cornea Shell](https://img.shields.io/badge/Cornea%20Shell-0.1-0A7EA4?logo=windows&logoColor=white) ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white) ![PHP](https://img.shields.io/badge/PHP-8-777BB4?logo=php&logoColor=white) [![Examples workflow](https://github.com/coldsofttech/CorneaShell/actions/workflows/examples.yml/badge.svg)](https://github.com/coldsofttech/CorneaShell/actions/workflows/examples.yml)
+
 PHP's built-in web server, started and shown by Cornea. *Not run on the author's machine; tested by the examples workflow.*
 
 **You need:** PHP 8 on your PATH.
