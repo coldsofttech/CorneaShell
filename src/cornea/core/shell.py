@@ -1,5 +1,6 @@
 """The shell: runs the secured local server that hosts the web UI."""
 
+import asyncio
 import json
 import logging
 import os
@@ -90,7 +91,23 @@ class Timings:
 
 
 START_TIMEOUT = 10.0
-STOP_TIMEOUT = 10.0
+STOP_TIMEOUT = 2.0
+"""How long ``stop()`` waits for the server thread after telling it to exit."""
+GRACEFUL_SHUTDOWN = 0.3
+"""How long uvicorn lets open requests finish when it is stopped by its own means."""
+
+
+class _ShutdownNoise(logging.Filter):
+    """Drop uvicorn's errors about cancelling streams that were still open while stopping."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if "timeout graceful shutdown exceeded" in record.getMessage():
+            return False
+        error = record.exc_info[1] if record.exc_info else None
+        return not (
+            isinstance(error, asyncio.CancelledError)
+            and "timeout graceful shutdown exceeded" in str(error)
+        )
 
 
 def _host_header(host: str, port: int) -> str:
@@ -381,7 +398,13 @@ class Shell:
         AppFactory.allow_host(self.app, _host_header(self.server.host, self.port))
         logger.debug("Serving on %s", self.base_url)
         # No access log: it would print the one-time token from the first URL.
-        config = uvicorn.Config(self.app, log_level="warning", access_log=False)
+        config = uvicorn.Config(
+            self.app,
+            log_level="warning",
+            access_log=False,
+            # uvicorn types this as int but hands it to asyncio.wait, which takes fractions.
+            timeout_graceful_shutdown=GRACEFUL_SHUTDOWN,  # type: ignore[arg-type]
+        )
         self._uvicorn = uvicorn.Server(config)
         self._thread = threading.Thread(
             target=self._serve, args=(self._uvicorn, listener), name="cornea-server", daemon=True
@@ -400,19 +423,44 @@ class Shell:
             >>> shell.running
             False
         """
+        began = time.perf_counter()
         server, thread, listener = self._uvicorn, self._thread, self._socket
+        # The command goes down beside the server, so its event streams drop at once and the
+        # server does not wait for them.
+        runner = self._runner
+        stopper = None
+        if runner is not None:
+            stopper = threading.Thread(target=runner.stop, name="cornea-stop", daemon=True)
+            stopper.start()
         if server is not None and thread is not None and thread.is_alive():
-            server.should_exit = True
-            thread.join(STOP_TIMEOUT)
-            if thread.is_alive():
-                server.force_exit = True
+            # Uvicorn lets open requests finish for GRACEFUL_SHUTDOWN seconds and then cancels
+            # them, so a stream that never ends cannot hold the exit. Forcing the exit at once
+            # would skip the app's own shutdown and print a traceback.
+            noise = _ShutdownNoise()
+            uvicorn_log = logging.getLogger("uvicorn.error")
+            uvicorn_log.addFilter(noise)
+            try:
+                server.should_exit = True
                 thread.join(STOP_TIMEOUT)
+                if thread.is_alive():
+                    server.force_exit = True
+                    thread.join(STOP_TIMEOUT)
+            finally:
+                uvicorn_log.removeFilter(noise)
+        server_done = time.perf_counter()
         if listener is not None:
             listener.close()
-        if self._runner is not None:
-            self._runner.stop()
+        if stopper is not None:
+            stopper.join()
+        process_done = time.perf_counter()
         if self._lock is not None:
             self._lock.release()
+        logger.debug(
+            "Stop: server %.3f s, command %.3f s, total %.3f s",
+            server_done - began,
+            process_done - server_done,
+            time.perf_counter() - began,
+        )
 
     def run(self, on_ready: Callable[["Shell"], None] | None = None) -> None:
         """Show the window and wait until it closes, or just serve when there is no window.

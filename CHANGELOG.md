@@ -8,11 +8,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 - Importing Cornea Shell is about four times faster, and `cornea --version` and `cornea doctor` start quicker. The web server libraries now load when the server first starts.
 - With a window, `on_ready` is now called after the window opens on the loading screen.
+- The app now exits promptly after the window closes, instead of waiting up to 10 seconds.
+- The dev server command now stops together with the app.
 
 ### Added
 
 - The window now opens straight away on a loading screen with your icon, title and a tag line, then moves to your app once it is ready. Change or turn it off with `Loading`, `loading=None` or `--no-loading`.
 - `cornea.preload()` warms up the web server libraries in the background so the first start is faster. `cornea open` and `cornea serve` use it automatically.
+- Shutdown timings are now logged at debug level.
 
 ## [0.1.0] - 2026-11-01
 

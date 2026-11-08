@@ -1,4 +1,5 @@
 import _thread
+import asyncio
 import http.client
 import socket
 import threading
@@ -6,10 +7,11 @@ import time
 from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import pytest
 
-from cornea import Security, Server, Shell, Static, Window, run
+from cornea import Asgi, Security, Server, Shell, Static, Window, run
 from cornea.core import shell as shell_module
 from cornea.core.shell import _host_header
 
@@ -242,6 +244,53 @@ def test_run_stops_on_ctrl_c(shell: Shell, monkeypatch: pytest.MonkeyPatch) -> N
 
     assert not shell.running
     assert port_is_free(ports[0])
+
+
+def test_stop_does_not_wait_for_a_stream_that_never_ends() -> None:
+    async def app(scope: Any, receive: Any, send: Any) -> None:
+        if scope["type"] == "lifespan":
+            while True:
+                message = await receive()
+                if message["type"] == "lifespan.startup":
+                    await send({"type": "lifespan.startup.complete"})
+                else:
+                    await send({"type": "lifespan.shutdown.complete"})
+                    return
+        if scope["type"] != "http":
+            return
+        headers = [(b"content-type", b"text/event-stream")]
+        await send({"type": "http.response.start", "status": 200, "headers": headers})
+        while True:  # like a dev server's event stream: it never ends by itself
+            await send({"type": "http.response.body", "body": b"data: x\n\n", "more_body": True})
+            await asyncio.sleep(0.05)
+
+    shell = Shell(Asgi(app), window=None).start()
+    cookie = _sign_in(shell)
+    stream = http.client.HTTPConnection("127.0.0.1", shell.port, timeout=5)
+    try:
+        stream.request("GET", "/stream", headers={"Cookie": cookie})
+        stream.getresponse().fp.readline()  # the stream is open
+
+        started = time.perf_counter()
+        shell.stop()
+        elapsed = time.perf_counter() - started
+    finally:
+        stream.close()
+        shell.stop()
+
+    assert elapsed < 0.9, f"stop() took {elapsed:.1f} s with a stream open"
+
+
+def _sign_in(shell: Shell) -> str:
+    parts = urlsplit(shell.url)
+    connection = http.client.HTTPConnection("127.0.0.1", shell.port, timeout=5)
+    try:
+        connection.request("GET", f"{parts.path}?{parts.query}")
+        response = connection.getresponse()
+        response.read()
+        return response.getheader("Set-Cookie", "").split(";")[0]
+    finally:
+        connection.close()
 
 
 # ----- startup failures -----------------------------------------------------------------------
