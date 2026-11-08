@@ -5,7 +5,7 @@
 in the background while your own start-up code runs.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from typing import TYPE_CHECKING, Any
 

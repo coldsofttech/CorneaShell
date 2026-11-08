@@ -4,6 +4,8 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-08
+
 ### Changed
 
 - Importing Cornea Shell is about four times faster, and `cornea --version` and `cornea doctor` start quicker. The web server libraries now load when the server first starts.
