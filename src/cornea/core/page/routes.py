@@ -8,11 +8,11 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Request, Response
 
+from cornea.core.security.security import REPORT_PATH
+
 logger = logging.getLogger(__name__)
 
 MAX_REPORT_BYTES = 8192
-REPORT_PATH = "/csp-report"
-"""Where, under the API prefix, the browser sends reports of what the policy blocked."""
 CLIENT_PATH = "/client.js"
 
 router = APIRouter(tags=["page"])

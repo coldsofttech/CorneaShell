@@ -17,7 +17,9 @@ from urllib.parse import parse_qsl, quote, urlencode
 
 from cornea.core.asgi import AsgiApp, Message, Receive, Scope, Send
 from cornea.core.config import Security
-from cornea.core.page.routes import REPORT_PATH
+
+REPORT_PATH = "/csp-report"
+"""Where, under the API prefix, the browser sends reports of what the policy blocked."""
 
 logger = logging.getLogger(__name__)
 

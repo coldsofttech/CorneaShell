@@ -4,7 +4,7 @@ import json
 from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import typer
 from rich.table import Table
@@ -18,21 +18,22 @@ from cornea import (
     Process,
     Security,
     Server,
-    Shell,
     Static,
-    Timings,
     Url,
     WebSource,
     Window,
     Wsgi,
     __version__,
-    ready_line,
+    preload,
 )
-from cornea import run as run_shell
 from cornea.cli import config, options, output
 from cornea.cli.doctor import run_checks
 from cornea.core.logs import Logs
 from cornea.core.security.single_instance import AlreadyRunning
+
+if TYPE_CHECKING:
+    # Importing these loads the server libraries, which `--version` and `doctor` do not need.
+    from cornea import Shell, Timings
 
 EXAMPLES: dict[str, tuple[str, ...]] = {
     "": ("cornea --version", "cornea --quiet doctor", "cornea --no-color doctor"),
@@ -489,14 +490,14 @@ def _source_arguments(ctx: typer.Context, source: str | None, **values: Any) -> 
 
 def _measure_option(
     measure: bool | None, json_friendly: bool | None, json_file: Path | None
-) -> bool | Callable[[Timings], None]:
+) -> bool | Callable[["Timings"], None]:
     """What to pass as ``measure``: False, or our reporter, which prints a Rich table."""
     if not measure:
         if json_friendly or json_file is not None:
             raise typer.BadParameter("--json-friendly and --json-file need --measure")
         return False
 
-    def report(timings: Timings) -> None:
+    def report(timings: "Timings") -> None:
         text = json.dumps(timings.as_dict())
         if json_file is not None:
             try:
@@ -568,6 +569,13 @@ def _show_details(
     output.details(f"cornea {command}", rows)
 
 
+def run_shell(*args: Any, **kwargs: Any) -> None:
+    """Run the shell. ``cornea.run`` is imported here because it loads the server libraries."""
+    from cornea import run
+
+    run(*args, **kwargs)
+
+
 def _launch(
     ctx: typer.Context,
     source: WebSource,
@@ -578,9 +586,11 @@ def _launch(
     bridge: Bridge,
     identity: App | None = None,
     logging_options: tuple[LogLevel, Path | None, bool] | None = None,
-    measure: bool | Callable[[Timings], None] = False,
+    measure: bool | Callable[["Timings"], None] = False,
 ) -> None:
     """Run the shell, reporting expected failures as a short error with exit code 1."""
+    from cornea import ready_line
+
     state = ctx.obj
     assert isinstance(state, State)  # noqa: S101 - set by the callback
     logging_shown: tuple[LogLevel, Path | None] | None = None
@@ -605,7 +615,7 @@ def _launch(
             state.config,
         )
 
-    def announce(shell: Shell) -> None:
+    def announce(shell: "Shell") -> None:
         # The ready line is data for other programs; the second line is for the person.
         output.console.print(ready_line(shell), soft_wrap=True, markup=False, highlight=False)
         if not state.quiet:
@@ -688,6 +698,7 @@ def open_window(
     json_file: JsonFileFlag = None,
 ) -> None:
     """Show the web UI in a native window (Windows)."""
+    preload()  # load the server while the options below are read
     try:
         web_source = options.build_source(
             argument=source,
@@ -799,6 +810,7 @@ def serve(
     Prints one JSON line on stdout with the address (including the one-time start-up token), then
     serves until Ctrl+C.
     """
+    preload()  # load the server while the options below are read
     try:
         web_source = options.build_source(
             argument=source,

@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- Importing Cornea Shell is about four times faster, and `cornea --version` and `cornea doctor` start quicker. The web server libraries now load when the server first starts.
+
+### Added
+
+- `cornea.preload()` warms up the web server libraries in the background so the first start is faster. `cornea open` and `cornea serve` use it automatically.
+
 ## [0.1.0] - 2026-11-01
 
 ### Added

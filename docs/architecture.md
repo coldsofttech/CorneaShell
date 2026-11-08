@@ -151,16 +151,18 @@ pywebview builds the JavaScript functions from the Python parameter names, and a
 
 `Shell(measure=True)` and `run(measure=True)` report the timings once, when the last step has finished: `page_loaded` with a window, `server_ready` without one. The default report is the summary line on stderr plus an `info` log message. Pass a function instead (`measure=callback`) to receive the `Timings` yourself. The command line uses this: `--measure` shows a Rich table, `--json-friendly` prints the JSON line and `--json-file` writes it. Because the measuring is part of the package, it works for any app, not just the examples. To compare runs, start the app several times with `--measure --json-file` and look at the median.
 
+`import cornea` leaves out FastAPI, Starlette and uvicorn, which take a few hundred milliseconds to import. They load the first time `Shell`, `run`, `create_app` or `AppFactory` is used, so that cost now falls inside "Server accepting requests". The command line never loads them for `cornea --version` or `cornea doctor`. `cornea.preload()` imports them on a background thread; `cornea open` and `cornea serve` call it while they read their options, so the time overlaps with work that happens anyway. Calling it is never required, only faster. Subprocess tests in `tests/core/test_import_time.py` fail if the server libraries load at import.
+
 Medians from 7 runs on the development machine (Windows 11, Python 3.11), measured with `--measure`:
 
 | Step | Median |
 | --- | --- |
-| Import the package | 0.24 s |
+| Import the package | 0.08 s |
 | Server accepting requests | 0.05 s |
 | Window shown | 0.41 s |
 | First page loaded | 0.70 s |
 
-The target, with about three times the margin for slower machines, counted from the start of `run()` and leaving out the import (about 0.4 s on a slower machine):
+The target, with about three times the margin for slower machines, counted from the start of `run()` and leaving out the import (a fraction of a second even on a slower machine):
 
 | Step | Target |
 | --- | --- |

@@ -21,6 +21,7 @@ The sections below follow the order you usually need them in. The [recipes](#rec
 - **Settings:** [`Window`](#window), [`Security`](#security), [`DEV_CSP`](#dev_csp), [`Server`](#server), [`Bridge`](#bridge), [`App`](#app)
 - **Building blocks:** [`create_app`](#create_app)
 - **Logging:** [`configure_logging`](#configure_logging), [`LogLevel`](#loglevel)
+- **Other:** [`AppFactory`](#appfactory), [`preload`](#preload)
 
 ## Running the shell
 
@@ -700,6 +701,35 @@ def LogLevel(
     *args,
     **kwargs,
 )
+```
+
+## Other
+
+### `AppFactory`
+
+```python
+AppFactory()
+```
+
+Builds the FastAPI app the shell serves.
+
+### `preload`
+
+```python
+def preload() -> Thread
+```
+
+Start importing the server libraries in the background. Safe to call more than once.
+
+Returns the thread, so a caller (or a test) can `threading.Thread.join` it.
+
+Example:
+
+```pycon
+>>> preload().join()
+>>> import sys
+>>> "fastapi" in sys.modules
+True
 ```
 <!-- END GENERATED -->
 
