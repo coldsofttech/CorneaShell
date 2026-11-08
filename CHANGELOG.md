@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Changed
+
+- `import cornea` is about four times faster (roughly 0.43 s down to 0.09 s on the machine measured). FastAPI and uvicorn now load the first time you use `Shell`, `run`, `create_app` or `AppFactory`, so the cost moves to when the server starts. `cornea --version` and `cornea doctor` no longer load them either.
+
+### Added
+
+- `cornea.preload()` loads the server libraries on a background thread, so that time overlaps with your own start-up work. `cornea open` and `cornea serve` call it while they read their options.
+
 ## [0.1.0] - 2026-11-01
 
 ### Added

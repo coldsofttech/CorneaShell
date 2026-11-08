@@ -13,9 +13,6 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from fastapi.encoders import jsonable_encoder
-from starlette.concurrency import run_in_threadpool
-
 from cornea.core.page.notifications import Notifier
 from cornea.core.window.window import Unavailable, WindowController
 
@@ -275,6 +272,8 @@ class ActionRegistry:
             raise BadArguments(str(exc)) from exc
         if inspect.iscoroutinefunction(function):
             return await function(*bound, **arguments)
+        from starlette.concurrency import run_in_threadpool  # heavy; not needed to import
+
         return await run_in_threadpool(function, *bound, **arguments)
 
     async def invoke(
@@ -307,4 +306,6 @@ class ActionRegistry:
             logger.exception("The action %r failed", name)
             return 500, {"error": "The action failed"}
         logger.debug("Action %r: done", name)
+        from fastapi.encoders import jsonable_encoder  # heavy; not needed to import
+
         return 200, {"available": True, "result": jsonable_encoder(result)}
