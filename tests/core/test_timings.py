@@ -120,6 +120,7 @@ def test_a_window_run_times_the_whole_start_up(
         app: object,
         on_event: object,
         actions: object = None,
+        splash: object = None,
     ) -> object:
         assert callable(on_event)
         time.sleep(0.01)
@@ -129,7 +130,7 @@ def test_a_window_run_times_the_whole_start_up(
 
     monkeypatch.setattr(shell_module, "create_native_window", create)
     monkeypatch.setattr(shell_module, "show_window", lambda *args: None)
-    shell = Shell(Static(bundle))
+    shell = Shell(Static(bundle), loading=None)
     shell.run()
 
     timings = shell.timings
@@ -194,6 +195,7 @@ def test_a_window_run_is_reported_after_the_page_loads(
         app: object,
         on_event: object,
         actions: object = None,
+        splash: object = None,
     ) -> object:
         assert callable(on_event)
         on_event("window_shown")

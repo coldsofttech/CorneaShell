@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FastAPI example</title>
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    background: #f0fdf9; color: #134e4a;
+    font-family: "Segoe UI", system-ui, sans-serif; user-select: none; cursor: default;
+  }
+  .badge {
+    padding: 6px 14px; border-radius: 999px; background: #009688; color: #fff;
+    font-size: 13px; font-weight: 600; letter-spacing: 0.08em;
+  }
+  h1 { margin: 0; font-size: 24px; font-weight: 600; }
+  p { margin: 0; font-size: 14px; color: #3f7f78; }
+  .pulse { width: 12px; height: 12px; border-radius: 50%; background: #009688;
+    animation: pulse 1.1s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { transform: scale(0.6); opacity: 0.5; }
+    50% { transform: scale(1.2); opacity: 1; } }
+</style>
+</head>
+<body class="pywebview-drag-region">
+  <span class="badge">FASTAPI</span>
+  <h1>Starting the server</h1>
+  <p>Your routes will be ready in a moment.</p>
+  <div class="pulse"></div>
+</body>
+</html>

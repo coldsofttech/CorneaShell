@@ -447,7 +447,7 @@ def apply_webview_settings(window: Any, settings: Window) -> None:
     _invoke(window.native, apply)
 
 
-def _install_drop(window: Any, controller: "NativeWindow") -> None:
+def _install_drop(window: Any, controller: "NativeWindow", skip_loads: int = 0) -> None:
     """Send the full paths of files dropped on the window to the page, once it has loaded."""
     installed = False
 
@@ -458,8 +458,11 @@ def _install_drop(window: Any, controller: "NativeWindow") -> None:
         controller.notify("drop", {"paths": paths})
 
     def install() -> None:
-        nonlocal installed
+        nonlocal installed, skip_loads
         if installed:
+            return
+        if skip_loads:  # the loading screen is not the page that should get the drops
+            skip_loads -= 1
             return
         try:
             from webview.dom import DOMEventHandler
@@ -477,14 +480,20 @@ def _install_drop(window: Any, controller: "NativeWindow") -> None:
 
 def create_native_window(
     webview: ModuleType,
-    url: str,
+    url: str | None,
     settings: Window,
     on_error: Callable[[BaseException], None],
     app: App | None = None,
     on_event: Callable[[str], None] | None = None,
     actions: "ActionRegistry | None" = None,
+    splash: str | None = None,
 ) -> tuple[Any, NativeWindow]:
-    """Create (not yet show) the window and its controller."""
+    """Create (not yet show) the window and its controller.
+
+    With ``splash`` (a page of HTML) the window opens on it instead of ``url``, and the caller
+    moves it on with ``window.load_url`` once the app is ready. The splash's own load does not
+    count as the first page.
+    """
     width, height = settings.size
     x, y = settings.position if settings.position is not None else (None, None)
     maximized = False
@@ -508,6 +517,8 @@ def create_native_window(
 
         api = WindowApi(actions or ActionRegistry())
         extra["js_api"] = api
+    if splash is not None:
+        extra["html"] = splash
     window = webview.create_window(
         settings.title,
         url,
@@ -557,10 +568,19 @@ def create_native_window(
     if on_event is not None:
         # Reported as it happens so start-up can be timed; only the first page load counts.
         window.events.shown += lambda: on_event("window_shown")
-        window.events.loaded += lambda: on_event("page_loaded")
+        pages_to_skip = 1 if splash is not None else 0
+
+        def page_loaded() -> None:
+            nonlocal pages_to_skip
+            if pages_to_skip:
+                pages_to_skip -= 1
+            else:
+                on_event("page_loaded")
+
+        window.events.loaded += page_loaded
     controller = NativeWindow(window, settings, webview, start)
     if settings.drop_files:
-        _install_drop(window, controller)
+        _install_drop(window, controller, skip_loads=1 if splash is not None else 0)
     if api is not None:
         api._controller = controller
     if memory is not None:
@@ -574,13 +594,19 @@ def create_native_window(
     return window, controller
 
 
-def show_window(webview: ModuleType, settings: Window) -> None:
-    """Run the window's event loop. It must be called on the main thread and blocks until closed."""
+def show_window(
+    webview: ModuleType, settings: Window, on_started: Callable[[], None] | None = None
+) -> None:
+    """Run the window's event loop. It must be called on the main thread and blocks until closed.
+
+    ``on_started`` runs on its own thread once the loop is up and the window is on screen.
+    """
     # The developer tools are available when wanted but never pop up by themselves.
     webview.settings["OPEN_DEVTOOLS_IN_DEBUG"] = False
     # Downloads are blocked unless asked for; when allowed, pywebview asks where to save each one.
     webview.settings["ALLOW_DOWNLOADS"] = settings.downloads
     webview.start(
+        on_started,
         gui="edgechromium",
         debug=settings.context_menu_enabled or settings.devtools_enabled,
         private_mode=True,

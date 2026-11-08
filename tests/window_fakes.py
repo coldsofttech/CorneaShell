@@ -30,7 +30,7 @@ class FakeWebViewOptions:
 
 
 class FakeWindow:
-    def __init__(self, title: str, url: str, **options: Any) -> None:
+    def __init__(self, title: str, url: str | None, **options: Any) -> None:
         self.title = title
         self.url = url
         self.options = options
@@ -62,6 +62,11 @@ class FakeWindow:
     def destroy(self) -> None:
         self.calls.append("destroy")
 
+    def load_url(self, url: str) -> None:
+        self.calls.append(f"load_url:{url}")
+        self.url = url
+        self.events.loaded.fire()
+
     def show(self) -> None:
         self.calls.append("show")
 
@@ -79,13 +84,15 @@ class FakeWebview(ModuleType):
         self.start_options: dict[str, Any] = {}
         self.while_open: Callable[[FakeWindow], None] = lambda window: None
 
-    def create_window(self, title: str, url: str, **options: Any) -> FakeWindow:
+    def create_window(self, title: str, url: str | None, **options: Any) -> FakeWindow:
         window = FakeWindow(title, url, **options)
         self.windows.append(window)
         return window
 
-    def start(self, **options: Any) -> None:
+    def start(self, func: Callable[[], None] | None = None, **options: Any) -> None:
         self.start_options = options
         for window in self.windows:
             window.events.loaded.fire()
+            if func is not None:
+                func()  # pywebview runs it on its own thread once the window is up
             self.while_open(window)

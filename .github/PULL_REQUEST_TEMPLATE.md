@@ -14,5 +14,5 @@
 - [ ] Tests added or updated in `tests/core/` or `tests/cli/` (slower ones under `integration/`)
 - [ ] `uv run pytest`, `ruff check .`, `ruff format --check .` and `mypy` pass
 - [ ] `CHANGELOG.md` has a short `[Unreleased]` entry
-- [ ] `README.md` or `docs/` are updated if behavior changed (regenerate `docs/api-reference.md` and `docs/cli-reference.md` with `scripts/`)
+- [ ] `README.md` or `docs/` are updated if behavior changed (regenerate `docs/api.md` and `docs/cli.md` with `scripts/`)
 - [ ] Works on Python 3.11

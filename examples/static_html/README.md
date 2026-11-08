@@ -52,6 +52,28 @@ Shell(Static("examples/static_html"), window=Window(title="Plain HTML", frameles
 
 The same entry point takes `--headless` (no window; it prints an address to open in a browser).
 
+## Your own loading screen
+
+The window opens straight away on a loading screen while the app starts, then moves to your page. Cornea shows a simple built-in one; this example brings its own, `loading.html`: an ordinary HTML file with its own styles and a small script. It does not need Cornea's script or a server.
+
+```bash
+uv run cornea open examples/static_html --frameless --loading-html examples/static_html/loading.html
+```
+
+```python
+from pathlib import Path
+
+from cornea import Loading, Shell, Static, Window
+
+Shell(
+    Static("examples/static_html"),
+    window=Window(title="Plain HTML", frameless=True),
+    loading=Loading(html=Path("examples/static_html/loading.html")),
+).run()
+```
+
+Give the page's `<body>` the class `pywebview-drag-region` so a frameless window can still be dragged while it shows. A start this quick would flash the screen, so Cornea keeps it up for at least 0.3 s (`--loading-min-display` changes that). To skip it, add `--no-loading`.
+
 ## Using Cornea features
 
 Cornea answers under `/api` (and `/health`) on the same address as your page, so the page reaches it with plain `fetch()` calls. Add Cornea's one small script to `index.html`, before your own script:

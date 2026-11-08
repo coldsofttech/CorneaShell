@@ -8,7 +8,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from cornea import App, Shell, Static, Window, ready_line
+from cornea import App, Loading, Shell, Static, Window, ready_line
 
 HERE = Path(__file__).parent
 
@@ -16,7 +16,9 @@ HERE = Path(__file__).parent
 def build_shell(*, headless: bool = False, frameless: bool = True, remember: bool = False) -> Shell:
     window = None if headless else Window(title="Plain HTML", frameless=frameless, icon="icon.png")
     app = App(id="com.example.static-html", remember_window=True) if remember else None
-    return Shell(Static(HERE), window=window, identity=app)
+    # The window opens on your own loading page, then moves to the app. It needs a window.
+    loading = Loading(html=HERE / "loading.html")
+    return Shell(Static(HERE), window=window, identity=app, loading=loading)
 
 
 def main() -> None:

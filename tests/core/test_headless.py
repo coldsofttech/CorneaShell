@@ -149,7 +149,7 @@ def test_on_ready_comes_before_the_window_is_shown(
     )
     monkeypatch.setattr(shell_module, "show_window", lambda *args: order.append("window"))
 
-    Shell(Static(bundle)).run(on_ready=lambda shell: order.append("ready"))
+    Shell(Static(bundle), loading=None).run(on_ready=lambda shell: order.append("ready"))
 
     assert order == ["ready", "window"]
 
@@ -163,7 +163,9 @@ def test_on_ready_works_for_a_direct_url(monkeypatch: pytest.MonkeyPatch) -> Non
     )
     monkeypatch.setattr(shell_module, "show_window", lambda *args: None)
 
-    Shell(Url("http://localhost:5173")).run(on_ready=lambda shell: seen.append(shell.url))
+    Shell(Url("http://localhost:5173"), loading=None).run(
+        on_ready=lambda shell: seen.append(shell.url)
+    )
 
     assert seen == ["http://localhost:5173"]
 

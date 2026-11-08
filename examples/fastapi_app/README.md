@@ -52,6 +52,28 @@ Shell(Asgi("main:app", app_dir="examples/fastapi_app")).run()
 
 The same entry point takes `--headless` (no window; it prints an address to open in a browser).
 
+## Your own loading screen
+
+The window opens straight away on a loading screen while FastAPI starts, then moves to your page. This example brings its own, `loading.html`, kept next to `main.py` rather than in `web/`, so it is not served as part of the app.
+
+```bash
+uv run cornea open --asgi main:app --app-dir examples/fastapi_app --loading-html examples/fastapi_app/loading.html
+```
+
+```python
+from pathlib import Path
+
+from cornea import Loading, Shell, Static
+
+Shell(
+    Static("examples/fastapi_app/web"),
+    routers=[router],
+    loading=Loading(html=Path("examples/fastapi_app/loading.html")),
+).run()
+```
+
+Cornea's built-in screen needs no file: `Loading(subtitle="Starting the server")` only changes its text, and `--no-loading` turns the screen off.
+
 ## Using Cornea features
 
 Cornea answers under `/api` (and `/health`) on the same address as your page, so the page reaches it with plain `fetch()` calls. Add Cornea's one small script to `web/index.html`:

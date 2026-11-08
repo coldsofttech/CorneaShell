@@ -12,6 +12,7 @@ from typer.testing import CliRunner
 
 from cornea import Security, Shell, Static, Window
 from cornea.cli import app, doctor
+from cornea.cli.doctor import checks as doctor_checks
 from cornea.core.window.window import show_window
 from window_fakes import FakeWebview
 
@@ -173,7 +174,7 @@ def test_the_checks_cover_each_thing_that_can_go_wrong(tmp_path: Path) -> None:
 def test_a_valid_settings_file_passes(tmp_path: Path) -> None:
     (tmp_path / "cornea.toml").write_text("[window]\ntitle = 'x'\n", encoding="utf-8")
 
-    check = doctor._settings_file(tmp_path)
+    check = doctor_checks._settings_file(tmp_path)
 
     assert check.status == "ok"
     assert "is valid" in check.detail
@@ -182,7 +183,7 @@ def test_a_valid_settings_file_passes(tmp_path: Path) -> None:
 def test_a_bad_settings_file_is_a_problem(tmp_path: Path) -> None:
     (tmp_path / "cornea.toml").write_text("[window]\ncolour = 'red'\n", encoding="utf-8")
 
-    check = doctor._settings_file(tmp_path)
+    check = doctor_checks._settings_file(tmp_path)
 
     assert check.status == "fail"
     assert "unknown key" in check.detail
@@ -194,14 +195,14 @@ def test_a_busy_port_is_a_problem() -> None:
         busy.listen()
         port = busy.getsockname()[1]
 
-        check = doctor._port(port)
+        check = doctor_checks._port(port)
 
     assert check.status == "fail"
     assert str(port) in check.detail
 
 
 def test_a_free_port_passes() -> None:
-    assert doctor._port(0).status == "ok"
+    assert doctor_checks._port(0).status == "ok"
 
 
 def test_an_unwritable_log_folder_is_only_a_warning(
@@ -211,7 +212,7 @@ def test_an_unwritable_log_folder_is_only_a_warning(
     blocker.write_text("x", encoding="utf-8")
     monkeypatch.setenv("LOCALAPPDATA", str(blocker))
 
-    assert doctor._log_folder().status == "warn"
+    assert doctor_checks._log_folder().status == "warn"
 
 
 def test_the_log_folder_check_leaves_nothing_behind(
@@ -219,7 +220,7 @@ def test_the_log_folder_check_leaves_nothing_behind(
 ) -> None:
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
 
-    assert doctor._log_folder().status == "ok"
+    assert doctor_checks._log_folder().status == "ok"
     assert list((tmp_path / "Cornea" / "logs").iterdir()) == []
 
 
@@ -227,7 +228,7 @@ def test_the_command_reports_and_exits_zero_when_all_is_well(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     ok = doctor.Check("Python", "ok", "3.11")
-    monkeypatch.setattr("cornea.cli.commands.run_checks", lambda port: [ok])
+    monkeypatch.setattr("cornea.cli.doctor.command.run_checks", lambda port: [ok])
 
     result = runner.invoke(app, ["doctor"])
 
@@ -237,7 +238,7 @@ def test_the_command_reports_and_exits_zero_when_all_is_well(
 
 def test_the_command_exits_one_on_a_problem(monkeypatch: pytest.MonkeyPatch) -> None:
     bad = doctor.Check("WebView2 runtime", "fail", "not installed")
-    monkeypatch.setattr("cornea.cli.commands.run_checks", lambda port: [bad])
+    monkeypatch.setattr("cornea.cli.doctor.command.run_checks", lambda port: [bad])
 
     result = runner.invoke(app, ["doctor"])
 
@@ -247,7 +248,7 @@ def test_the_command_exits_one_on_a_problem(monkeypatch: pytest.MonkeyPatch) -> 
 
 def test_the_command_can_print_json(monkeypatch: pytest.MonkeyPatch) -> None:
     ok = doctor.Check("Python", "ok", "3.11")
-    monkeypatch.setattr("cornea.cli.commands.run_checks", lambda port: [ok])
+    monkeypatch.setattr("cornea.cli.doctor.command.run_checks", lambda port: [ok])
 
     result = runner.invoke(app, ["doctor", "--json"])
 
@@ -261,7 +262,7 @@ def test_the_command_passes_the_port_on(monkeypatch: pytest.MonkeyPatch) -> None
         seen.append(port)
         return []
 
-    monkeypatch.setattr("cornea.cli.commands.run_checks", fake_checks)
+    monkeypatch.setattr("cornea.cli.doctor.command.run_checks", fake_checks)
 
     runner.invoke(app, ["doctor", "--port", "8765"])
 
