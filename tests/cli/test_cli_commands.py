@@ -1,80 +1,30 @@
 import dataclasses
 import json
-import logging
-import re
-from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
 import pytest
 import typer
-from typer.main import get_command
-from typer.testing import CliRunner
 
+from cli_support import Calls, invoke, option_names
 from cornea import (
-    DEV_CSP,
     App,
     Asgi,
     Bridge,
+    Loading,
     Process,
     Security,
     Server,
-    Shell,
     Static,
     Timings,
     Url,
     Window,
     Wsgi,
 )
-from cornea.cli import app, options
+from cornea.cli import options
 from cornea.core.window import window as window_module
 
-runner = CliRunner()
-ANSI = re.compile(r"\x1b\[[0-9;]*m")
-
-
-class Calls:
-    """Stands in for run(): remembers how the command called it."""
-
-    def __init__(self) -> None:
-        self.items: list[dict[str, Any]] = []
-
-    def __call__(self, source: Any = None, **kwargs: Any) -> None:
-        self.items.append({"source": source, **kwargs})
-
-    @property
-    def last(self) -> dict[str, Any]:
-        return self.items[-1]
-
-
-@pytest.fixture(autouse=True)
-def restore_cornea_logging(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[None]:
-    """Undo configure_logging after each test.
-
-    A command such as ``open --debug`` configures logging for real, and its handler would
-    otherwise outlive the test and write to a stream that is already closed.
-    """
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))  # where debug logs go
-    logger = logging.getLogger("cornea")
-    level, propagate = logger.level, logger.propagate
-    yield
-    for handler in list(logger.handlers):
-        logger.removeHandler(handler)
-        handler.close()
-    logger.setLevel(level)
-    logger.propagate = propagate
-
-
-@pytest.fixture
-def calls(monkeypatch: pytest.MonkeyPatch) -> Calls:
-    recorded = Calls()
-    monkeypatch.setattr("cornea.cli.commands.run_shell", recorded)
-    return recorded
-
-
-def invoke(*args: str) -> Any:
-    return runner.invoke(app, list(args))
+pytestmark = pytest.mark.usefixtures("restore_cornea_logging")
 
 
 # ----- the flags cover every setting ----------------------------------------------------------
@@ -111,6 +61,16 @@ FLAGS: dict[type, dict[str, str]] = {
         "open_files": "--open-files",
         "notifications": "--notifications",
     },
+    Loading: {
+        "subtitle": "--loading-subtitle",
+        "title": "--loading-title",
+        "icon": "--loading-icon",
+        "theme": "--loading-theme",
+        "background": "--loading-background",
+        "foreground": "--loading-foreground",
+        "html": "--loading-html",
+        "min_display": "--loading-min-display",
+    },
     App: {
         "id": "--app-id",
         "single_instance": "--single-instance",
@@ -134,11 +94,6 @@ FLAGS: dict[type, dict[str, str]] = {
 }
 
 
-def option_names(command: str) -> set[str]:
-    cli: Any = get_command(app)
-    return {name for param in cli.commands[command].params for name in param.opts}
-
-
 @pytest.mark.parametrize("settings", FLAGS, ids=lambda cls: cls.__name__)
 def test_every_setting_has_a_flag(settings: type) -> None:
     fields = {field.name for field in dataclasses.fields(settings)}
@@ -149,7 +104,12 @@ def test_every_setting_has_a_flag(settings: type) -> None:
 
 
 def test_serve_has_every_flag_except_the_window_ones() -> None:
-    window_flags = set(FLAGS[Window].values()) | set(FLAGS[App].values())
+    window_flags = (
+        set(FLAGS[Window].values())
+        | set(FLAGS[Loading].values())
+        | set(FLAGS[App].values())
+        | {"--loading"}
+    )
 
     assert option_names("serve") == option_names("open") - window_flags
     assert window_flags <= option_names("open")
@@ -165,277 +125,7 @@ def test_the_url_and_app_sources_have_flags() -> None:
 # ----- open -----------------------------------------------------------------------------------
 
 
-def test_open_with_a_folder_shows_a_window(calls: Calls) -> None:
-    result = invoke("open", "web/dist")
-
-    assert result.exit_code == 0
-    assert calls.last["source"] == Static(path=Path("web/dist"))
-    assert calls.last["window"] == Window()
-    assert calls.last["server"] == Server()
-    assert calls.last["security"] == Security()
-    assert calls.last["bridge"] == Bridge()
-    assert calls.last["on_ready"] is None
-
-
-def test_open_with_no_source_uses_the_default_lookup(calls: Calls) -> None:
-    invoke("open")
-
-    assert calls.last["source"] == Static()
-
-
-def test_open_maps_every_window_flag(calls: Calls) -> None:
-    invoke(
-        "open",
-        "web/dist",
-        "--title",
-        "My App",
-        "--size",
-        "1200x800",
-        "--min-size",
-        "300x200",
-        "--position",
-        "-100,50",
-        "--frameless",
-        "--no-resizable",
-        "--on-top",
-        "--context-menu",
-        "--devtools",
-        "--debug",
-    )
-
-    assert calls.last["window"] == Window(
-        title="My App",
-        size=(1200, 800),
-        min_size=(300, 200),
-        position=(-100, 50),
-        frameless=True,
-        resizable=False,
-        on_top=True,
-        context_menu=True,
-        devtools=True,
-        debug=True,
-    )
-
-
-def test_open_maps_server_security_and_bridge_flags(calls: Calls) -> None:
-    invoke(
-        "open",
-        "web/dist",
-        "--host",
-        "127.0.0.1",
-        "--port",
-        "8765",
-        "--allowed-host",
-        "app.local:8765",
-        "--allowed-host",
-        "other.local",
-        "--csp",
-        "default-src 'self'",
-        "--api-prefix",
-        "/v1",
-        "--token-ttl",
-        "120",
-        "--cookie-samesite",
-        "lax",
-        "--public-path",
-        "/health",
-        "--public-path",
-        "/status",
-        "--no-require-origin",
-        "--disable-action",
-        "open_external",
-        "--disable-action",
-        "save_file",
-    )
-
-    assert calls.last["server"] == Server(host="127.0.0.1", port=8765)
-    assert calls.last["security"] == Security(
-        allowed_hosts=("app.local:8765", "other.local"),
-        csp="default-src 'self'",
-        api_prefix="/v1",
-        token_ttl=120,
-        cookie_samesite="lax",
-        public_paths=("/health", "/status"),
-        require_origin=False,
-    )
-    assert calls.last["bridge"] == Bridge(disabled=("open_external", "save_file"))
-
-
-def test_open_maps_the_bundle_flags(calls: Calls) -> None:
-    invoke(
-        "open",
-        "--package",
-        "shipped_ui",
-        "--package-path",
-        "frontend",
-        "--no-spa",
-        "--hashed-prefix",
-        "static/",
-        "--hashed-prefix",
-        "fonts/",
-    )
-
-    assert calls.last["source"] == Static(
-        package="shipped_ui",
-        package_path="frontend",
-        spa=False,
-        hashed_prefixes=("static/", "fonts/"),
-    )
-
-
-def test_open_with_an_address_opens_it_directly(calls: Calls) -> None:
-    invoke("open", "http://localhost:5173")
-    assert calls.last["source"] == Url("http://localhost:5173")
-
-    invoke("open", "--url", "https://example.com")
-    assert calls.last["source"] == Url("https://example.com")
-
-
-def test_an_address_can_be_proxied(calls: Calls) -> None:
-    invoke("open", "http://localhost:5173", "--mode", "proxy")
-    assert calls.last["source"] == Url("http://localhost:5173", mode="proxy")
-
-    invoke("open", "--url", "http://localhost:5173", "--mode", "direct")
-    assert calls.last["source"] == Url("http://localhost:5173", mode="direct")
-
-
-def test_a_proxied_address_may_be_frameless(calls: Calls) -> None:
-    result = invoke("open", "http://localhost:5173", "--mode", "proxy", "--frameless")
-
-    assert result.exit_code == 0
-    assert calls.last["window"] == Window(frameless=True)
-
-
-def test_serve_can_proxy_an_address(calls: Calls) -> None:
-    result = invoke("serve", "http://localhost:5173", "--mode", "proxy")
-
-    assert result.exit_code == 0
-    assert calls.last["source"] == Url("http://localhost:5173", mode="proxy")
-    assert calls.last["window"] is None
-
-
-def test_a_command_can_be_started_for_the_address(calls: Calls) -> None:
-    invoke("open", "--run", "npm run dev", "--url", "http://localhost:5173")
-    assert calls.last["source"] == Process("npm run dev", url="http://localhost:5173")
-
-    invoke(
-        "open",
-        "http://localhost:5173",
-        "--run",
-        "npm run dev",
-        "--run-cwd",
-        "web",
-        "--run-timeout",
-        "90",
-        "--mode",
-        "proxy",
-    )
-    assert calls.last["source"] == Process(
-        "npm run dev", url="http://localhost:5173", cwd=Path("web"), timeout=90, mode="proxy"
-    )
-
-
-def test_serve_can_start_a_command_too(calls: Calls) -> None:
-    result = invoke("serve", "--run", "npm run dev", "--url", "http://x.test", "--mode", "proxy")
-
-    assert result.exit_code == 0
-    assert calls.last["source"] == Process("npm run dev", url="http://x.test", mode="proxy")
-    assert calls.last["window"] is None
-
-
-def test_the_dev_csp_profile_is_opt_in(calls: Calls) -> None:
-    invoke("open", "web/dist")
-    assert calls.last["security"].csp == Security().csp
-
-    invoke("open", "web/dist", "--csp-profile", "dev")
-    assert calls.last["security"].csp == DEV_CSP
-
-    invoke("open", "web/dist", "--csp-profile", "strict")
-    assert calls.last["security"].csp == Security().csp
-
-
-def test_the_csp_profile_has_a_flag() -> None:
-    assert "--csp-profile" in option_names("open")
-    assert "--csp-profile" in option_names("serve")
-
-
-def test_open_with_apps(calls: Calls) -> None:
-    invoke("open", "--asgi", "proj.asgi:application", "--app-dir", "src")
-    assert calls.last["source"] == Asgi("proj.asgi:application", app_dir=Path("src"))
-
-    invoke("open", "--wsgi", "app:app")
-    assert calls.last["source"] == Wsgi("app:app")
-
-
-def test_open_with_web_dist_flag(calls: Calls) -> None:
-    invoke("open", "--web-dist", "build")
-
-    assert calls.last["source"] == Static(path=Path("build"))
-
-
 # ----- serve ----------------------------------------------------------------------------------
-
-
-def serve_and_announce(window: Any = None) -> Any:
-    """A run() that starts a real headless shell and calls on_ready, like the real one."""
-
-    def fake(source: Any = None, **kwargs: Any) -> None:
-        with Shell(source, window=None) as shell:
-            kwargs["on_ready"](shell)
-
-    return fake
-
-
-def test_serve_is_headless_and_announces_itself(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    (tmp_path / "index.html").write_text("x", encoding="utf-8")
-    monkeypatch.setattr("cornea.cli.commands.run_shell", serve_and_announce())
-
-    result = invoke("serve", str(tmp_path))
-
-    assert result.exit_code == 0
-    lines = result.stdout.strip().splitlines()
-    assert len(lines) == 1
-    message = json.loads(lines[0])
-    assert message["event"] == "ready"
-    assert message["window"] is False
-    assert message["url"].startswith(f"http://127.0.0.1:{message['port']}/?cornea_token=")
-    assert "Serving http://127.0.0.1:" in result.stderr
-    assert "Ctrl+C" in result.stderr
-
-
-def test_serve_keeps_stderr_quiet_with_quiet(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    (tmp_path / "index.html").write_text("x", encoding="utf-8")
-    monkeypatch.setattr("cornea.cli.commands.run_shell", serve_and_announce())
-
-    result = invoke("--quiet", "serve", str(tmp_path))
-
-    assert result.stderr == ""
-    assert json.loads(result.stdout)["event"] == "ready"
-
-
-def test_serve_passes_no_window(calls: Calls) -> None:
-    invoke("serve", "web/dist", "--port", "9000")
-
-    assert calls.last["window"] is None
-    assert calls.last["server"] == Server(port=9000)
-    assert callable(calls.last["on_ready"])
-
-
-def test_serve_has_no_window_flags() -> None:
-    result = invoke("serve", "web/dist", "--frameless")
-
-    assert result.exit_code == 2
-
-
-def test_serve_with_an_address_explains_that_it_needs_a_window() -> None:
-    result = invoke("serve", "http://localhost:5173")
-
-    assert result.exit_code == 1
-    assert "needs a window" in result.stderr
 
 
 # ----- mistakes are short messages, not tracebacks --------------------------------------------
@@ -620,24 +310,6 @@ def test_measure_with_only_a_file_still_prints_the_line(
 
 
 # ----- the details table ------------------------------------------------------------------------
-
-
-def test_open_shows_what_it_will_do(calls: Calls) -> None:
-    result = invoke("open", "web/dist", "--title", "Notes", "--frameless", "--app-id", "a.b")
-
-    assert result.exit_code == 0
-    assert "cornea open" in result.stderr
-    assert "folder web" in result.stderr
-    assert "'Notes', frameless" in result.stderr
-    assert "a.b" in result.stderr
-
-
-def test_serve_shows_its_source_and_never_a_window(calls: Calls) -> None:
-    result = invoke("serve", "http://localhost:5173", "--mode", "proxy")
-
-    assert "cornea serve" in result.stderr
-    assert "http://localhost:5173 (proxy)" in result.stderr
-    assert "Window" not in result.stderr
 
 
 def test_quiet_hides_the_details(calls: Calls) -> None:

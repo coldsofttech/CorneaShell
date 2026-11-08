@@ -1,5 +1,6 @@
 """The shell: runs the secured local server that hosts the web UI."""
 
+import asyncio
 import json
 import logging
 import os
@@ -18,7 +19,7 @@ from fastapi import APIRouter, FastAPI
 
 from cornea.core.app.app import AppFactory
 from cornea.core.bridge.bridge import ActionRegistry
-from cornea.core.config import App, Bridge, Security, Server, Window
+from cornea.core.config import App, Bridge, Loading, Security, Server, Window
 from cornea.core.environment import Environment
 from cornea.core.logs import Logs
 from cornea.core.page.notifications import Notifier
@@ -26,6 +27,7 @@ from cornea.core.security.close_guard import CloseGuard
 from cornea.core.security.single_instance import AlreadyRunning, InstanceLock, activate_existing
 from cornea.core.sources.process import ProcessRunner
 from cornea.core.sources.sources import Process, Url, WebSource, coerce_source
+from cornea.core.window.loading import check_loading, render_loading
 from cornea.core.window.window import (
     SimulatedWindow,
     Unavailable,
@@ -89,7 +91,23 @@ class Timings:
 
 
 START_TIMEOUT = 10.0
-STOP_TIMEOUT = 10.0
+STOP_TIMEOUT = 2.0
+"""How long ``stop()`` waits for the server thread after telling it to exit."""
+GRACEFUL_SHUTDOWN = 0.3
+"""How long uvicorn lets open requests finish when it is stopped by its own means."""
+
+
+class _ShutdownNoise(logging.Filter):
+    """Drop uvicorn's errors about cancelling streams that were still open while stopping."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if "timeout graceful shutdown exceeded" in record.getMessage():
+            return False
+        error = record.exc_info[1] if record.exc_info else None
+        return not (
+            isinstance(error, asyncio.CancelledError)
+            and "timeout graceful shutdown exceeded" in str(error)
+        )
 
 
 def _host_header(host: str, port: int) -> str:
@@ -110,6 +128,12 @@ class Shell:
     A direct :class:`~cornea.core.sources.Url` source is different: the window opens that address
     itself and no server is started, so it needs a window with the native frame (the page cannot
     reach the window controls) and :attr:`url` is the address you gave.
+
+    With a window, :meth:`run` opens it straight away on a loading screen (see
+    :class:`~cornea.core.config.Loading`) and starts the app behind it, so ``on_ready`` is called
+    while the window is already up. Pass ``loading=None`` or ``False`` to start the app first and
+    open the window on it, as before. If the app cannot start, the window closes and :meth:`run`
+    raises the error.
 
     With ``measure=True`` the start-up time is printed on stderr (and logged) once the first
     page has loaded, or once the server answers when there is no window. Pass a function instead
@@ -132,6 +156,7 @@ class Shell:
         bridge: Bridge | None = None,
         identity: App | None = None,
         measure: bool | Callable[[Timings], None] = False,
+        loading: Loading | bool | None = True,
     ) -> None:
         self.security = security or Security()
         self.identity = identity or App()
@@ -144,6 +169,12 @@ class Shell:
         self._marks: dict[str, float] = {}
         self.server = server or Server()
         self.window = window
+        # The loading screen is a window feature; with no window there is nothing to show it in.
+        self.loading: Loading | None = (
+            (loading if isinstance(loading, Loading) else Loading())
+            if loading and window is not None
+            else None
+        )
         web_source = coerce_source(source) if source is not None else None
         self._runner: ProcessRunner | None = None
         if isinstance(web_source, Process):
@@ -170,6 +201,9 @@ class Shell:
         self._thread: threading.Thread | None = None
         self._error: BaseException | None = None
         self._window_error: BaseException | None = None
+        self._start_error: BaseException | None = None
+        self._app_started = threading.Event()
+        self._start_began = False
 
     # ----- what the server is ---------------------------------------------------------------
 
@@ -364,7 +398,13 @@ class Shell:
         AppFactory.allow_host(self.app, _host_header(self.server.host, self.port))
         logger.debug("Serving on %s", self.base_url)
         # No access log: it would print the one-time token from the first URL.
-        config = uvicorn.Config(self.app, log_level="warning", access_log=False)
+        config = uvicorn.Config(
+            self.app,
+            log_level="warning",
+            access_log=False,
+            # uvicorn types this as int but hands it to asyncio.wait, which takes fractions.
+            timeout_graceful_shutdown=GRACEFUL_SHUTDOWN,  # type: ignore[arg-type]
+        )
         self._uvicorn = uvicorn.Server(config)
         self._thread = threading.Thread(
             target=self._serve, args=(self._uvicorn, listener), name="cornea-server", daemon=True
@@ -383,19 +423,44 @@ class Shell:
             >>> shell.running
             False
         """
+        began = time.perf_counter()
         server, thread, listener = self._uvicorn, self._thread, self._socket
+        # The command goes down beside the server, so its event streams drop at once and the
+        # server does not wait for them.
+        runner = self._runner
+        stopper = None
+        if runner is not None:
+            stopper = threading.Thread(target=runner.stop, name="cornea-stop", daemon=True)
+            stopper.start()
         if server is not None and thread is not None and thread.is_alive():
-            server.should_exit = True
-            thread.join(STOP_TIMEOUT)
-            if thread.is_alive():
-                server.force_exit = True
+            # Uvicorn lets open requests finish for GRACEFUL_SHUTDOWN seconds and then cancels
+            # them, so a stream that never ends cannot hold the exit. Forcing the exit at once
+            # would skip the app's own shutdown and print a traceback.
+            noise = _ShutdownNoise()
+            uvicorn_log = logging.getLogger("uvicorn.error")
+            uvicorn_log.addFilter(noise)
+            try:
+                server.should_exit = True
                 thread.join(STOP_TIMEOUT)
+                if thread.is_alive():
+                    server.force_exit = True
+                    thread.join(STOP_TIMEOUT)
+            finally:
+                uvicorn_log.removeFilter(noise)
+        server_done = time.perf_counter()
         if listener is not None:
             listener.close()
-        if self._runner is not None:
-            self._runner.stop()
+        if stopper is not None:
+            stopper.join()
+        process_done = time.perf_counter()
         if self._lock is not None:
             self._lock.release()
+        logger.debug(
+            "Stop: server %.3f s, command %.3f s, total %.3f s",
+            server_done - began,
+            process_done - server_done,
+            time.perf_counter() - began,
+        )
 
     def run(self, on_ready: Callable[["Shell"], None] | None = None) -> None:
         """Show the window and wait until it closes, or just serve when there is no window.
@@ -430,24 +495,35 @@ class Shell:
             require_webview2()
             webview = load_webview()
             self._check_icon(self.window)
+            if self.loading is not None:
+                check_loading(self.loading)
             self._take_lock()
-        if self._direct_url is None:
-            self.start()
-        else:
-            self._start_process()
+        # With a loading screen the window opens first and the app starts behind it.
+        splash = (
+            render_loading(self.loading, self.window)
+            if self.loading is not None and self.window is not None
+            else None
+        )
+        if splash is None:
+            self._start_app()
         try:
-            if on_ready is not None:
+            if splash is None and on_ready is not None:
                 on_ready(self)
             if webview is not None and self.window is not None:
-                self._show_window(webview, self.window)
+                self._show_window(webview, self.window, splash, on_ready)
             else:
                 self._serve_until_stopped()
         except KeyboardInterrupt:
             pass
         finally:
+            if splash is not None and self._start_began:
+                # The window can close before the app has finished starting; let it finish first.
+                self._app_started.wait(START_TIMEOUT)
             self.stop()
             logger.debug("Stopped")
             self._report_timings()  # a start that never got as far as the last step
+        if self._start_error is not None:
+            raise self._start_error
         if self._window_error is not None:
             logger.debug("The window could not be set up", exc_info=self._window_error)
             raise RuntimeError("the window could not be set up") from self._window_error
@@ -508,22 +584,64 @@ class Shell:
         while self._thread is not None and self._thread.is_alive():
             self._thread.join(0.2)
 
-    def _show_window(self, webview: ModuleType, settings: Window) -> None:
-        _, controller = create_native_window(
+    def _start_app(self) -> None:
+        if self._direct_url is None:
+            self.start()
+        else:
+            self._start_process()
+
+    def _start_behind_loading_screen(
+        self, window: Any, loading: Loading, on_ready: Callable[["Shell"], None] | None
+    ) -> None:
+        """Start the app while the window shows the loading screen, then move the window on."""
+        self._start_began = True
+        began = time.perf_counter()
+        try:
+            self._start_app()
+            if on_ready is not None:
+                on_ready(self)
+            wait = loading.min_display - (time.perf_counter() - began)
+            if wait > 0:
+                time.sleep(wait)  # so a quick start does not flash the loading screen
+            window.load_url(self.url)
+        except BaseException as exc:
+            logger.debug("The app could not start behind the loading screen", exc_info=True)
+            self._start_error = exc
+            window.destroy()  # run() raises the error once the window has closed
+        finally:
+            self._app_started.set()
+
+    def _show_window(
+        self,
+        webview: ModuleType,
+        settings: Window,
+        splash: str | None = None,
+        on_ready: Callable[["Shell"], None] | None = None,
+    ) -> None:
+        window, controller = create_native_window(
             webview,
-            self.url,
+            None if splash is not None else self.url,
             settings,
             self._set_window_error,
             self.identity,
             self._mark,
             self.actions,
+            splash=splash,
         )
         if self._lock is not None:
             self._lock.serve(controller.activate)
         controller.guard = self._guard
         controller.notifier = Notifier(self.identity.id, settings.title, settings.icon)
         self.app.state.window = controller
-        show_window(webview, settings)
+        loading = self.loading
+        if splash is None or loading is None:
+            show_window(webview, settings)
+        else:
+            show_window(
+                webview,
+                settings,
+                lambda: self._start_behind_loading_screen(window, loading, on_ready),
+            )
 
     def _set_window_error(self, error: BaseException) -> None:
         self._window_error = error
@@ -576,6 +694,7 @@ def run(
     bridge: Bridge | None = None,
     identity: App | None = None,
     measure: bool | Callable[[Timings], None] = False,
+    loading: Loading | bool | None = True,
     title: str | None = None,
     debug: bool | None = None,
     on_ready: Callable[[Shell], None] | None = None,
@@ -584,7 +703,7 @@ def run(
 
     ``title`` and ``debug`` are shorthands for the same ``window`` settings. ``on_ready`` is
     called once the shell is serving; see :meth:`Shell.run`. ``measure`` reports the start-up
-    time: see :class:`Shell`.
+    time and ``loading`` sets or turns off the loading screen: see :class:`Shell`.
 
     Example:
         >>> run("web/dist", title="My App")  # doctest: +SKIP
@@ -608,5 +727,6 @@ def run(
         bridge=bridge,
         identity=identity,
         measure=measure,
+        loading=loading,
     )
     shell.run(on_ready=on_ready)

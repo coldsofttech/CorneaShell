@@ -1,8 +1,8 @@
 # Python API reference
 
-<!-- The reference between the GENERATED markers is written by scripts/gen_api_reference.py from the code. Edit everything else by hand. -->
+<!-- The reference between the GENERATED markers is written by scripts/gen_api.py from the code. Edit everything else by hand. -->
 
-Public names exported by `cornea`. Install with `pip install cornea-shell`. Everything here can also be done with the [command line](cli-reference.md).
+Public names exported by `cornea`. Install with `pip install cornea-shell`. Everything here can also be done with the [command line](cli.md).
 
 ```python
 from cornea import Shell, Static, Window
@@ -21,6 +21,7 @@ The sections below follow the order you usually need them in. The [recipes](#rec
 - **Settings:** [`Window`](#window), [`Security`](#security), [`DEV_CSP`](#dev_csp), [`Server`](#server), [`Bridge`](#bridge), [`App`](#app)
 - **Building blocks:** [`create_app`](#create_app)
 - **Logging:** [`configure_logging`](#configure_logging), [`LogLevel`](#loglevel)
+- **Other:** [`AppFactory`](#appfactory), [`Loading`](#loading), [`preload`](#preload)
 
 ## Running the shell
 
@@ -39,6 +40,7 @@ Shell(
     bridge: Bridge | None = None,
     identity: App | None = None,
     measure: bool | Callable[[Timings], None] = False,
+    loading: Loading | bool | None = True,
 )
 ```
 
@@ -54,6 +56,12 @@ be tried in a normal browser.
 A direct `cornea.core.sources.Url` source is different: the window opens that address
 itself and no server is started, so it needs a window with the native frame (the page cannot
 reach the window controls) and `url` is the address you gave.
+
+With a window, `run` opens it straight away on a loading screen (see
+`cornea.core.config.Loading`) and starts the app behind it, so `on_ready` is called
+while the window is already up. Pass `loading=None` or `False` to start the app first and
+open the window on it, as before. If the app cannot start, the window closes and `run`
+raises the error.
 
 With `measure=True` the start-up time is printed on stderr (and logged) once the first
 page has loaded, or once the server answers when there is no window. Pass a function instead
@@ -268,6 +276,7 @@ def run(
     bridge: Bridge | None = None,
     identity: App | None = None,
     measure: bool | Callable[[Timings], None] = False,
+    loading: Loading | bool | None = True,
     title: str | None = None,
     debug: bool | None = None,
     on_ready: Callable[[Shell], None] | None = None,
@@ -278,7 +287,7 @@ Show the web UI: build a `Shell` and run it until it is closed.
 
 `title` and `debug` are shorthands for the same `window` settings. `on_ready` is
 called once the shell is serving; see `Shell.run`. `measure` reports the start-up
-time: see `Shell`.
+time and `loading` sets or turns off the loading screen: see `Shell`.
 
 Example:
 
@@ -700,6 +709,63 @@ def LogLevel(
     *args,
     **kwargs,
 )
+```
+
+## Other
+
+### `AppFactory`
+
+```python
+AppFactory()
+```
+
+Builds the FastAPI app the shell serves.
+
+### `Loading`
+
+The loading screen the window shows while the app starts. On by default.
+
+The window opens straight away on this page and moves to the app once it is ready. The
+page runs no scripts and never sees the start-up token. Pass `loading=None` (or `False`)
+to `cornea.core.shell.Shell` to turn it off.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `subtitle` | `str` | `'Shell provided by Cornea'` | The tag line under the title. |
+| `title` | `str \| None` | `None` | The heading. `None` uses the window title. |
+| `icon` | `Path \| str \| None` | `None` | The picture above the title. `None` uses the window icon, or none if it has none. |
+| `theme` | `Literal['auto', 'light', 'dark']` | `'auto'` | `auto` follows the system setting. |
+| `background` | `str \| None` | `None` | A CSS colour for the background. `None` uses the theme's colour. |
+| `foreground` | `str \| None` | `None` | A CSS colour for the text. `None` uses the theme's colour. |
+| `html` | `Path \| str \| None` | `None` | Replace the page. A `pathlib.Path` is read as a file; a string is the page itself. Scripts in it can run, so it is yours to keep free of anything you do not trust. |
+| `min_display` | `float` | `0.3` | Seconds to keep the page up at least, so a quick start does not flash it. |
+
+Example:
+
+```pycon
+>>> Loading().subtitle
+'Shell provided by Cornea'
+>>> Loading(subtitle="Getting things ready", theme="dark").theme
+'dark'
+```
+
+### `preload`
+
+```python
+def preload() -> Thread
+```
+
+Start importing the server libraries in the background. Safe to call more than once.
+
+Returns the thread, so a caller (or a test) can `threading.Thread.join` it.
+
+Example:
+
+```pycon
+>>> preload().join()
+>>> import sys
+>>> "fastapi" in sys.modules
+True
 ```
 <!-- END GENERATED -->
 

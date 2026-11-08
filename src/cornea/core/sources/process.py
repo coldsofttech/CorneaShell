@@ -23,7 +23,8 @@ logger = logging.getLogger(__name__)
 
 POLL_INTERVAL = 0.1
 OUTPUT_LINES = 40
-STOP_TIMEOUT = 5.0
+STOP_TIMEOUT = 2.0
+READER_TIMEOUT = 0.5
 
 
 class _Job:
@@ -158,7 +159,9 @@ class ProcessRunner:
         with contextlib.suppress(subprocess.TimeoutExpired):  # a killed process ends at once
             process.wait(STOP_TIMEOUT)
         if self._reader is not None:
-            self._reader.join(STOP_TIMEOUT)
+            # A child of the command may still hold the pipe open; the reader is a daemon thread,
+            # so do not wait for it long.
+            self._reader.join(READER_TIMEOUT)
         if process.stdout is not None:
             process.stdout.close()
 

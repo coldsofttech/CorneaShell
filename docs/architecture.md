@@ -1,6 +1,6 @@
 # Architecture
 
-How Cornea Shell works, for people who change it or build on it. For day-to-day commands see [development](development.md). For what each option does see the [command line reference](cli-reference.md) and the [Python API reference](api-reference.md).
+How Cornea Shell works, for people who change it or build on it. For day-to-day commands see [development](development.md). For what each option does see the [command line reference](cli.md) and the [Python API reference](api.md).
 
 ## Overview
 
@@ -51,8 +51,11 @@ src/cornea/core/page/routes.py            /api/client.js and /api/csp-report
 src/cornea/core/page/notifications.py     Notifier: Windows toast notifications through the winrt bindings
 src/cornea/cli/                           the cornea command: a thin wrapper over run()
 src/cornea/cli/config.py                  cornea.toml and [tool.cornea]: defaults for the command
-src/cornea/cli/doctor.py                  the checks behind `cornea doctor`
-tests/                                    unit tests in core/ and cli/; each has integration/ (real processes and a real window) and examples/
+src/cornea/cli/commands.py                the Typer app, the flags both commands share and the launch helpers
+src/cornea/cli/doctor/                    `cornea doctor`: command.py and the checks in checks.py
+src/cornea/cli/open/command.py            `cornea open`
+src/cornea/cli/serve/command.py           `cornea serve`
+tests/                                    unit tests in core/ and cli/ (cli/ has a folder per command); each has integration/ (real processes and a real window) and examples/
 examples/                                 runnable example projects
 ```
 
@@ -67,6 +70,12 @@ The command line never does anything the Python API cannot. Each setting has exa
 3. Call `on_ready` with the shell, so a caller can announce the address (`ready_line()` builds the JSON line that `cornea serve` prints).
 4. With a window, create it on the first URL, which carries the one-time token, and run its event loop on the main thread. Without one, wait for Ctrl+C or `stop()`.
 5. Stop the server and close the socket in every case, so the port is released.
+
+Shutdown is bounded. Uvicorn lets open requests finish for a short grace period (`GRACEFUL_SHUTDOWN`) and then cancels them, so a stream that never ends, such as a dev server's hot-reload connection, cannot hold the exit. Forcing the exit at once would skip the app's own shutdown and print a traceback. The cancellation errors uvicorn logs for those streams are filtered out. With `run=`, the dev command is stopped beside the server so its streams drop at the start, and `stop()` waits only briefly for the server thread and the command's output reader, because a child of the command may still hold the pipe open.
+
+With a window and the loading screen on (the default), steps 2 to 4 run in a different order. The window is created first, on a built-in page given to pywebview as inline HTML, and its event loop starts on the main thread. pywebview then calls a start-up function on its own thread. That function does steps 2 and 3, waits until the loading screen has been up for `min_display` seconds, and calls `window.load_url()` with the signed-in URL. If it fails, the window is destroyed and `run()` raises the same error as before. A direct `Url` source follows the same path with no server. `Shell(loading=None)` keeps the order above.
+
+The loading page is built by `cornea.core.window.loading`. It carries its own `Content-Security-Policy` that allows no scripts and no network, it never sees the token, and its text and colours are escaped or checked. Because `js_api` belongs to the window, not to a page, the built-in page simply has no script to use it, and a custom page (`Loading(html=...)`) is the caller's to keep trusted. The splash's own load is not counted as `page_loaded`, and `window_shown` now happens before `server_ready`.
 
 The access log is off. It would print the request line of the first URL, which contains the token.
 
@@ -151,16 +160,18 @@ pywebview builds the JavaScript functions from the Python parameter names, and a
 
 `Shell(measure=True)` and `run(measure=True)` report the timings once, when the last step has finished: `page_loaded` with a window, `server_ready` without one. The default report is the summary line on stderr plus an `info` log message. Pass a function instead (`measure=callback`) to receive the `Timings` yourself. The command line uses this: `--measure` shows a Rich table, `--json-friendly` prints the JSON line and `--json-file` writes it. Because the measuring is part of the package, it works for any app, not just the examples. To compare runs, start the app several times with `--measure --json-file` and look at the median.
 
+`import cornea` leaves out FastAPI, Starlette and uvicorn, which take a few hundred milliseconds to import. They load the first time `Shell`, `run`, `create_app` or `AppFactory` is used, so that cost now falls inside "Server accepting requests". The command line never loads them for `cornea --version` or `cornea doctor`. `cornea.preload()` imports them on a background thread; `cornea open` and `cornea serve` call it while they read their options, so the time overlaps with work that happens anyway. Calling it is never required, only faster. Subprocess tests in `tests/core/test_import_time.py` fail if the server libraries load at import.
+
 Medians from 7 runs on the development machine (Windows 11, Python 3.11), measured with `--measure`:
 
 | Step | Median |
 | --- | --- |
-| Import the package | 0.24 s |
+| Import the package | 0.08 s |
 | Server accepting requests | 0.05 s |
 | Window shown | 0.41 s |
 | First page loaded | 0.70 s |
 
-The target, with about three times the margin for slower machines, counted from the start of `run()` and leaving out the import (about 0.4 s on a slower machine):
+The target, with about three times the margin for slower machines, counted from the start of `run()` and leaving out the import (a fraction of a second even on a slower machine):
 
 | Step | Target |
 | --- | --- |

@@ -1,13 +1,11 @@
-import json
 import re
 from collections.abc import Callable
-from pathlib import Path
 
 import pytest
 from typer.testing import CliRunner
 
 import cornea
-from cornea.cli import app, doctor, output, run
+from cornea.cli import app, output, run
 
 runner = CliRunner()
 
@@ -34,33 +32,10 @@ def test_version() -> None:
     assert cornea.__version__ in result.output
 
 
-@pytest.fixture
-def ready(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Stand in for the machine checks, so these tests do not depend on this machine."""
-    monkeypatch.setattr(
-        "cornea.cli.commands.run_checks",
-        lambda port: [doctor.Check("Cornea", "ok", cornea.__version__)],
-    )
-
-
 def test_verbose_and_quiet_conflict(ready: None) -> None:
     result = runner.invoke(app, ["--verbose", "--quiet", "doctor"])
 
     assert result.exit_code == 2
-
-
-def test_doctor_shows_the_version(ready: None) -> None:
-    result = runner.invoke(app, ["doctor"])
-
-    assert result.exit_code == 0
-    assert cornea.__version__ in result.output
-
-
-def test_the_checks_start_with_the_version(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))  # doctor checks the log folder
-    first = doctor.run_checks()[0]
-
-    assert (first.name, first.status, first.detail) == ("Cornea", "ok", cornea.__version__)
 
 
 def test_no_color_flag_is_accepted(ready: None) -> None:
@@ -68,13 +43,6 @@ def test_no_color_flag_is_accepted(ready: None) -> None:
 
     assert result.exit_code == 0
     assert cornea.__version__ in result.output
-
-
-def test_doctor_json(ready: None) -> None:
-    result = runner.invoke(app, ["doctor", "--json"])
-
-    assert result.exit_code == 0
-    assert json.loads(result.output)[0]["detail"] == cornea.__version__
 
 
 def test_quiet_flag_is_accepted(ready: None) -> None:

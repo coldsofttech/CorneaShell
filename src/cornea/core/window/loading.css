@@ -1,0 +1,24 @@
+:root { --bg: #ffffff; --fg: #1f2328; --muted: #656d76; }
+:root[data-theme="dark"] { --bg: #0d1117; --fg: #e6edf3; --muted: #8b949e; }
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="auto"] { --bg: #0d1117; --fg: #e6edf3; --muted: #8b949e; }
+}
+html, body { height: 100%; margin: 0; }
+body {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px; background: var(--custom-bg, var(--bg)); color: var(--custom-fg, var(--fg));
+  font-family: "Segoe UI", system-ui, sans-serif; user-select: none; cursor: default;
+}
+img { width: 72px; height: 72px; object-fit: contain; }
+h1 { margin: 0; font-size: 22px; font-weight: 600; }
+p { margin: 0; font-size: 14px; color: var(--muted); }
+.bar { position: relative; width: 120px; height: 3px; border-radius: 2px; overflow: hidden;
+  margin-top: 8px; }
+.bar::before, .bar::after { content: ""; position: absolute; top: 0; height: 100%; }
+.bar::before { left: 0; width: 100%; background: var(--muted); opacity: 0.3; }
+.bar::after { left: -40%; width: 40%; background: var(--custom-fg, var(--fg));
+  animation: slide 1.2s ease-in-out infinite; }
+@keyframes slide { from { left: -40%; } to { left: 100%; } }
+@media (prefers-reduced-motion: reduce) {
+  .bar::after { animation: none; left: 0; width: 100%; }
+}

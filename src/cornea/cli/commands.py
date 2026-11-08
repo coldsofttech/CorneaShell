@@ -2,9 +2,9 @@
 
 import json
 from collections.abc import Callable
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any
+from typing import TYPE_CHECKING, Annotated, Any
 
 import typer
 from rich.table import Table
@@ -14,25 +14,25 @@ from cornea import (
     App,
     Asgi,
     Bridge,
+    Loading,
     LogLevel,
     Process,
     Security,
     Server,
-    Shell,
     Static,
-    Timings,
     Url,
     WebSource,
     Window,
     Wsgi,
     __version__,
-    ready_line,
 )
-from cornea import run as run_shell
 from cornea.cli import config, options, output
-from cornea.cli.doctor import run_checks
 from cornea.core.logs import Logs
 from cornea.core.security.single_instance import AlreadyRunning
+
+if TYPE_CHECKING:
+    # Importing these loads the server libraries, which `--version` and `doctor` do not need.
+    from cornea import Shell, Timings
 
 EXAMPLES: dict[str, tuple[str, ...]] = {
     "": ("cornea --version", "cornea --quiet doctor", "cornea --no-color doctor"),
@@ -63,7 +63,7 @@ EXAMPLES: dict[str, tuple[str, ...]] = {
 """Example invocations by command name (empty for the top level). Tested and used in the docs."""
 
 
-def _epilog(command: str) -> str:
+def epilog(command: str) -> str:
     """Help footer that lists the examples for ``command``."""
     return "[bold]Examples[/bold]\n\n" + "\n\n".join(f"  $ {line}" for line in EXAMPLES[command])
 
@@ -72,7 +72,7 @@ app = typer.Typer(
     name="cornea",
     help="Host a web UI in a native window with a secured local server.",
     no_args_is_help=True,
-    epilog=_epilog(""),
+    epilog=epilog(""),
     rich_markup_mode="rich",
     # run() reports errors briefly; Typer's own traceback would show local variables.
     pretty_exceptions_enable=False,
@@ -82,11 +82,12 @@ JsonOption = Annotated[bool, typer.Option("--json", help="Output as JSON.")]
 
 # ----- the options both commands share, grouped in the help -----------------------------------
 
-WEB, SERVER, SECURITY, WINDOW, NATIVE, APP, LOGGING, MEASURE = (
+WEB, SERVER, SECURITY, WINDOW, LOADING, NATIVE, APP, LOGGING, MEASURE = (
     "Web source",
     "Server",
     "Security",
     "Window",
+    "Loading screen",
     "Native actions",
     "App",
     "Logging",
@@ -244,6 +245,58 @@ DropFiles = Annotated[
 IconFlag = Annotated[
     Path | None,
     _flag("--icon", help="Window and taskbar icon: .ico, .png, .bmp, .gif or .jpg.", panel=WINDOW),
+]
+LoadingFlag = Annotated[
+    bool | None,
+    _flag(
+        "--loading/--no-loading",
+        help="Show a loading screen while the app starts (default on).",
+        panel=LOADING,
+    ),
+]
+LoadingSubtitle = Annotated[
+    str | None,
+    _flag("--loading-subtitle", help="Tag line on the loading screen.", panel=LOADING),
+]
+LoadingTitle = Annotated[
+    str | None,
+    _flag(
+        "--loading-title",
+        help="Heading on the loading screen (default: window title).",
+        panel=LOADING,
+    ),
+]
+LoadingIcon = Annotated[
+    Path | None,
+    _flag(
+        "--loading-icon",
+        help="Picture on the loading screen (default: window icon).",
+        panel=LOADING,
+    ),
+]
+LoadingTheme = Annotated[
+    str | None,
+    _flag("--loading-theme", help="auto, light or dark (default auto).", panel=LOADING),
+]
+LoadingBackground = Annotated[
+    str | None,
+    _flag("--loading-background", help="Background colour, like #1a1a1a.", panel=LOADING),
+]
+LoadingForeground = Annotated[
+    str | None,
+    _flag("--loading-foreground", help="Text colour, like #ffffff.", panel=LOADING),
+]
+LoadingMinDisplay = Annotated[
+    float | None,
+    _flag(
+        "--loading-min-display",
+        help="Seconds to keep the loading screen up at least (default 0.3).",
+        panel=LOADING,
+    ),
+]
+LoadingHtml = Annotated[
+    Path | None,
+    _flag("--loading-html", help="Your own HTML page to show instead.", panel=LOADING),
 ]
 JsApi = Annotated[
     bool | None,
@@ -416,42 +469,10 @@ def main(
         raise typer.Exit(code=2) from exc
 
 
-@app.command(epilog=_epilog("doctor"))
-def doctor(
-    port: Annotated[
-        int,
-        typer.Option(
-            help="Check that this port is free on 127.0.0.1 (0 checks that one can be opened)."
-        ),
-    ] = 0,
-    json_output: JsonOption = False,
-) -> None:
-    """Check that this machine is ready to show a Cornea window."""
-    checks = run_checks(port=port)
-    failed = any(check.status == "fail" for check in checks)
-    if json_output:
-        output.console.print_json(data=[asdict(check) for check in checks])
-    else:
-        table = Table(title="cornea doctor")
-        table.add_column("Check")
-        table.add_column("Result")
-        table.add_column("Details", overflow="fold")
-        marks = {
-            "ok": "[green]ok[/green]",
-            "warn": "[yellow]warning[/yellow]",
-            "fail": "[red]problem[/red]",
-        }
-        for check in checks:
-            table.add_row(check.name, marks[check.status], Text(check.detail))
-        output.console.print(table)
-    if failed:
-        raise typer.Exit(code=1)
-
-
 # ----- open and serve -------------------------------------------------------------------------
 
 
-def _logging_options(
+def logging_options(
     level: options.LogLevelChoice | None, file: Path | None, debug: bool | None
 ) -> tuple[LogLevel, Path | None, bool] | None:
     """The level, the file, and whether to use the default file, or None to leave logging alone.
@@ -466,7 +487,7 @@ def _logging_options(
     return ("warning", file, False) if file is not None else None
 
 
-def _source_arguments(ctx: typer.Context, source: str | None, **values: Any) -> dict[str, Any]:
+def source_arguments(ctx: typer.Context, source: str | None, **values: Any) -> dict[str, Any]:
     """The source settings, with the settings file stepping aside for a source on the command line.
 
     The file may say what to show, but a source typed on the command line replaces everything
@@ -487,16 +508,16 @@ def _source_arguments(ctx: typer.Context, source: str | None, **values: Any) -> 
     return values
 
 
-def _measure_option(
+def measure_option(
     measure: bool | None, json_friendly: bool | None, json_file: Path | None
-) -> bool | Callable[[Timings], None]:
+) -> bool | Callable[["Timings"], None]:
     """What to pass as ``measure``: False, or our reporter, which prints a Rich table."""
     if not measure:
         if json_friendly or json_file is not None:
             raise typer.BadParameter("--json-friendly and --json-file need --measure")
         return False
 
-    def report(timings: Timings) -> None:
+    def report(timings: "Timings") -> None:
         text = json.dumps(timings.as_dict())
         if json_file is not None:
             try:
@@ -568,7 +589,14 @@ def _show_details(
     output.details(f"cornea {command}", rows)
 
 
-def _launch(
+def run_shell(*args: Any, **kwargs: Any) -> None:
+    """Run the shell. ``cornea.run`` is imported here because it loads the server libraries."""
+    from cornea import run
+
+    run(*args, **kwargs)
+
+
+def launch(
     ctx: typer.Context,
     source: WebSource,
     window: Window | None,
@@ -578,9 +606,12 @@ def _launch(
     bridge: Bridge,
     identity: App | None = None,
     logging_options: tuple[LogLevel, Path | None, bool] | None = None,
-    measure: bool | Callable[[Timings], None] = False,
+    measure: bool | Callable[["Timings"], None] = False,
+    loading: Loading | bool | None = True,
 ) -> None:
     """Run the shell, reporting expected failures as a short error with exit code 1."""
+    from cornea import ready_line
+
     state = ctx.obj
     assert isinstance(state, State)  # noqa: S101 - set by the callback
     logging_shown: tuple[LogLevel, Path | None] | None = None
@@ -605,7 +636,7 @@ def _launch(
             state.config,
         )
 
-    def announce(shell: Shell) -> None:
+    def announce(shell: "Shell") -> None:
         # The ready line is data for other programs; the second line is for the person.
         output.console.print(ready_line(shell), soft_wrap=True, markup=False, highlight=False)
         if not state.quiet:
@@ -621,6 +652,7 @@ def _launch(
             bridge=bridge,
             identity=identity,
             measure=measure,
+            loading=loading,
             on_ready=announce if window is None else None,
         )
     except AlreadyRunning as exc:
@@ -632,221 +664,6 @@ def _launch(
     except (ValueError, FileNotFoundError, ImportError, OSError, RuntimeError) as exc:
         output.error(str(exc))
         raise typer.Exit(code=1) from exc
-
-
-@app.command("open", epilog=_epilog("open"))
-def open_window(
-    ctx: typer.Context,
-    source: SourceArgument = None,
-    web_dist: WebDist = None,
-    url: UrlFlag = None,
-    mode: ModeFlag = None,
-    run: RunFlag = None,
-    run_cwd: RunCwd = None,
-    run_timeout: RunTimeout = None,
-    asgi: AsgiFlag = None,
-    wsgi: WsgiFlag = None,
-    app_dir: AppDir = None,
-    package: PackageFlag = None,
-    package_path: PackagePath = None,
-    spa: SpaFlag = None,
-    hashed_prefix: HashedPrefix = None,
-    host: Host = None,
-    port: Port = None,
-    allowed_host: AllowedHost = None,
-    csp: Csp = None,
-    csp_profile: CspProfileFlag = None,
-    api_prefix: ApiPrefix = None,
-    token_ttl: TokenTtl = None,
-    cookie_samesite: CookieSameSite = None,
-    public_path: PublicPath = None,
-    require_origin: RequireOrigin = None,
-    disable_action: DisableAction = None,
-    open_files: OpenFiles = None,
-    notifications: Notifications = None,
-    title: Title = None,
-    size: Size = None,
-    min_size: MinSize = None,
-    position: Position = None,
-    frameless: Frameless = None,
-    resizable: Resizable = None,
-    on_top: OnTop = None,
-    context_menu: ContextMenu = None,
-    devtools: DevTools = None,
-    debug: Debug = None,
-    js_api: JsApi = None,
-    drop_files: DropFiles = None,
-    downloads: Downloads = None,
-    icon: IconFlag = None,
-    app_id: AppIdFlag = None,
-    single_instance: SingleInstanceFlag = None,
-    remember_window: RememberWindowFlag = None,
-    log_level: LogLevelFlag = None,
-    log_file: LogFileFlag = None,
-    measure: MeasureFlag = None,
-    json_friendly: JsonFriendlyFlag = None,
-    json_file: JsonFileFlag = None,
-) -> None:
-    """Show the web UI in a native window (Windows)."""
-    try:
-        web_source = options.build_source(
-            argument=source,
-            **_source_arguments(
-                ctx,
-                source,
-                web_dist=web_dist,
-                url=url,
-                asgi=asgi,
-                wsgi=wsgi,
-                app_dir=app_dir,
-                package=package,
-                package_path=package_path,
-                spa=spa,
-                hashed_prefix=hashed_prefix,
-                mode=mode,
-                run=run,
-                run_cwd=run_cwd,
-                run_timeout=run_timeout,
-            ),
-        )
-        window = options.build_window(
-            title=title,
-            size=size,
-            min_size=min_size,
-            position=position,
-            frameless=frameless,
-            resizable=resizable,
-            on_top=on_top,
-            context_menu=context_menu,
-            devtools=devtools,
-            debug=debug,
-            js_api=js_api,
-            drop_files=drop_files,
-            downloads=downloads,
-            icon=icon,
-        )
-        server = options.build_server(host=host, port=port)
-        security = options.build_security(
-            allowed_host=allowed_host,
-            csp=csp,
-            api_prefix=api_prefix,
-            token_ttl=token_ttl,
-            cookie_samesite=cookie_samesite,
-            public_path=public_path,
-            require_origin=require_origin,
-            csp_profile=csp_profile,
-        )
-        bridge = options.build_bridge(
-            disable_action=disable_action, open_files=open_files, notifications=notifications
-        )
-        identity = options.build_app(
-            app_id=app_id, single_instance=single_instance, remember_window=remember_window
-        )
-    except ValueError as exc:
-        output.error(str(exc))
-        raise typer.Exit(code=1) from exc
-    _launch(
-        ctx,
-        web_source,
-        window,
-        server=server,
-        security=security,
-        bridge=bridge,
-        identity=identity,
-        logging_options=_logging_options(log_level, log_file, debug),
-        measure=_measure_option(measure, json_friendly, json_file),
-    )
-
-
-@app.command(epilog=_epilog("serve"))
-def serve(
-    ctx: typer.Context,
-    source: SourceArgument = None,
-    web_dist: WebDist = None,
-    url: UrlFlag = None,
-    mode: ModeFlag = None,
-    run: RunFlag = None,
-    run_cwd: RunCwd = None,
-    run_timeout: RunTimeout = None,
-    asgi: AsgiFlag = None,
-    wsgi: WsgiFlag = None,
-    app_dir: AppDir = None,
-    package: PackageFlag = None,
-    package_path: PackagePath = None,
-    spa: SpaFlag = None,
-    hashed_prefix: HashedPrefix = None,
-    host: Host = None,
-    port: Port = None,
-    allowed_host: AllowedHost = None,
-    csp: Csp = None,
-    csp_profile: CspProfileFlag = None,
-    api_prefix: ApiPrefix = None,
-    token_ttl: TokenTtl = None,
-    cookie_samesite: CookieSameSite = None,
-    public_path: PublicPath = None,
-    require_origin: RequireOrigin = None,
-    disable_action: DisableAction = None,
-    open_files: OpenFiles = None,
-    notifications: Notifications = None,
-    log_level: LogLevelFlag = None,
-    log_file: LogFileFlag = None,
-    measure: MeasureFlag = None,
-    json_friendly: JsonFriendlyFlag = None,
-    json_file: JsonFileFlag = None,
-) -> None:
-    """Serve the web UI without a window, for a browser or another program.
-
-    Prints one JSON line on stdout with the address (including the one-time start-up token), then
-    serves until Ctrl+C.
-    """
-    try:
-        web_source = options.build_source(
-            argument=source,
-            **_source_arguments(
-                ctx,
-                source,
-                web_dist=web_dist,
-                url=url,
-                asgi=asgi,
-                wsgi=wsgi,
-                app_dir=app_dir,
-                package=package,
-                package_path=package_path,
-                spa=spa,
-                hashed_prefix=hashed_prefix,
-                mode=mode,
-                run=run,
-                run_cwd=run_cwd,
-                run_timeout=run_timeout,
-            ),
-        )
-        server = options.build_server(host=host, port=port)
-        security = options.build_security(
-            allowed_host=allowed_host,
-            csp=csp,
-            api_prefix=api_prefix,
-            token_ttl=token_ttl,
-            cookie_samesite=cookie_samesite,
-            public_path=public_path,
-            require_origin=require_origin,
-            csp_profile=csp_profile,
-        )
-        bridge = options.build_bridge(
-            disable_action=disable_action, open_files=open_files, notifications=notifications
-        )
-    except ValueError as exc:
-        output.error(str(exc))
-        raise typer.Exit(code=1) from exc
-    _launch(
-        ctx,
-        web_source,
-        None,
-        server=server,
-        security=security,
-        bridge=bridge,
-        logging_options=_logging_options(log_level, log_file, None),
-        measure=_measure_option(measure, json_friendly, json_file),
-    )
 
 
 def run() -> None:

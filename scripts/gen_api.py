@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Generate docs/api-reference.md from the public API in ``cornea.__all__``.
+"""Generate docs/api.md from the public API in ``cornea.__all__``.
 
-Usage: uv run python scripts/gen_api_reference.py [output]
+Usage: uv run python scripts/gen_api.py [output]
 CI regenerates the file and fails if it differs from the committed copy.
 """
 
@@ -20,7 +20,7 @@ from typing import Any
 import cornea
 import cornea.core
 
-DEFAULT_OUTPUT = Path(__file__).resolve().parent.parent / "docs" / "api-reference.md"
+DEFAULT_OUTPUT = Path(__file__).resolve().parent.parent / "docs" / "api.md"
 MAX_DEFAULT = 40
 
 

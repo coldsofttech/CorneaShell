@@ -22,6 +22,10 @@ ICON_TYPES = frozenset({".ico", ".png", ".bmp", ".gif", ".jpg", ".jpeg"})
 
 Size = tuple[int, int]
 
+_CSS_COLOUR = re.compile(
+    r"#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,30}|(?:rgb|hsl)a?\([0-9a-zA-Z.,%/ -]{1,40}\)"
+)
+
 
 def _check_size(name: str, size: Size) -> None:
     width, height = size
@@ -210,3 +214,51 @@ class Window:
     def devtools_enabled(self) -> bool:
         """Whether the developer tools can be opened."""
         return self.devtools or self.debug
+
+
+@dataclass(frozen=True, slots=True)
+class Loading:
+    """The loading screen the window shows while the app starts. On by default.
+
+    The window opens straight away on this page and moves to the app once it is ready. The
+    page runs no scripts and never sees the start-up token. Pass ``loading=None`` (or ``False``)
+    to :class:`~cornea.core.shell.Shell` to turn it off.
+
+    Example:
+        >>> Loading().subtitle
+        'Shell provided by Cornea'
+        >>> Loading(subtitle="Getting things ready", theme="dark").theme
+        'dark'
+    """
+
+    subtitle: str = "Shell provided by Cornea"
+    """The tag line under the title."""
+    title: str | None = None
+    """The heading. ``None`` uses the window title."""
+    icon: Path | str | None = None
+    """The picture above the title. ``None`` uses the window icon, or none if it has none."""
+    theme: Literal["auto", "light", "dark"] = "auto"
+    """``auto`` follows the system setting."""
+    background: str | None = None
+    """A CSS colour for the background. ``None`` uses the theme's colour."""
+    foreground: str | None = None
+    """A CSS colour for the text. ``None`` uses the theme's colour."""
+    html: Path | str | None = None
+    """Replace the page. A :class:`~pathlib.Path` is read as a file; a string is the page itself.
+    Scripts in it can run, so it is yours to keep free of anything you do not trust."""
+    min_display: float = 0.3
+    """Seconds to keep the page up at least, so a quick start does not flash it."""
+
+    def __post_init__(self) -> None:
+        if self.theme not in ("auto", "light", "dark"):
+            raise ValueError(f"theme must be auto, light or dark, got {self.theme!r}")
+        if self.min_display < 0:
+            raise ValueError(f"min_display must not be negative, got {self.min_display}")
+        if self.icon is not None and Path(self.icon).suffix.lower() not in ICON_TYPES:
+            raise ValueError(
+                f"icon must be one of {', '.join(sorted(ICON_TYPES))}, got {str(self.icon)!r}"
+            )
+        for name in ("background", "foreground"):
+            value = getattr(self, name)
+            if value is not None and not _CSS_COLOUR.fullmatch(value):
+                raise ValueError(f"{name} must be a CSS colour such as #1a1a1a, got {value!r}")

@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Plain HTML</title>
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    background: linear-gradient(135deg, #0f172a, #1e3a5f); color: #f1f5f9;
+    font-family: "Segoe UI", system-ui, sans-serif; user-select: none; cursor: default;
+  }
+  .spinner {
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 4px solid rgba(255, 255, 255, 0.2); border-top-color: #38bdf8;
+    animation: spin 0.9s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: 0.02em; }
+  p { margin: 0; font-size: 14px; color: #94a3b8; }
+</style>
+</head>
+<!-- The class lets you drag a frameless window by the loading screen. -->
+<body class="pywebview-drag-region">
+  <div class="spinner"></div>
+  <h1>Plain HTML</h1>
+  <p id="line">Getting things ready</p>
+  <script>
+    // Scripts run on your own loading page, so it can animate.
+    var dots = 0;
+    setInterval(function () {
+      dots = (dots + 1) % 4;
+      document.getElementById("line").textContent = "Getting things ready" + ".".repeat(dots);
+    }, 400);
+  </script>
+</body>
+</html>

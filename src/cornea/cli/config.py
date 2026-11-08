@@ -73,6 +73,17 @@ SECTIONS: dict[str, dict[str, str]] = {
         "downloads": "downloads",
         "icon": "icon",
     },
+    "loading": {
+        "enabled": "loading",
+        "subtitle": "loading_subtitle",
+        "title": "loading_title",
+        "icon": "loading_icon",
+        "theme": "loading_theme",
+        "background": "loading_background",
+        "foreground": "loading_foreground",
+        "html": "loading_html",
+        "min-display": "loading_min_display",
+    },
     "app": {
         "id": "app_id",
         "single-instance": "single_instance",
@@ -85,7 +96,15 @@ SECTIONS: dict[str, dict[str, str]] = {
 LIST_PARAMETERS = {"allowed_host", "public_path", "disable_action"}
 """Parameters that take several values: the file may give one string or a list."""
 
-PATH_PARAMETERS = {"web_dist", "run_cwd", "app_dir", "icon", "log_file"}
+PATH_PARAMETERS = {
+    "web_dist",
+    "run_cwd",
+    "app_dir",
+    "icon",
+    "log_file",
+    "loading_icon",
+    "loading_html",
+}
 """Paths in the file are relative to the file, not to where the command runs."""
 
 SOURCE_PARAMETERS = frozenset(SECTIONS["source"].values())

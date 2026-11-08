@@ -1,0 +1,1 @@
+"""The ``cornea open`` command."""
