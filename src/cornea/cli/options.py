@@ -12,6 +12,7 @@ from cornea import (
     App,
     Asgi,
     Bridge,
+    Loading,
     Process,
     Security,
     Server,
@@ -187,6 +188,35 @@ def build_app(
 ) -> App:
     return App(
         **_given(id=app_id, single_instance=single_instance, remember_window=remember_window)
+    )
+
+
+def build_loading(
+    *,
+    enabled: bool | None,
+    subtitle: str | None,
+    title: str | None,
+    icon: Path | None,
+    theme: str | None,
+    background: str | None,
+    foreground: str | None,
+    html: Path | None,
+    min_display: float | None = None,
+) -> Loading | None:
+    """The loading screen, or ``None`` when ``--no-loading`` turned it off."""
+    if enabled is False:
+        return None
+    return Loading(
+        **_given(
+            subtitle=subtitle,
+            title=title,
+            icon=icon,
+            theme=theme,
+            background=background,
+            foreground=foreground,
+            html=html,
+            min_display=min_display,
+        )
     )
 
 

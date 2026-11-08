@@ -570,6 +570,7 @@ def window_environment(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> list[
         app: Any = None,
         on_event: Any = None,
         actions: Any = None,
+        splash: Any = None,
     ) -> Any:
         events.append(f"window:{app.id if app else None}")
         return None, SimpleNamespace(activate=lambda: events.append("activated"))
@@ -611,7 +612,7 @@ def test_an_unreachable_first_copy_is_reported(window_environment: list[str]) ->
 
 def test_the_first_copy_takes_the_lock_serves_and_lets_go(window_environment: list[str]) -> None:
     app_id = unique_id()
-    shell = Shell(Static("."), identity=App(id=app_id, single_instance=True))
+    shell = Shell(Static("."), identity=App(id=app_id, single_instance=True), loading=None)
 
     shell.run(on_ready=lambda ready: window_environment.append("ready"))
 

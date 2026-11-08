@@ -13,9 +13,10 @@ from fastapi import APIRouter, FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from cornea import Asgi, Shell, Static, Window, ready_line
+from cornea import Asgi, Loading, Shell, Static, Window, ready_line
 
 WEB = Path(__file__).parent / "web"
+LOADING = Path(__file__).parent / "loading.html"
 
 # Your own routes. Cornea mounts them under /api, behind the session cookie.
 router = APIRouter()
@@ -46,11 +47,15 @@ app.mount("/", StaticFiles(directory=WEB), name="web")
 
 def build_shell(*, headless: bool = False, mount: bool = False) -> Shell:
     window = None if headless else Window(title="FastAPI example", size=(900, 600))
+    # The window opens on your own loading page while FastAPI starts. It needs a window.
+    loading = Loading(html=LOADING)
     if mount:
         # Cornea serves the FastAPI app itself instead of a folder plus routers.
-        shell = Shell(Asgi("main:app", app_dir=Path(__file__).parent), window=window)
+        shell = Shell(
+            Asgi("main:app", app_dir=Path(__file__).parent), window=window, loading=loading
+        )
     else:
-        shell = Shell(Static(WEB), routers=[router], window=window)
+        shell = Shell(Static(WEB), routers=[router], window=window, loading=loading)
 
     # A native action: the page calls it with POST /api/bridge/shout.
     @shell.action("shout")

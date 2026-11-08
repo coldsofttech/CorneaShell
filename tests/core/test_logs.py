@@ -242,11 +242,11 @@ def test_a_debug_window_turns_on_debug_logging(
     monkeypatch.setattr(
         shell_module,
         "create_native_window",
-        lambda *args: (None, SimpleNamespace(activate=lambda: None)),
+        lambda *args, **kwargs: (None, SimpleNamespace(activate=lambda: None)),
     )
     monkeypatch.setattr(shell_module, "show_window", lambda *args: None)
 
-    Shell(Static(tmp_path), window=Window(debug=True)).run()
+    Shell(Static(tmp_path), window=Window(debug=True), loading=None).run()
 
     assert "Serving on http://127.0.0.1:" in (
         tmp_path / "appdata" / "Cornea" / "logs" / "cornea.log"
@@ -262,7 +262,7 @@ def test_a_window_without_debug_writes_no_log(
     monkeypatch.setattr(
         shell_module,
         "create_native_window",
-        lambda *args: (None, SimpleNamespace(activate=lambda: None)),
+        lambda *args, **kwargs: (None, SimpleNamespace(activate=lambda: None)),
     )
     monkeypatch.setattr(shell_module, "show_window", lambda *args: None)
 

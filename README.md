@@ -257,7 +257,7 @@ title = "My App"
 frameless = true
 ```
 
-Cornea also reads a `[tool.cornea]` table in `pyproject.toml`. Flags on the command line win over the file, and `--no-config` ignores it. See the [command line reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli-reference.md#the-settings-file) for every setting.
+Cornea also reads a `[tool.cornea]` table in `pyproject.toml`. Flags on the command line win over the file, and `--no-config` ignores it. See the [command line reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli.md#the-settings-file) for every setting.
 
 ## When something goes wrong
 
@@ -270,6 +270,17 @@ cornea open web/dist --log-level debug --log-file cornea.log
 `--log-level` (`debug`, `info`, `warning` or `error`) controls what appears on screen, and `--log-file` also writes everything to a file you can attach to a bug report. Debug mode (`--debug`, or `Window(debug=True)` in Python) turns on debug logging along with the right-click menu and developer tools. If you have not set up logging yourself, Cornea writes the log to `%LOCALAPPDATA%\Cornea\logs\cornea.log`, a folder every user can write to, and also shows it on screen. If that file cannot be written, the log only appears on screen. When the file reaches 1 MB it is started over, keeping the three previous ones (`cornea.log.1` to `cornea.log.3`). If you already set up logging, or use `--log-file` or `--log-level`, Cornea uses that and creates nothing.
 
 The log starts with the versions and settings in use (no secrets). It shows start-up steps, refused requests, dev-server output and native action names. It never shows the start-up token, cookies, or what your page sends to an action. In Python, `configure_logging("debug", file="my.log")` does the same without debug mode.
+
+## A loading screen while your app starts
+
+The window opens at once on a small loading screen with your icon, your title and the line "Shell provided by Cornea", then moves to your app when it is ready. Change it, or turn it off:
+
+```bash
+cornea open web/dist --loading-subtitle "Getting things ready" --loading-theme dark
+cornea open web/dist --no-loading
+```
+
+In Python, pass `loading=Loading(subtitle="Getting things ready")` or `loading=None` to `run()` or `Shell`. You can also change the title, icon and colours, or show your own HTML page with `--loading-html page.html`. A quick start keeps the screen up for a moment (0.3 s by default) so it does not flash. If the app cannot start, the window closes and the error is shown as before.
 
 ## How long does it take to start?
 
@@ -301,13 +312,13 @@ cornea open --help     # show a window
 cornea serve --help    # serve without a window
 ```
 
-See the [command line reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli-reference.md) for every option.
+See the [command line reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli.md) for every option.
 
 ## Documentation
 
 - [Examples](https://github.com/coldsofttech/CorneaShell/tree/main/examples) (each has its own README)
-- [Command line reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli-reference.md)
-- [Python API reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/api-reference.md)
+- [Command line reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/cli.md)
+- [Python API reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/api.md)
 - [How it works](https://github.com/coldsofttech/CorneaShell/blob/main/docs/architecture.md)
 - [Troubleshooting](https://github.com/coldsofttech/CorneaShell/blob/main/docs/troubleshooting.md)
 - [Packaging an app](https://github.com/coldsofttech/CorneaShell/blob/main/docs/packaging.md)

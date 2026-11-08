@@ -1,6 +1,6 @@
 # CLI reference
 
-<!-- The usage, options and examples between the GENERATED markers are written by scripts/gen_cli_reference.py from the CLI. Edit everything else by hand. -->
+<!-- The usage, options and examples between the GENERATED markers are written by scripts/gen_cli.py from the CLI. Edit everything else by hand. -->
 
 `cornea` is a command line tool built with [Typer](https://typer.tiangolo.com/) and [Rich](https://rich.readthedocs.io/).
 
@@ -100,6 +100,15 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--drop-files`: Tell the page the full paths of files dropped on the window.
 * `--downloads`: Let the page download files; the person chooses where to save each one.
 * `--icon <path>`: Window and taskbar icon: .ico, .png, .bmp, .gif or .jpg.
+* `--loading / --no-loading`: Show a loading screen while the app starts (default on).
+* `--loading-subtitle <str>`: Tag line on the loading screen.
+* `--loading-title <str>`: Heading on the loading screen (default: window title).
+* `--loading-icon <path>`: Picture on the loading screen (default: window icon).
+* `--loading-theme <str>`: auto, light or dark (default auto).
+* `--loading-background <str>`: Background colour, like #1a1a1a.
+* `--loading-foreground <str>`: Text colour, like #ffffff.
+* `--loading-html <path>`: Your own HTML page to show instead.
+* `--loading-min-display <float>`: Seconds to keep the loading screen up at least (default 0.3).
 * `--app-id <str>`: Name of the app, like com.example.notes.
 * `--single-instance`: Run one copy; a second start shows the first.
 * `--remember-window`: Reopen the window where it was, at its size.
@@ -388,6 +397,9 @@ csp-profile = "dev"       # public-path, require-origin
 title = "My App"          # context-menu, devtools, debug, js-api, icon
 frameless = true
 
+[loading]       # enabled, subtitle, title, icon, theme, background, foreground,
+subtitle = "Getting ready"   # html, min-display
+
 [app]           # id, single-instance, remember-window
 id = "com.example.notes"
 
@@ -423,9 +435,9 @@ Expected failures print `Error: <message>` to stderr and exit with code 1. Unexp
 ## Adding a command
 
 1. Add the logic to `cornea.core` as a plain function that returns a value or raises an exception. It must not print or exit.
-2. Add a command to `src/cornea/cli/commands.py` that calls it, writes through the consoles in `output.py`, and raises `typer.Exit(code=1)` on failure.
+2. Add a command in its own package, `src/cornea/cli/<name>/command.py`, that registers itself on `app` (import it in `cli/__init__.py`), uses the shared flags from `commands.py`, calls it, writes through the consoles in `output.py`, and raises `typer.Exit(code=1)` on failure.
 3. Add a `--json` option if the command returns data.
-4. Add tests with `typer.testing.CliRunner`, add the command and its examples to `EXAMPLES` in `commands.py`, describe it in `scripts/cli_reference.md` (with a generated block, like the ones above, where its options go), and regenerate this file with `uv run python scripts/gen_cli_reference.py`. CI fails if the committed copy is out of date.
+4. Add tests with `typer.testing.CliRunner`, put its tests in `tests/cli/<name>/`, add the command and its examples to `EXAMPLES` in `commands.py`, describe it in `scripts/cli_reference.md` (with a generated block, like the ones above, where its options go), and regenerate this file with `uv run python scripts/gen_cli.py`. CI fails if the committed copy is out of date.
 
 <!-- BEGIN GENERATED: examples -->
 ## Examples

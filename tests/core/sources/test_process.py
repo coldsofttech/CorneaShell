@@ -297,7 +297,7 @@ def test_a_direct_process_is_started_for_the_window(monkeypatch: pytest.MonkeyPa
         shell_module, "create_native_window", lambda *a, **k: (None, SimpleNamespace())
     )
     monkeypatch.setattr(shell_module, "show_window", lambda *a: seen.setdefault("shown", True))
-    shell = Shell(source(port, mode="direct"))
+    shell = Shell(source(port, mode="direct"), loading=None)
 
     def on_ready(ready: Shell) -> None:
         seen["address"] = ready.url

@@ -231,6 +231,7 @@ def test_run_shows_a_window_on_the_signed_in_url(webview: FakeWebview, bundle: P
             resizable=False,
             on_top=True,
         ),
+        loading=None,
     )
     seen: dict[str, Any] = {}
 
@@ -294,7 +295,7 @@ def test_debug_mode_is_on_only_when_a_tool_is_wanted(
 
 
 def test_the_page_can_control_the_window_over_http(webview: FakeWebview, bundle: Path) -> None:
-    shell = Shell(Static(bundle))
+    shell = Shell(Static(bundle), loading=None)
     results: dict[str, Any] = {}
 
     def while_open(window: FakeWindow) -> None:

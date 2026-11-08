@@ -1,6 +1,6 @@
 # Architecture
 
-How Cornea Shell works, for people who change it or build on it. For day-to-day commands see [development](development.md). For what each option does see the [command line reference](cli-reference.md) and the [Python API reference](api-reference.md).
+How Cornea Shell works, for people who change it or build on it. For day-to-day commands see [development](development.md). For what each option does see the [command line reference](cli.md) and the [Python API reference](api.md).
 
 ## Overview
 
@@ -51,8 +51,11 @@ src/cornea/core/page/routes.py            /api/client.js and /api/csp-report
 src/cornea/core/page/notifications.py     Notifier: Windows toast notifications through the winrt bindings
 src/cornea/cli/                           the cornea command: a thin wrapper over run()
 src/cornea/cli/config.py                  cornea.toml and [tool.cornea]: defaults for the command
-src/cornea/cli/doctor.py                  the checks behind `cornea doctor`
-tests/                                    unit tests in core/ and cli/; each has integration/ (real processes and a real window) and examples/
+src/cornea/cli/commands.py                the Typer app, the flags both commands share and the launch helpers
+src/cornea/cli/doctor/                    `cornea doctor`: command.py and the checks in checks.py
+src/cornea/cli/open/command.py            `cornea open`
+src/cornea/cli/serve/command.py           `cornea serve`
+tests/                                    unit tests in core/ and cli/ (cli/ has a folder per command); each has integration/ (real processes and a real window) and examples/
 examples/                                 runnable example projects
 ```
 
@@ -67,6 +70,10 @@ The command line never does anything the Python API cannot. Each setting has exa
 3. Call `on_ready` with the shell, so a caller can announce the address (`ready_line()` builds the JSON line that `cornea serve` prints).
 4. With a window, create it on the first URL, which carries the one-time token, and run its event loop on the main thread. Without one, wait for Ctrl+C or `stop()`.
 5. Stop the server and close the socket in every case, so the port is released.
+
+With a window and the loading screen on (the default), steps 2 to 4 run in a different order. The window is created first, on a built-in page given to pywebview as inline HTML, and its event loop starts on the main thread. pywebview then calls a start-up function on its own thread. That function does steps 2 and 3, waits until the loading screen has been up for `min_display` seconds, and calls `window.load_url()` with the signed-in URL. If it fails, the window is destroyed and `run()` raises the same error as before. A direct `Url` source follows the same path with no server. `Shell(loading=None)` keeps the order above.
+
+The loading page is built by `cornea.core.window.loading`. It carries its own `Content-Security-Policy` that allows no scripts and no network, it never sees the token, and its text and colours are escaped or checked. Because `js_api` belongs to the window, not to a page, the built-in page simply has no script to use it, and a custom page (`Loading(html=...)`) is the caller's to keep trusted. The splash's own load is not counted as `page_loaded`, and `window_shown` now happens before `server_ready`.
 
 The access log is off. It would print the request line of the first URL, which contains the token.
 

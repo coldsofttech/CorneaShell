@@ -221,7 +221,7 @@ def test_the_shell_hands_its_actions_to_the_window(
     monkeypatch.setattr(window_module, "_registry_version", lambda: "1")
     monkeypatch.setitem(sys.modules, "webview", SimpleNamespace())
 
-    def create(*args: Any) -> Any:
+    def create(*args: Any, **kwargs: Any) -> Any:
         seen["actions"] = args[-1]
         return None, SimpleNamespace()
 

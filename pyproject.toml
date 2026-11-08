@@ -115,6 +115,9 @@ select = ["B", "C4", "E", "F", "I", "PT", "RUF", "S", "SIM", "T20", "UP", "W"]
 strict = true
 platform = "win32"
 files = ["src", "tests"]
+# tests/ has no __init__.py (pytest imports by path), so tests/conftest.py and tests/cli/conftest.py would both be "conftest".
+explicit_package_bases = true
+mypy_path = ["src", "tests"]
 
 [[tool.mypy.overrides]]
 # winrt comes with the optional "notifications" extra and pywebview is Windows-only, so neither is there in a plain `uv sync` on Linux.

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Refresh the generated parts of docs/cli-reference.md from the ``cornea`` command line.
+"""Refresh the generated parts of docs/cli.md from the ``cornea`` command line.
 
 The file is written by hand, except for the blocks between ``<!-- BEGIN GENERATED: NAME -->`` and
 ``<!-- END GENERATED -->``: the usage and options of each command (``typer open`` and so on), as
 Typer builds them, and the example invocations registered in ``EXAMPLES`` (``examples``).
 
-Usage: uv run python scripts/gen_cli_reference.py [file]
+Usage: uv run python scripts/gen_cli.py [file]
 CI regenerates the file and fails if it differs from the committed copy.
 """
 
@@ -16,7 +16,7 @@ from pathlib import Path
 
 from cornea.cli.commands import EXAMPLES
 
-DEFAULT_OUTPUT = Path(__file__).resolve().parent.parent / "docs" / "cli-reference.md"
+DEFAULT_OUTPUT = Path(__file__).resolve().parent.parent / "docs" / "cli.md"
 MODULE = "cornea.cli"
 COMMAND_NAME = "cornea"
 # The help footer is rendered as raw markup by Typer; examples get their own section instead.

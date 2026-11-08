@@ -7,9 +7,11 @@ All notable changes to this project are documented here. The format follows [Kee
 ### Changed
 
 - Importing Cornea Shell is about four times faster, and `cornea --version` and `cornea doctor` start quicker. The web server libraries now load when the server first starts.
+- With a window, `on_ready` is now called after the window opens on the loading screen.
 
 ### Added
 
+- The window now opens straight away on a loading screen with your icon, title and a tag line, then moves to your app once it is ready. Change or turn it off with `Loading`, `loading=None` or `--no-loading`.
 - `cornea.preload()` warms up the web server libraries in the background so the first start is faster. `cornea open` and `cornea serve` use it automatically.
 
 ## [0.1.0] - 2026-11-01
