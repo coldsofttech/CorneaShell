@@ -19,7 +19,7 @@ The sections below follow the order you usually need them in. The [recipes](#rec
 - **Running the shell:** [`Shell`](#shell), [`run`](#run), [`ready_line`](#ready_line), [`Timings`](#timings)
 - **Web sources:** [`WebSource`](#websource), [`Static`](#static), [`Url`](#url), [`Process`](#process), [`Asgi`](#asgi), [`Wsgi`](#wsgi)
 - **Settings:** [`Window`](#window), [`Security`](#security), [`DEV_CSP`](#dev_csp), [`Server`](#server), [`Bridge`](#bridge), [`App`](#app)
-- **Building blocks:** [`create_app`](#create_app)
+- **Building blocks:** [`create_app`](#create_app), [`preload`](#preload)
 - **Logging:** [`configure_logging`](#configure_logging), [`LogLevel`](#loglevel)
 
 ## Running the shell
@@ -666,6 +666,30 @@ Example:
 >>> app = create_app()
 >>> app.state.security.api_prefix
 '/api'
+```
+
+### `preload`
+
+```python
+def preload() -> threading.Thread
+```
+
+Start importing the server libraries (FastAPI, Starlette and uvicorn) on a background
+thread. `import cornea` leaves them out to stay fast, so they load the first time
+`Shell`, `run`, `create_app` or `AppFactory` is used. Call `preload` early, while your
+program does other start-up work, to overlap that time.
+
+Calling it is never required, only faster: anything that needs the libraries waits for the
+thread. It is safe to call more than once; later calls return the same thread. `cornea open`
+and `cornea serve` call it for you.
+
+Example:
+
+```pycon
+>>> preload().join()
+>>> import sys
+>>> "fastapi" in sys.modules
+True
 ```
 
 ## Logging
