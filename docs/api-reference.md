@@ -19,8 +19,9 @@ The sections below follow the order you usually need them in. The [recipes](#rec
 - **Running the shell:** [`Shell`](#shell), [`run`](#run), [`ready_line`](#ready_line), [`Timings`](#timings)
 - **Web sources:** [`WebSource`](#websource), [`Static`](#static), [`Url`](#url), [`Process`](#process), [`Asgi`](#asgi), [`Wsgi`](#wsgi)
 - **Settings:** [`Window`](#window), [`Security`](#security), [`DEV_CSP`](#dev_csp), [`Server`](#server), [`Bridge`](#bridge), [`App`](#app)
-- **Building blocks:** [`create_app`](#create_app), [`preload`](#preload)
+- **Building blocks:** [`create_app`](#create_app)
 - **Logging:** [`configure_logging`](#configure_logging), [`LogLevel`](#loglevel)
+- **Other:** [`AppFactory`](#appfactory), [`preload`](#preload)
 
 ## Running the shell
 
@@ -668,30 +669,6 @@ Example:
 '/api'
 ```
 
-### `preload`
-
-```python
-def preload() -> threading.Thread
-```
-
-Start importing the server libraries (FastAPI, Starlette and uvicorn) on a background
-thread. `import cornea` leaves them out to stay fast, so they load the first time
-`Shell`, `run`, `create_app` or `AppFactory` is used. Call `preload` early, while your
-program does other start-up work, to overlap that time.
-
-Calling it is never required, only faster: anything that needs the libraries waits for the
-thread. It is safe to call more than once; later calls return the same thread. `cornea open`
-and `cornea serve` call it for you.
-
-Example:
-
-```pycon
->>> preload().join()
->>> import sys
->>> "fastapi" in sys.modules
-True
-```
-
 ## Logging
 
 Cornea is quiet until you ask. It logs to the `cornea` logger.
@@ -724,6 +701,35 @@ def LogLevel(
     *args,
     **kwargs,
 )
+```
+
+## Other
+
+### `AppFactory`
+
+```python
+AppFactory()
+```
+
+Builds the FastAPI app the shell serves.
+
+### `preload`
+
+```python
+def preload() -> Thread
+```
+
+Start importing the server libraries in the background. Safe to call more than once.
+
+Returns the thread, so a caller (or a test) can `threading.Thread.join` it.
+
+Example:
+
+```pycon
+>>> preload().join()
+>>> import sys
+>>> "fastapi" in sys.modules
+True
 ```
 <!-- END GENERATED -->
 
