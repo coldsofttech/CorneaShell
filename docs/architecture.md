@@ -116,6 +116,8 @@ So a mounted app can never shadow `/api`, `/health`, the window controls or the 
 
 The default content security policy blocks the inline scripts and styles that dev servers inject. `DEV_CSP` (`--csp-profile dev`) adds exactly those two permissions and changes nothing else. It is for development only.
 
+Two more profiles loosen `style-src` only, for CSS-in-JS frontends (Fluent UI) whose library writes a `<style>` tag at run time. `STYLES_CSP` (`--csp-profile styles`) adds `'unsafe-inline'`. `NONCE_CSP` (`--csp-profile nonce`) adds `'nonce-{nonce}'` instead: `SecurityMiddleware` makes a new nonce for each request, puts it in the policy, and, for a 200 HTML page that is not compressed, adds `<meta name="cornea-csp-nonce" content="...">` first in `<head>` (or a new `<head>` after `<html>`). The page is buffered for this, up to 4 MB, and sent with a corrected `Content-Length`, `Cache-Control: no-store` and no `ETag` or `Last-Modified`, so a cached page can never meet a different nonce. `Accept-Encoding` is removed from the request, so the app answers uncompressed. The nonce is also in the scope as `cornea.csp_nonce`.
+
 ## The window and the bridge
 
 pywebview ties the context menu, developer tools, shortcut keys and status bar to one debug switch. Cornea starts in debug mode when any of them is wanted and then sets each WebView2 option to exactly what the `Window` settings ask for; if that fails the window closes rather than leave tools on. The window is private (nothing survives a restart) and pywebview needs the main thread, so `run()` with a window must be called from it.

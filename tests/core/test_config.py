@@ -2,7 +2,7 @@ import dataclasses
 
 import pytest
 
-from cornea import DEV_CSP, Security, Server, Window
+from cornea import DEV_CSP, NONCE_CSP, STYLES_CSP, Security, Server, Window
 from cornea.core.config import DEFAULT_CSP
 
 
@@ -104,3 +104,36 @@ def test_the_dev_csp_is_never_the_default() -> None:
     assert Security().csp != DEV_CSP
     assert "'unsafe-inline'" in DEV_CSP
     assert Security(csp=DEV_CSP).csp == DEV_CSP
+
+
+def _directives(policy: str) -> dict[str, str]:
+    return {part.split()[0]: part for part in policy.split("; ")}
+
+
+def test_the_styles_csp_loosens_style_src_only() -> None:
+    strict, styles = _directives(DEFAULT_CSP), _directives(STYLES_CSP)
+
+    assert {name for name in strict if strict[name] != styles[name]} == {"style-src"}
+    assert styles["style-src"] == "style-src 'self' 'unsafe-inline'"
+    assert styles["script-src"] == "script-src 'self'"
+
+
+def test_the_nonce_csp_loosens_style_src_only_and_without_unsafe_inline() -> None:
+    strict, nonce = _directives(DEFAULT_CSP), _directives(NONCE_CSP)
+
+    assert {name for name in strict if strict[name] != nonce[name]} == {"style-src"}
+    assert nonce["style-src"] == "style-src 'self' 'nonce-{nonce}'"
+    assert "unsafe-inline" not in NONCE_CSP
+
+
+def test_the_default_csp_is_exported_from_the_package() -> None:
+    import cornea
+
+    assert Security().csp == cornea.DEFAULT_CSP
+    assert (cornea.STYLES_CSP, cornea.NONCE_CSP) == (STYLES_CSP, NONCE_CSP)
+
+
+def test_a_nonce_placeholder_must_be_inside_nonce() -> None:
+    with pytest.raises(ValueError, match="nonce-"):
+        Security(csp="default-src 'self'; style-src {nonce}")
+    assert Security(csp=NONCE_CSP).csp == NONCE_CSP

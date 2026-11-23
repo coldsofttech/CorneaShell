@@ -77,7 +77,7 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--port <int>`: Port to bind (default: a free one).
 * `--allowed-host <str>`: Extra Host header to accept. Repeatable.
 * `--csp <str>`: Content-Security-Policy to send (default: strict).
-* `--csp-profile <strict|dev>`: strict (default), or dev, which allows what dev servers need. For development only.
+* `--csp-profile <strict|dev|styles|nonce>`: strict (default); styles, which also allows inline &lt;style&gt; tags (Fluent UI, CSS-in-JS); nonce, which allows &lt;style&gt; tags carrying the page&#x27;s nonce; or dev, which allows what dev servers need (development only).
 * `--api-prefix <str>`: Path prefix of the API (default /api).
 * `--token-ttl <float>`: Seconds the start-up link works (default 60).
 * `--cookie-samesite <strict|lax>`: SameSite of the session cookie.
@@ -138,6 +138,8 @@ $ cornea open http://localhost:5173 --mode proxy --csp-profile dev --frameless
 ```
 
 A dev server injects inline scripts and styles, which the default content security policy blocks. `--csp-profile dev` allows exactly that and nothing else. It is for development only.
+
+Fluent UI and other CSS-in-JS frontends write a `<style>` tag at run time, which the default policy blocks and which leaves the page unstyled. `--csp-profile styles` allows inline styles only; `--csp-profile nonce` allows only `<style>` tags that carry the page's nonce, which Cornea puts in `<meta name="cornea-csp-nonce">`. Scripts stay strict in both.
 
 A directly opened address cannot be frameless, because its page cannot reach Cornea's window routes. `--js-api` lifts that rule: it gives the page `window.pywebview.api` with the window controls and the native actions.
 
@@ -211,7 +213,7 @@ $ cornea serve [OPTIONS] [SOURCE]
 * `--port <int>`: Port to bind (default: a free one).
 * `--allowed-host <str>`: Extra Host header to accept. Repeatable.
 * `--csp <str>`: Content-Security-Policy to send (default: strict).
-* `--csp-profile <strict|dev>`: strict (default), or dev, which allows what dev servers need. For development only.
+* `--csp-profile <strict|dev|styles|nonce>`: strict (default); styles, which also allows inline &lt;style&gt; tags (Fluent UI, CSS-in-JS); nonce, which allows &lt;style&gt; tags carrying the page&#x27;s nonce; or dev, which allows what dev servers need (development only).
 * `--api-prefix <str>`: Path prefix of the API (default /api).
 * `--token-ttl <float>`: Seconds the start-up link works (default 60).
 * `--cookie-samesite <strict|lax>`: SameSite of the session cookie.

@@ -22,6 +22,7 @@ Then turn on logging: run with `--debug` (or `--log-level debug --log-file corne
 | `Unexpected Host` or `Unexpected Origin` (403) | The page was reached through an address Cornea does not allow. | Add the host with `--allowed-host`. The log shows a warning with the path. |
 | `Not signed in` (401) | The request has no session cookie. | Open the page through the start-up address, not by typing the port. |
 | Scripts or styles do nothing, and the developer tools show a Content-Security-Policy error | The default policy blocks inline scripts and styles. | Move them into files. In a debug log the line `Blocked by the content security policy: ...` names the directive and the file. For a development server only, add `--csp-profile dev`. Never use it for something you ship. |
+| The page shows but is completely unstyled (browser-default controls, empty `var(--...)`), and there is no error on the page. Common with Fluent UI and other CSS-in-JS libraries | The library writes a `<style>` tag at run time, which `style-src 'self'` blocks. The developer tools console shows a `style-src` violation. | Use `--csp-profile styles` (or `Security(csp=STYLES_CSP)`). To keep `style-src` strict, use `--csp-profile nonce` and pass the page's nonce (`<meta name="cornea-csp-nonce">`) to the library; see the Fluent UI recipe in the API reference. |
 | A 502 page that names an address | The server behind `--mode proxy` is not answering. | Start it, or check the address. The log says why. |
 
 ## A dev server started with `--run`

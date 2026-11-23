@@ -179,7 +179,11 @@ CspProfileFlag = Annotated[
     options.CspProfile | None,
     _flag(
         "--csp-profile",
-        help="strict (default), or dev, which allows what dev servers need. For development only.",
+        help=(
+            "strict (default); styles, which also allows inline <style> tags (Fluent UI, "
+            "CSS-in-JS); nonce, which allows <style> tags carrying the page's nonce; or dev, "
+            "which allows what dev servers need (development only)."
+        ),
         panel=SECURITY,
     ),
 ]

@@ -11,6 +11,24 @@ DEFAULT_CSP = (
     "form-action 'self'"
 )
 
+NONCE_PLACEHOLDER = "{nonce}"
+"""Where a policy asks for the per-response nonce, as in ``'nonce-{nonce}'``."""
+
+STYLES_CSP = DEFAULT_CSP.replace("style-src 'self'", "style-src 'self' 'unsafe-inline'")
+"""The default policy, with ``style-src`` also allowing inline ``<style>`` tags and nothing else
+loosened: scripts stay strict. For frontends whose styling library writes a ``<style>`` tag at run
+time (Fluent UI's ``FluentProvider``, other CSS-in-JS). Use it with ``Security(csp=STYLES_CSP)`` or
+``--csp-profile styles``. Prefer :data:`NONCE_CSP` where the library can use a nonce."""
+
+NONCE_CSP = DEFAULT_CSP.replace("style-src 'self'", "style-src 'self' 'nonce-{nonce}'")
+"""The default policy, with ``style-src`` also allowing ``<style>`` tags that carry the page's
+nonce. Cornea makes a new nonce for each response and puts it in the page as
+``<meta name="cornea-csp-nonce" content="...">``; pass it to the library, for example Griffel's
+``styleElementAttributes``. Use it with ``Security(csp=NONCE_CSP)`` or ``--csp-profile nonce``."""
+
+NONCE_META = "cornea-csp-nonce"
+"""The ``name`` of the ``<meta>`` tag that carries the nonce in every HTML page."""
+
 DEV_CSP = DEFAULT_CSP.replace("script-src 'self'", "script-src 'self' 'unsafe-inline'").replace(
     "style-src 'self'", "style-src 'self' 'unsafe-inline'"
 )
@@ -68,7 +86,8 @@ class Security:
     allowed_hosts: tuple[str, ...] = ()
     """Extra ``Host`` values to accept. The bound ``127.0.0.1:<port>`` is always allowed."""
     csp: str = DEFAULT_CSP
-    """``Content-Security-Policy`` value. Relax it explicitly, for example ``style-src``."""
+    """``Content-Security-Policy`` value. Relax it explicitly, for example ``style-src``.
+    ``'nonce-{nonce}'`` is replaced by a new random value for each response (see ``NONCE_CSP``)."""
     api_prefix: str = "/api"
     """Path prefix the host app's routers are mounted under."""
     token_ttl: float = 60.0
@@ -87,6 +106,8 @@ class Security:
         object.__setattr__(self, "allowed_hosts", hosts)
         if not self.csp.strip():
             raise ValueError("csp must not be empty")
+        if NONCE_PLACEHOLDER in self.csp and "nonce-{nonce}" not in self.csp:
+            raise ValueError("write the nonce as 'nonce-{nonce}' in csp")
         if not self.api_prefix.startswith("/") or self.api_prefix.endswith("/"):
             raise ValueError(
                 f"api_prefix must start with '/' and not end with '/', got {self.api_prefix!r}"

@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `--csp-profile styles` and `STYLES_CSP` allow inline `<style>` tags and nothing else, for frontends whose styling library writes one at run time, such as Fluent UI's `FluentProvider`. Scripts stay strict. Without it those pages render unstyled, with no error on the page.
+- `'nonce-{nonce}'` in `Security.csp` is replaced by a new random value for each response, and every HTML page gets it as `<meta name="cornea-csp-nonce" content="...">`, so a page can keep `style-src` strict and give the nonce to its styling library (for Griffel, `styleElementAttributes`). `--csp-profile nonce` and `NONCE_CSP` are the default policy plus that one permission. Pages with a nonce are sent uncached and uncompressed, and the nonce is also in the ASGI scope under `cornea.csp_nonce`.
+- `DEFAULT_CSP`, `STYLES_CSP`, `NONCE_CSP` and `NONCE_META` are importable from `cornea`.
+
 ## [0.1.1] - 2026-11-08
 
 ### Changed

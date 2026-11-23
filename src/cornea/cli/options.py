@@ -9,6 +9,8 @@ import typer
 
 from cornea import (
     DEV_CSP,
+    NONCE_CSP,
+    STYLES_CSP,
     App,
     Asgi,
     Bridge,
@@ -54,6 +56,16 @@ class CspProfile(enum.StrEnum):
 
     strict = "strict"
     dev = "dev"
+    styles = "styles"
+    nonce = "nonce"
+
+
+CSP_PROFILES = {
+    CspProfile.dev: DEV_CSP,
+    CspProfile.styles: STYLES_CSP,
+    CspProfile.nonce: NONCE_CSP,
+}
+"""The policy each profile stands for; ``strict`` is the default and has none to give."""
 
 
 def parse_pair(text: str, flag: str, separator: str) -> tuple[int, int]:
@@ -173,7 +185,7 @@ def build_security(
     return Security(
         **_given(
             allowed_hosts=tuple(allowed_host) if allowed_host else None,
-            csp=DEV_CSP if csp_profile is CspProfile.dev else csp,
+            csp=CSP_PROFILES.get(csp_profile, csp) if csp_profile else csp,
             api_prefix=api_prefix,
             token_ttl=token_ttl,
             cookie_samesite=cookie_samesite.value if cookie_samesite else None,

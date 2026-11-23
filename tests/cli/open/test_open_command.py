@@ -5,6 +5,8 @@ import pytest
 from cli_support import Calls, invoke, option_names
 from cornea import (
     DEV_CSP,
+    NONCE_CSP,
+    STYLES_CSP,
     Asgi,
     Bridge,
     Process,
@@ -190,6 +192,14 @@ def test_the_dev_csp_profile_is_opt_in(calls: Calls) -> None:
 
     invoke("open", "web/dist", "--csp-profile", "strict")
     assert calls.last["security"].csp == Security().csp
+
+
+def test_the_styles_and_nonce_csp_profiles(calls: Calls) -> None:
+    invoke("open", "web/dist", "--csp-profile", "styles")
+    assert calls.last["security"].csp == STYLES_CSP
+
+    invoke("open", "web/dist", "--csp-profile", "nonce")
+    assert calls.last["security"].csp == NONCE_CSP
 
 
 def test_the_csp_profile_has_a_flag() -> None:

@@ -21,7 +21,7 @@ The sections below follow the order you usually need them in. The [recipes](#rec
 - **Settings:** [`Window`](#window), [`Security`](#security), [`DEV_CSP`](#dev_csp), [`Server`](#server), [`Bridge`](#bridge), [`App`](#app)
 - **Building blocks:** [`create_app`](#create_app)
 - **Logging:** [`configure_logging`](#configure_logging), [`LogLevel`](#loglevel)
-- **Other:** [`AppFactory`](#appfactory), [`Loading`](#loading), [`preload`](#preload)
+- **Other:** [`DEFAULT_CSP`](#default_csp), [`NONCE_CSP`](#nonce_csp), [`NONCE_META`](#nonce_meta), [`STYLES_CSP`](#styles_csp), [`AppFactory`](#appfactory), [`Loading`](#loading), [`preload`](#preload)
 
 ## Running the shell
 
@@ -556,7 +556,7 @@ Local server protections. The defaults are the strict ones.
 | Parameter | Type | Default | Description |
 | --- | --- | --- | --- |
 | `allowed_hosts` | `tuple[str, ...]` | `()` | Extra `Host` values to accept. The bound `127.0.0.1:<port>` is always allowed. |
-| `csp` | `str` | `"default-src 'self'; script-src 'self';…` | `Content-Security-Policy` value. Relax it explicitly, for example `style-src`. |
+| `csp` | `str` | `"default-src 'self'; script-src 'self';…` | `Content-Security-Policy` value. Relax it explicitly, for example `style-src`. `'nonce-{nonce}'` is replaced by a new random value for each response (see `NONCE_CSP`). |
 | `api_prefix` | `str` | `'/api'` | Path prefix the host app's routers are mounted under. |
 | `token_ttl` | `float` | `60.0` | Seconds the one-time bootstrap token stays valid. |
 | `cookie_samesite` | `Literal['strict', 'lax']` | `'strict'` | `SameSite` attribute of the session cookie. |
@@ -713,6 +713,60 @@ def LogLevel(
 
 ## Other
 
+### `DEFAULT_CSP`
+
+```text
+default-src 'self';
+script-src 'self';
+style-src 'self';
+img-src 'self' data:;
+connect-src 'self';
+object-src 'none';
+base-uri 'none';
+frame-ancestors 'none';
+form-action 'self'
+```
+
+### `NONCE_CSP`
+
+The default policy, with `style-src` also allowing `<style>` tags that carry the page's nonce. Cornea makes a new nonce for each response and puts it in the page as `<meta name="cornea-csp-nonce" content="...">`; pass it to the library, for example Griffel's `styleElementAttributes`. Use it with `Security(csp=NONCE_CSP)` or `--csp-profile nonce`.
+
+```text
+default-src 'self';
+script-src 'self';
+style-src 'self' 'nonce-{nonce}';
+img-src 'self' data:;
+connect-src 'self';
+object-src 'none';
+base-uri 'none';
+frame-ancestors 'none';
+form-action 'self'
+```
+
+### `NONCE_META`
+
+The `name` of the `<meta>` tag that carries the nonce in every HTML page.
+
+```text
+cornea-csp-nonce
+```
+
+### `STYLES_CSP`
+
+The default policy, with `style-src` also allowing inline `<style>` tags and nothing else loosened: scripts stay strict. For frontends whose styling library writes a `<style>` tag at run time (Fluent UI's `FluentProvider`, other CSS-in-JS). Use it with `Security(csp=STYLES_CSP)` or `--csp-profile styles`. Prefer `NONCE_CSP` where the library can use a nonce.
+
+```text
+default-src 'self';
+script-src 'self';
+style-src 'self' 'unsafe-inline';
+img-src 'self' data:;
+connect-src 'self';
+object-src 'none';
+base-uri 'none';
+frame-ancestors 'none';
+form-action 'self'
+```
+
 ### `AppFactory`
 
 ```python
@@ -843,6 +897,34 @@ Shell(source, security=Security(csp=DEV_CSP)).run()  # dev servers inject inline
 ```
 
 Cornea starts the command, waits for the address, and stops the command and everything it started when the window closes. Proxy mode needs the `proxy` extra.
+
+### Keep a CSS-in-JS frontend styled (Fluent UI)
+
+Libraries that write a `<style>` tag at run time, such as Fluent UI v9's `FluentProvider`, render
+unstyled under the default policy: the browser blocks the tag, every `var(--...)` is empty and
+no error shows on the page. The developer tools console names the blocked `style-src`.
+
+```python
+from cornea import NONCE_CSP, STYLES_CSP, Security, Shell, Static
+
+Shell(Static("web/dist"), security=Security(csp=STYLES_CSP)).run()  # allows inline <style> tags
+Shell(Static("web/dist"), security=Security(csp=NONCE_CSP)).run()  # allows only tagged ones
+```
+
+`STYLES_CSP` is the simplest. `NONCE_CSP` keeps `style-src` strict: Cornea makes a new nonce for
+each response and puts it in the page as `<meta name="cornea-csp-nonce" content="...">`. Give it
+to the library, for example Griffel:
+
+```js
+const nonce = document.querySelector('meta[name="cornea-csp-nonce"]')?.content;
+const renderer = createDOMRenderer(document, { styleElementAttributes: { nonce } });
+// <RendererProvider renderer={renderer}><FluentProvider>...</FluentProvider></RendererProvider>
+```
+
+Pages that carry a nonce are sent uncached and uncompressed, and one over 4 MB
+is sent without it (a page with no `<head>` or `<html>` too). A policy of your own can use the same placeholder: `'nonce-{nonce}'`. An app
+that builds its own pages finds the nonce in `scope["cornea.csp_nonce"]`. Styles set one property
+at a time from script (`element.style.color = ...`, as React does) are never blocked.
 
 ### Let the page show notifications, open files and accept drops
 

@@ -16,7 +16,7 @@ from http.cookies import CookieError, SimpleCookie
 from urllib.parse import parse_qsl, quote, urlencode
 
 from cornea.core.asgi import AsgiApp, Message, Receive, Scope, Send
-from cornea.core.config import Security
+from cornea.core.config import NONCE_META, NONCE_PLACEHOLDER, Security
 
 REPORT_PATH = "/csp-report"
 """Where, under the API prefix, the browser sends reports of what the policy blocked."""
@@ -40,6 +40,30 @@ _FIXED_HEADERS = (
     (b"cross-origin-opener-policy", b"same-origin"),
     (b"cross-origin-resource-policy", b"same-origin"),
 )
+
+
+NONCE_SCOPE_KEY = "cornea.csp_nonce"
+"""Where, in the ASGI scope, an app finds the nonce of the response it is building."""
+MAX_NONCE_PAGE = 4 * 1024 * 1024
+"""Largest HTML page that gets the nonce meta tag; a bigger one is sent as it is."""
+_HEAD = re.compile(rb"<head(?:\s[^>]*)?>", re.IGNORECASE)
+_HTML = re.compile(rb"<html(?:\s[^>]*)?>", re.IGNORECASE)
+
+
+def new_nonce() -> str:
+    """A fresh nonce for one response: unguessable and never reused."""
+    return secrets.token_urlsafe(16)
+
+
+def add_nonce_meta(page: bytes, nonce: str) -> bytes | None:
+    """``page`` with the nonce meta tag first in ``<head>``, or ``None`` if it has no place."""
+    tag = f'<meta name="{NONCE_META}" content="{nonce}">'.encode("ascii")
+    match = _HEAD.search(page) or _HTML.search(page)
+    if match is None:
+        return None
+    if match.re is _HTML:
+        tag = b"<head>" + tag + b"</head>"
+    return page[: match.end()] + tag + page[match.end() :]
 
 
 def new_token() -> str:
@@ -166,6 +190,17 @@ def _refused(scope: Scope, reason: str, *, misconfigured: bool = False) -> None:
     )
 
 
+def _is_plain_html(start: Message) -> bool:
+    """Whether a response is a whole HTML page the nonce can be put in."""
+    if start.get("status") != 200:
+        return False
+    headers: dict[bytes, bytes] = {k.lower(): v for k, v in start.get("headers", ())}
+    if headers.get(b"content-encoding", b"identity").lower() != b"identity":
+        logger.debug("An encoded page cannot get the nonce")
+        return False
+    return headers.get(b"content-type", b"").lower().startswith(b"text/html")
+
+
 async def _error(send: Send, status: int, message: str) -> None:
     body = json.dumps({"error": message}).encode()
     await _respond(send, status, body, [(b"content-type", b"application/json")])
@@ -250,7 +285,19 @@ class SecurityMiddleware:
 
     # ----- HTTP -------------------------------------------------------------------------------
 
+    def _with_nonce(self, scope: Scope) -> Scope:
+        """With a nonce in the policy: make this response's, and ask for pages that are not packed.
+
+        A packed (gzip, br) page cannot get the nonce meta tag, so the app is not told the client
+        accepts packing.
+        """
+        if NONCE_PLACEHOLDER not in self.security.csp:
+            return scope
+        headers = [(k, v) for k, v in scope.get("headers", ()) if k != b"accept-encoding"]
+        return {**scope, "headers": headers, NONCE_SCOPE_KEY: new_nonce()}
+
     async def _http(self, scope: Scope, receive: Receive, send: Send) -> None:
+        scope = self._with_nonce(scope)
         send = self._with_security_headers(scope, send)
         if not self._host_allowed(scope):
             _refused(scope, "unexpected Host header", misconfigured=True)
@@ -306,9 +353,32 @@ class SecurityMiddleware:
         if is_api:
             fixed.append((b"cache-control", b"no-store"))
         replaced = {name for name, _ in fixed}
-        csp = self._csp_with_reports().encode("latin-1")
+        nonce: str | None = scope.get(NONCE_SCOPE_KEY)
+        policy = self._csp_with_reports()
+        csp = (policy.replace(NONCE_PLACEHOLDER, nonce) if nonce else policy).encode("latin-1")
+        may_inject = nonce is not None and scope.get("method") != "HEAD"
+        held: Message | None = None
+        chunks: list[bytes] = []
+        size = 0
+
+        async def release(body: bytes, *, changed: bool, more: bool = False) -> None:
+            nonlocal held
+            assert held is not None  # noqa: S101
+            start, held = held, None
+            if changed:
+                # A page that differs on every response must not be cached or revalidated.
+                dropped = {b"content-length", b"etag", b"last-modified", b"cache-control"}
+                headers = [(k, v) for k, v in start["headers"] if k.lower() not in dropped]
+                headers += [
+                    (b"content-length", str(len(body)).encode()),
+                    (b"cache-control", b"no-store"),
+                ]
+                start = {**start, "headers": headers}
+            await send(start)
+            await send({"type": "http.response.body", "body": body, "more_body": more})
 
         async def secured(message: Message) -> None:
+            nonlocal held, size
             if message["type"] == "http.response.start":
                 headers = [
                     (k, v) for k, v in message.get("headers", ()) if k.lower() not in replaced
@@ -317,6 +387,34 @@ class SecurityMiddleware:
                 if not any(k.lower() == b"content-security-policy" for k, _ in headers):
                     headers.append((b"content-security-policy", csp))
                 message = {**message, "headers": [*headers, *fixed]}
+                if may_inject and _is_plain_html(message):
+                    held = message
+                    return
+            elif held is not None:
+                if message["type"] != "http.response.body":
+                    start, held = held, None
+                    await send(start)
+                else:
+                    chunk = message.get("body", b"")
+                    chunks.append(chunk)
+                    size += len(chunk)
+                    if size > MAX_NONCE_PAGE:  # too big to hold: send it without the tag
+                        await release(
+                            b"".join(chunks), changed=False, more=bool(message.get("more_body"))
+                        )
+                        chunks.clear()
+                        return
+                    if message.get("more_body"):
+                        return
+                    page = b"".join(chunks)
+                    assert nonce is not None  # noqa: S101
+                    tagged = add_nonce_meta(page, nonce)
+                    if tagged is None:
+                        logger.debug("No <head> to put the nonce in for %s", path)
+                    await release(
+                        tagged if tagged is not None else page, changed=tagged is not None
+                    )
+                    return
             await send(message)
 
         return secured
