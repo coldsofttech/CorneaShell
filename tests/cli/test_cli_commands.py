@@ -54,6 +54,7 @@ FLAGS: dict[type, dict[str, str]] = {
         "js_api": "--js-api",
         "drop_files": "--drop-files",
         "downloads": "--downloads",
+        "tray": "--tray",
         "icon": "--icon",
     },
     Bridge: {

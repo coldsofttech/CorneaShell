@@ -57,6 +57,7 @@ def test_simulated_window_starts_idle() -> None:
         "title": "Demo",
         "maximized": False,
         "minimized": False,
+        "hidden": False,
         "closed": False,
         "frameless": False,
     }

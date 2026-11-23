@@ -165,6 +165,7 @@ def test_state_follows_the_window_events() -> None:
         "title": "Main",
         "maximized": False,
         "minimized": False,
+        "hidden": False,
         "closed": False,
         "frameless": False,
     }
@@ -322,6 +323,7 @@ def test_the_page_can_control_the_window_over_http(webview: FakeWebview, bundle:
             "title": "Cornea Shell",
             "maximized": False,
             "minimized": False,
+            "hidden": False,
             "closed": False,
             "frameless": False,
         },

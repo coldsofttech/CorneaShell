@@ -71,6 +71,7 @@ Properties:
 
 - `timings`: How long start-up took so far. See `Timings`.
 - `actions`: The native actions the page can call. Register your own with `action`.
+- `tray_labels`: The labels of the app's own tray menu entries, in order.
 - `is_direct`: Whether the window opens a `Url` itself, with no local server.
 - `running`: Whether the server is accepting requests.
 - `port`: The port the server is bound to. Available after `start`.
@@ -132,6 +133,35 @@ Example:
 ...     return export_running
 >>> busy()
 False
+```
+
+#### `Shell.tray_item`
+
+```python
+def Shell.tray_item(
+    label: str,
+) -> Callable[...]
+```
+
+Add an entry to the tray icon's menu: `@shell.tray_item("Sync now")`.
+
+The function is called, with no arguments and on its own thread, when the person picks the
+entry. Entries appear between **Show** and **Quit**, in the order they were added. A
+function that raises is logged and the app carries on. It needs `Window(tray=True)`.
+
+**Raises:**
+
+- `ValueError`: If the window has no tray, or the label is empty, longer than 64 characters, or already used (`Show` and `Quit` are the shell's own).
+
+Example:
+
+```pycon
+>>> shell = Shell(window=Window(tray=True))
+>>> @shell.tray_item("Sync now")
+... def sync() -> None:
+...     pass
+>>> shell.tray_labels
+['Sync now']
 ```
 
 #### `Shell.notify`
@@ -531,6 +561,7 @@ Native window options. The context menu and developer tools are off unless enabl
 | `icon` | `Path \| str \| None` | `None` | Icon for the window and its taskbar button: an `.ico` file or an image (`.png`, `.bmp`, `.gif`, `.jpg`). A relative path is relative to the current folder. |
 | `downloads` | `bool` | `False` | Let the page download files. The person chooses where to save each one in a native dialog. Off by default, so a page cannot put files on disk. |
 | `drop_files` | `bool` | `False` | Tell the page which files were dropped on the window, with their full paths, as a `cornea:drop` event. Off by default, because a full path says where a person keeps things. |
+| `tray` | `bool` | `False` | Keep the app running in the Windows notification area (system tray). Closing the window hides it there instead of stopping the app; the tray icon's menu has Show and Quit, plus anything added with `@shell.tray_item`. The icon is the window icon and the tooltip is the window title. Off by default. |
 | `js_api` | `bool` | `False` | Give the page `window.pywebview.api`: the window controls and the native actions. It lets a frameless window show an address that Cornea does not serve. Every page that loads in the window gets these powers, so use it only for pages you trust. |
 
 Properties:

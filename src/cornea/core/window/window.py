@@ -20,6 +20,7 @@ from cornea.core.window.memory import Remembered, WindowMemory, fit_to_screens
 if TYPE_CHECKING:
     from cornea.core.bridge.bridge import ActionRegistry
     from cornea.core.page.notifications import Notifier
+    from cornea.core.window.tray import Tray
 
 logger = logging.getLogger(__name__)
 
@@ -159,6 +160,7 @@ class NativeWindow:
         self._title = settings.title
         self._maximized = bool(start and start.maximized)
         self._minimized = False
+        self._hidden = False
         self._closed = False
         # The window's place when it is neither maximized nor minimized: what gets remembered.
         if start is not None:
@@ -171,6 +173,8 @@ class NativeWindow:
         """Decides whether closing is held back. Set by the shell."""
         self.notifier: Notifier | None = None
         """Shows toasts for this app. Set by the shell."""
+        self.tray: Tray | None = None
+        """The tray icon, when the window keeps the app running in the tray. Set by the shell."""
         self._forced = False
         window.events.closing += self._on_closing
         window.events.maximized += self._on_maximized
@@ -200,6 +204,7 @@ class NativeWindow:
         """Bring the window to the front, restoring it first if it was minimized."""
         if self._minimized:
             self._window.restore()
+        self._hidden = False
         self._window.show()
         with contextlib.suppress(Exception):  # focusing is a courtesy; it must not raise
             bring_to_front(self._window)
@@ -218,7 +223,12 @@ class NativeWindow:
 
     def _on_closing(self) -> bool:
         """The window is being closed by any means (Alt+F4, the taskbar): hold it if asked to."""
-        if self._forced or self.guard is None or not self.guard.holds():
+        if self._forced:
+            return True
+        if self.tray is not None:
+            self.hide()  # closing only hides the window; the tray's Quit or ``force`` stops it
+            return False
+        if self.guard is None or not self.guard.holds():
             return True
         self.notify("close-blocked")
         return False
@@ -259,12 +269,33 @@ class NativeWindow:
     def restore(self) -> None:
         self._window.restore()
 
+    def hide(self) -> None:
+        """Hide the window. With a tray icon the app keeps running and the icon brings it back."""
+        self._hidden = True
+        self._window.hide()
+
+    def quit(self) -> bool:
+        """Stop the app, as the tray's Quit does. Returns whether it is stopping.
+
+        If the app holds the window open, the window is shown and the page is told with a
+        ``cornea:close-blocked`` event, so the person can decide; nothing stops until then.
+        """
+        if self.guard is not None and self.guard.holds():
+            self.activate()
+            self.notify("close-blocked")
+            return False
+        return self.close(force=True)
+
     def close(self, force: bool = False) -> bool:
         """Close the window shortly after, so the request that asked for it is answered first.
 
         If the app holds the window open the page is told with a ``cornea:close-blocked`` event
-        and nothing closes, unless ``force`` is given.
+        and nothing closes, unless ``force`` is given. With a tray icon, closing without ``force``
+        only hides the window; ``force`` stops the app.
         """
+        if not force and self.tray is not None:
+            self.hide()
+            return True
         if not force and self.guard is not None and self.guard.holds():
             self.notify("close-blocked")
             return False
@@ -275,12 +306,15 @@ class NativeWindow:
     def set_title(self, title: str) -> None:
         self._title = title
         self._window.set_title(title)
+        if self.tray is not None:
+            self.tray.set_title(title)
 
     def state(self) -> dict[str, Any]:
         return {
             "title": self._title,
             "maximized": self._maximized,
             "minimized": self._minimized,
+            "hidden": self._hidden,
             "closed": self._closed,
             "frameless": self._frameless,
         }
@@ -360,6 +394,7 @@ class SimulatedWindow:
             "title": self._title,
             "maximized": self._maximized,
             "minimized": self._minimized,
+            "hidden": False,
             "closed": self._closed,
             "frameless": False,
         }

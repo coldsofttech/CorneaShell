@@ -242,6 +242,14 @@ DropFiles = Annotated[
         panel=WINDOW,
     ),
 ]
+Tray = Annotated[
+    bool | None,
+    _flag(
+        "--tray",
+        help="Keep running in the system tray: closing the window hides it there.",
+        panel=WINDOW,
+    ),
+]
 IconFlag = Annotated[
     Path | None,
     _flag("--icon", help="Window and taskbar icon: .ico, .png, .bmp, .gif or .jpg.", panel=WINDOW),

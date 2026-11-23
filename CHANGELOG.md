@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- The app can keep running in the Windows system tray. With `--tray` (or `Window(tray=True)`), closing the window hides it and an icon in the notification area brings it back. Its menu has Show, your own items (`@shell.tray_item("Sync now")`) and Quit. Off by default.
+
 ## [0.1.1] - 2026-11-08
 
 ### Changed

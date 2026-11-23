@@ -251,6 +251,7 @@ def build_window(
     icon: Path | None = None,
     drop_files: bool | None = None,
     downloads: bool | None = None,
+    tray: bool | None = None,
 ) -> Window:
     return Window(
         **_given(
@@ -268,5 +269,6 @@ def build_window(
             icon=icon,
             drop_files=drop_files,
             downloads=downloads,
+            tray=tray,
         )
     )

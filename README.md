@@ -174,6 +174,29 @@ A page can also switch the hold on and off itself, which works from the command 
 
 **Opening files** is off by default too. With `--open-files` (or `Bridge(open_files=True)`) the page can call the `open_file` action, which opens a document in the program Windows has for it, and `reveal`, which shows a file or folder in Explorer. Programs, scripts and shortcuts (`.exe`, `.bat`, `.ps1`, `.lnk` and similar), network paths and missing files are refused.
 
+## Keeping the app in the system tray
+
+Some apps (sync tools, background monitors, quick launchers) should stay alive when the window closes. Turn on the tray with `--tray` (or `Window(tray=True)`, or `tray = true` under `[window]` in `cornea.toml`). It is off by default.
+
+- Closing the window (the close button, Alt+F4 or a close from your page) hides it and the app keeps running, with an icon in the Windows notification area. Its picture is the window icon and its tooltip is the window title.
+- Clicking the icon shows the window. Its menu has **Show**, your own items, and **Quit**, which stops the app.
+- Your own items are Python functions, so the command line cannot add them:
+
+```python
+shell = Shell("web/dist", window=Window(tray=True, icon="app.ico"))
+
+
+@shell.tray_item("Sync now")
+def sync() -> None: ...  # runs on its own thread when the person picks it
+```
+
+- Hiding never asks the close guard, because nothing is lost. **Quit** does: if the app holds the window open, the window is shown and the page gets `cornea:close-blocked`, as for any close. From the page, a close with `force` stops the app, and one without it only hides the window.
+- A second start of a single-instance app shows the hidden window, and the remembered window place is saved when the window is hidden.
+
+```bash
+cornea open web/dist --app-id com.example.sync --single-instance --icon app.ico --tray
+```
+
 ## Windows notifications
 
 Windows can show a notification (a toast) with a title and a message, even while your window is minimized. Windows draws and places it, so its look is Windows' own. It needs the optional extra:

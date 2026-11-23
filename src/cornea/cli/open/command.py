@@ -60,6 +60,7 @@ from cornea.cli.commands import (
     SpaFlag,
     Title,
     TokenTtl,
+    Tray,
     UrlFlag,
     WebDist,
     WsgiFlag,
@@ -115,6 +116,7 @@ def open_window(
     js_api: JsApi = None,
     drop_files: DropFiles = None,
     downloads: Downloads = None,
+    tray: Tray = None,
     icon: IconFlag = None,
     loading: LoadingFlag = None,
     loading_subtitle: LoadingSubtitle = None,
@@ -171,6 +173,7 @@ def open_window(
             js_api=js_api,
             drop_files=drop_files,
             downloads=downloads,
+            tray=tray,
             icon=icon,
         )
         loading_screen = options.build_loading(

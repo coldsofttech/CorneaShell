@@ -47,6 +47,7 @@ src/cornea/core/sources/process.py        starts a dev-server command and stops 
 src/cornea/core/security/security.py      the ASGI middleware and the one-time-token session gate
 src/cornea/core/security/close_guard.py   holds the window open while the app is busy
 src/cornea/core/security/single_instance.py  one copy at a time, and waking the first copy
+src/cornea/core/window/tray.py            the system tray icon and its menu
 src/cornea/core/page/routes.py            /api/client.js and /api/csp-report
 src/cornea/core/page/notifications.py     Notifier: Windows toast notifications through the winrt bindings
 src/cornea/cli/                           the cornea command: a thin wrapper over run()
@@ -190,6 +191,12 @@ The close guard (`close_guard.py`) answers one question: should closing be held 
 Dropped files use pywebview's DOM events. They are installed once, after the first page load, only when `Window(drop_files=True)`. The event carries paths only, never contents, and only for files a person dropped.
 
 `open_file` and `reveal` are built-in actions that exist only with `Bridge(open_files=True)`. `open_file` resolves the path, refuses network paths (a link to a share would leak the Windows login to it), folders, missing files, and every type not in `SAFE_SUFFIXES` (documents, images, audio and video), and then calls `os.startfile`. `reveal` runs `explorer` with the path as one argument; it is allowed for any existing path because showing a file does not run it. Page and line hints, as some PDF viewers accept, are not supported: they need a program-specific command line.
+
+## The system tray
+
+`Window(tray=True)` keeps the app running with its window hidden (`window/tray.py`). `Tray` holds the behaviour: the menu (Show, the app's `@shell.tray_item` entries, Quit) and what each click does. `Win32Backend` holds every call into Windows, so the behaviour is tested with a fake backend. The backend uses `Shell_NotifyIconW` through `ctypes`, with no dependency: a thread owns a hidden window that receives the icon's mouse messages, shows the menu with `TrackPopupMenu`, and adds the icon again when Explorer restarts (`TaskbarCreated`). The icon is the window icon (`.ico` loaded directly, other images through `System.Drawing`) or the system's default application icon; the tooltip is the window title, kept in step by `set_title`.
+
+With a tray, `NativeWindow` turns every close that is not forced into `hide()`: the `closing` event is cancelled, and `close()` without `force` hides and answers as if it had closed. Hiding never asks the close guard, since nothing is lost. `force=True` stops the app, and so does the tray's Quit through `NativeWindow.quit()`, which first asks the guard: if it holds, the window is shown and the page gets `cornea:close-blocked`, and the page then closes with `force`. `activate()` (used by the tray, by notification clicks and by a second start of a single-instance app) shows a hidden window. The tray starts before the window loop and is removed when it ends; if the icon cannot be created the start fails, because a hidden window with no icon could not be brought back. Tray item functions run on their own threads and a failing one is logged.
 
 ## The page client, and reports of blocked content
 

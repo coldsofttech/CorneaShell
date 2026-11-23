@@ -99,6 +99,7 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--js-api`: Give the page the window controls and native actions. Trusted pages only.
 * `--drop-files`: Tell the page the full paths of files dropped on the window.
 * `--downloads`: Let the page download files; the person chooses where to save each one.
+* `--tray`: Keep running in the system tray: closing the window hides it there.
 * `--icon <path>`: Window and taskbar icon: .ico, .png, .bmp, .gif or .jpg.
 * `--loading / --no-loading`: Show a loading screen while the app starts (default on).
 * `--loading-subtitle <str>`: Tag line on the loading screen.

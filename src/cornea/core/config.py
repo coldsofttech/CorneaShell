@@ -191,6 +191,11 @@ class Window:
     drop_files: bool = False
     """Tell the page which files were dropped on the window, with their full paths, as a
     ``cornea:drop`` event. Off by default, because a full path says where a person keeps things."""
+    tray: bool = False
+    """Keep the app running in the Windows notification area (system tray). Closing the window
+    hides it there instead of stopping the app; the tray icon's menu has Show and Quit, plus
+    anything added with ``@shell.tray_item``. The icon is the window icon and the tooltip is the
+    window title. Off by default."""
     js_api: bool = False
     """Give the page ``window.pywebview.api``: the window controls and the native actions.
 

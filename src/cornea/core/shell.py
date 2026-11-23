@@ -28,6 +28,7 @@ from cornea.core.security.single_instance import AlreadyRunning, InstanceLock, a
 from cornea.core.sources.process import ProcessRunner
 from cornea.core.sources.sources import Process, Url, WebSource, coerce_source
 from cornea.core.window.loading import check_loading, render_loading
+from cornea.core.window.tray import Tray, TrayItems
 from cornea.core.window.window import (
     SimulatedWindow,
     Unavailable,
@@ -194,6 +195,7 @@ class Shell:
             app_id=self.identity.id,
         )
         self._guard: CloseGuard = self.app.state.close_guard
+        self._tray_items = TrayItems()
         if window is None:
             self.app.state.window = SimulatedWindow(DEFAULT_WINDOW.title)
         self._socket: socket.socket | None = None
@@ -288,6 +290,39 @@ class Shell:
         """
         self._guard.add(function)
         return function
+
+    def tray_item(self, label: str) -> Callable[[Callable[[], None]], Callable[[], None]]:
+        """Add an entry to the tray icon's menu: ``@shell.tray_item("Sync now")``.
+
+        The function is called, with no arguments and on its own thread, when the person picks the
+        entry. Entries appear between **Show** and **Quit**, in the order they were added. A
+        function that raises is logged and the app carries on. It needs ``Window(tray=True)``.
+
+        Raises:
+            ValueError: If the window has no tray, or the label is empty, longer than 64
+                characters, or already used (``Show`` and ``Quit`` are the shell's own).
+
+        Example:
+            >>> shell = Shell(window=Window(tray=True))
+            >>> @shell.tray_item("Sync now")
+            ... def sync() -> None:
+            ...     pass
+            >>> shell.tray_labels
+            ['Sync now']
+        """
+        if self.window is None or not self.window.tray:
+            raise ValueError("tray items need a window with tray=True")
+
+        def register(function: Callable[[], None]) -> Callable[[], None]:
+            self._tray_items.add(label, function)
+            return function
+
+        return register
+
+    @property
+    def tray_labels(self) -> list[str]:
+        """The labels of the app's own tray menu entries, in order."""
+        return self._tray_items.labels()
 
     def notify(self, event: str, detail: Any = None) -> None:
         """Tell the page something happened, as a ``cornea:<event>`` event on its ``window``.
@@ -633,15 +668,31 @@ class Shell:
         controller.guard = self._guard
         controller.notifier = Notifier(self.identity.id, settings.title, settings.icon)
         self.app.state.window = controller
-        loading = self.loading
-        if splash is None or loading is None:
-            show_window(webview, settings)
-        else:
-            show_window(
-                webview,
-                settings,
-                lambda: self._start_behind_loading_screen(window, loading, on_ready),
+        tray: Tray | None = None
+        if settings.tray:
+            icon = Path(settings.icon).resolve() if settings.icon is not None else None
+            tray = Tray(
+                settings.title,
+                icon,
+                self._tray_items,
+                show=controller.activate,
+                quit=controller.quit,
             )
+            tray.start()  # failing here is better than hiding a window with no icon to get it back
+            controller.tray = tray
+        loading = self.loading
+        try:
+            if splash is None or loading is None:
+                show_window(webview, settings)
+            else:
+                show_window(
+                    webview,
+                    settings,
+                    lambda: self._start_behind_loading_screen(window, loading, on_ready),
+                )
+        finally:
+            if tray is not None:
+                tray.stop()
 
     def _set_window_error(self, error: BaseException) -> None:
         self._window_error = error
