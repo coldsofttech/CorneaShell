@@ -143,6 +143,10 @@ class Bridge:
     notifications: bool = False
     """Add the ``show_notification`` action, which shows a Windows toast. Off by default, so a
     page cannot raise alerts unless you allow it. Needs the ``notifications`` extra."""
+    clipboard: bool = False
+    """Add the ``clipboard_read`` and ``clipboard_write`` actions, which read and replace the
+    clipboard's text. Off by default: the clipboard often holds passwords and other private text,
+    so a page cannot see or change it unless you allow it. Windows only."""
     open_files: bool = False
     """Add the ``open_file`` and ``reveal`` actions, which open a file in the program Windows has
     for it and show a file in Explorer. Off by default. A page can name any path, so ``open_file``

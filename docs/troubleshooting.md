@@ -39,7 +39,8 @@ Then turn on logging: run with `--debug` (or `--log-level debug --log-file corne
 | --- | --- |
 | `Notifications need the extra: pip install "cornea-shell[notifications]"` | Install the extra. |
 | The page gets `available: false` from `show_notification` | There is no window (`serve`), the extra is missing, or this is not Windows. |
-| `Unknown action` for `show_notification`, `open_file` or `reveal` | They are off until you add `--notifications` or `--open-files`. |
+| `Unknown action` for `show_notification`, `clipboard_read`, `clipboard_write`, `open_file` or `reveal` | They are off until you add `--notifications`, `--clipboard` or `--open-files`. |
+| `the clipboard is in use by another program` | Another program holds the clipboard; the page got `available: false`. Try again. |
 | A download does nothing | Downloads are blocked until you start with `--downloads` (or `Window(downloads=True)`). |
 | `cornea:drop` never arrives | Start with `--drop-files`, and drop on the page, not on the title bar. |
 | `files of that type cannot be opened from a page` | `open_file` never opens programs, scripts or shortcuts. Use `reveal` to show them. |

@@ -86,6 +86,7 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--disable-action <str>`: Switch a built-in action off. Repeatable.
 * `--open-files`: Let the page open a file in its program and show it in Explorer.
 * `--notifications`: Let the page show Windows notifications (needs the notifications extra).
+* `--clipboard`: Let the page read and replace the clipboard&#x27;s text.
 * `--title <str>`: Window title.
 * `--size <str>`: Window size, like 1200x800.
 * `--min-size <str>`: Smallest window size, like 400x300.
@@ -220,6 +221,7 @@ $ cornea serve [OPTIONS] [SOURCE]
 * `--disable-action <str>`: Switch a built-in action off. Repeatable.
 * `--open-files`: Let the page open a file in its program and show it in Explorer.
 * `--notifications`: Let the page show Windows notifications (needs the notifications extra).
+* `--clipboard`: Let the page read and replace the clipboard&#x27;s text.
 * `--log-level <debug|info|warning|error>`: Show log messages of this level and above on stderr (default: warning).
 * `--log-file <path>`: Also write a full debug log to this file.
 * `--measure`: Print how long start-up took (on stderr) once the first page has loaded.
@@ -362,10 +364,10 @@ Open the `url` once in a browser. A script can read the JSON line from stdout an
 
 ```console
 $ cornea open web/dist --app-id com.example.notes --single-instance --remember-window \
-    --notifications --open-files --drop-files --downloads --icon icon.png
+    --notifications --clipboard --open-files --drop-files --downloads --icon icon.png
 ```
 
-The page can then call `show_notification`, `open_file` and `reveal`, hear `cornea:drop`, and save downloads through a dialog. Nothing here is on unless you ask.
+The page can then call `show_notification`, `clipboard_read`, `clipboard_write`, `open_file` and `reveal`, hear `cornea:drop`, and save downloads through a dialog. Nothing here is on unless you ask.
 
 ### Find out why something does not work
 
@@ -472,7 +474,7 @@ $ cornea open web/dist --icon examples/static_html/icon.png
 $ cornea open http://localhost:5173 --frameless --js-api
 $ cornea open web/dist --log-level debug --log-file cornea.log
 $ cornea open web/dist --measure
-$ cornea open web/dist --drop-files --open-files --notifications
+$ cornea open web/dist --drop-files --open-files --notifications --clipboard
 ```
 
 ### `cornea serve`

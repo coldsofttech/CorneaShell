@@ -48,7 +48,7 @@ EXAMPLES: dict[str, tuple[str, ...]] = {
         "cornea open http://localhost:5173 --frameless --js-api",
         "cornea open web/dist --log-level debug --log-file cornea.log",
         "cornea open web/dist --measure",
-        "cornea open web/dist --drop-files --open-files --notifications",
+        "cornea open web/dist --drop-files --open-files --notifications --clipboard",
     ),
     "serve": (
         "cornea serve web/dist",
@@ -223,6 +223,14 @@ Notifications = Annotated[
     _flag(
         "--notifications",
         help="Let the page show Windows notifications (needs the notifications extra).",
+        panel=NATIVE,
+    ),
+]
+ClipboardFlag = Annotated[
+    bool | None,
+    _flag(
+        "--clipboard",
+        help="Let the page read and replace the clipboard's text.",
         panel=NATIVE,
     ),
 ]

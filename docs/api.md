@@ -612,6 +612,7 @@ Which built-in native actions the page may call. All of them are on by default.
 | --- | --- | --- | --- |
 | `disabled` | `tuple[str, ...]` | `()` | Built-in actions to switch off. A disabled action answers like an unknown one. |
 | `notifications` | `bool` | `False` | Add the `show_notification` action, which shows a Windows toast. Off by default, so a page cannot raise alerts unless you allow it. Needs the `notifications` extra. |
+| `clipboard` | `bool` | `False` | Add the `clipboard_read` and `clipboard_write` actions, which read and replace the clipboard's text. Off by default: the clipboard often holds passwords and other private text, so a page cannot see or change it unless you allow it. Windows only. |
 | `open_files` | `bool` | `False` | Add the `open_file` and `reveal` actions, which open a file in the program Windows has for it and show a file in Explorer. Off by default. A page can name any path, so `open_file` still refuses programs, scripts and shortcuts, network paths and missing files. |
 
 Example:
@@ -843,6 +844,18 @@ Shell(source, security=Security(csp=DEV_CSP)).run()  # dev servers inject inline
 ```
 
 Cornea starts the command, waits for the address, and stops the command and everything it started when the window closes. Proxy mode needs the `proxy` extra.
+
+### Let the page use the clipboard
+
+Off by default, because the clipboard often holds private text.
+
+```python
+from cornea import Bridge, Shell, Static
+
+Shell(Static("web/dist"), bridge=Bridge(clipboard=True)).run()
+```
+
+The page calls `cornea.call("clipboard_write", {"text": "hello"})` and `cornea.call("clipboard_read")`, which answers `{"text": ...}` (`null` when the clipboard holds no text). Text only; Windows only.
 
 ### Let the page show notifications, open files and accept drops
 

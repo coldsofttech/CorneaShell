@@ -66,7 +66,10 @@ class AppFactory:
         app.state.close_guard = CloseGuard()
         settings = bridge or Bridge()
         app.state.actions = ActionRegistry(
-            settings.disabled, open_files=settings.open_files, notifications=settings.notifications
+            settings.disabled,
+            open_files=settings.open_files,
+            notifications=settings.notifications,
+            clipboard=settings.clipboard,
         )
 
         @app.get("/health")

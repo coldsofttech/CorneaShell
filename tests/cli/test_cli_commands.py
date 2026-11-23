@@ -60,6 +60,7 @@ FLAGS: dict[type, dict[str, str]] = {
         "disabled": "--disable-action",
         "open_files": "--open-files",
         "notifications": "--notifications",
+        "clipboard": "--clipboard",
     },
     Loading: {
         "subtitle": "--loading-subtitle",

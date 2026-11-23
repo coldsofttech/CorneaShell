@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
+from cornea.core.page.clipboard import Clipboard, ClipboardError
 from cornea.core.page.notifications import Notifier
 from cornea.core.window.window import Unavailable, WindowController
 
@@ -43,6 +44,8 @@ code or load active content, so it is refused."""
 MAX_PATH_LENGTH = 4096
 OPT_IN_FILES = frozenset({"open_file", "reveal"})
 """Built-in actions that are off until ``Bridge(open_files=True)``."""
+OPT_IN_CLIPBOARD = frozenset({"clipboard_read", "clipboard_write"})
+"""Built-in actions that are off until ``Bridge(clipboard=True)``."""
 OPT_IN_NOTIFICATIONS = frozenset({"show_notification"})
 """Built-in actions that are off until ``Bridge(notifications=True)``."""
 
@@ -158,6 +161,31 @@ class BuiltinActions:
         return {"shown": True}
 
     @staticmethod
+    def clipboard_read(window: WindowController | None) -> Any:
+        """The text on the clipboard: ``{"text": ...}``, with ``None`` when it holds no text."""
+        if not BuiltinActions._windows():
+            raise Unavailable("The clipboard only works on Windows for now.")
+        try:
+            return {"text": Clipboard.read()}
+        except ClipboardError as exc:
+            raise Unavailable(str(exc)) from exc
+
+    @staticmethod
+    def clipboard_write(window: WindowController | None, text: str) -> Any:
+        """Replace the clipboard's contents with ``text``."""
+        try:
+            Clipboard.check(text)
+        except ValueError as exc:
+            raise BadArguments(str(exc)) from exc
+        if not BuiltinActions._windows():
+            raise Unavailable("The clipboard only works on Windows for now.")
+        try:
+            Clipboard.write(text)
+        except ClipboardError as exc:
+            raise Unavailable(str(exc)) from exc
+        return {"written": True}
+
+    @staticmethod
     def platform_info(window: WindowController | None) -> Any:
         """Describe the system, the Python in use and whether a window exists."""
         from cornea import __version__
@@ -194,6 +222,8 @@ class BuiltinActions:
             "open_file": BuiltinActions.open_file,
             "reveal": BuiltinActions.reveal,
             "show_notification": BuiltinActions.show_notification,
+            "clipboard_read": BuiltinActions.clipboard_read,
+            "clipboard_write": BuiltinActions.clipboard_write,
         }
 
 
@@ -218,6 +248,7 @@ class ActionRegistry:
         *,
         open_files: bool = False,
         notifications: bool = False,
+        clipboard: bool = False,
     ) -> None:
         off = set(disabled)
         unknown = off - set(BUILTINS)
@@ -229,6 +260,7 @@ class ActionRegistry:
             if name not in off
             and (open_files or name not in OPT_IN_FILES)
             and (notifications or name not in OPT_IN_NOTIFICATIONS)
+            and (clipboard or name not in OPT_IN_CLIPBOARD)
         }
         self._custom: dict[str, Callable[..., Any]] = {}
 

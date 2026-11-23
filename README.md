@@ -24,7 +24,7 @@ You keep the UI you already have, and Cornea Shell adds the parts around it: the
 - **Your own Python routes** next to the UI, called with ordinary `fetch()`.
 - **Your dev server, started for you.** Cornea runs `npm run dev` (or any command), shows it, and stops it when the window closes.
 - **Native actions your page can call:** choose a folder or file, choose where to save, open a link in the browser, read platform info, and your own.
-- **Opt-in native features:** Windows notifications, opening files, dropped files and downloads. Each one stays off until you allow it.
+- **Opt-in native features:** Windows notifications, the clipboard, opening files, dropped files and downloads. Each one stays off until you allow it.
 - **A command line and a Python API** that do the same things.
 
 ## Requirements
@@ -174,6 +174,17 @@ A page can also switch the hold on and off itself, which works from the command 
 
 **Opening files** is off by default too. With `--open-files` (or `Bridge(open_files=True)`) the page can call the `open_file` action, which opens a document in the program Windows has for it, and `reveal`, which shows a file or folder in Explorer. Programs, scripts and shortcuts (`.exe`, `.bat`, `.ps1`, `.lnk` and similar), network paths and missing files are refused.
 
+## Clipboard
+
+The clipboard often holds passwords and other private text, so a page cannot touch it unless you allow it with `--clipboard` (or `Bridge(clipboard=True)`). That adds two actions, for text only:
+
+```javascript
+await cornea.call("clipboard_write", { text: "copied from the app" }); // { written: true }
+const { text } = await cornea.call("clipboard_read");                   // text is null when no text is on it
+```
+
+Writing replaces whatever was on the clipboard, and a single write can hold up to 1,000,000 characters. If another program is holding the clipboard the call answers `available: false`. Windows only.
+
 ## Windows notifications
 
 Windows can show a notification (a toast) with a title and a message, even while your window is minimized. Windows draws and places it, so its look is Windows' own. It needs the optional extra:
@@ -302,7 +313,7 @@ prints one line of JSON with an address. Open that address in a browser to try t
 | The start-up link is one-time | It carries a token that the window exchanges for the cookie, and it expires |
 | Other sites are kept out | Requests with the wrong `Host`, or that change something without the right `Origin`, are refused |
 | The page gets a short list of native actions | The built-in ones never read or write files: a dialog only returns the path you chose |
-| Risky features are opt-in | Opening files, notifications, dropped files, downloads and `--js-api` are all off until you turn them on |
+| Risky features are opt-in | Opening files, the clipboard, notifications, dropped files, downloads and `--js-api` are all off until you turn them on |
 | Developer tools are off | Turn them on with `--devtools`, `--context-menu`, or `--debug` for both |
 
 ## Command line

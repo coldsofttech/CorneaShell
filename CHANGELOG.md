@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- The page can read and replace the clipboard's text with the `clipboard_read` and `clipboard_write` actions. They are off by default and switched on with `--clipboard` (or `Bridge(clipboard=True)`).
+
 ## [0.1.1] - 2026-11-08
 
 ### Changed
