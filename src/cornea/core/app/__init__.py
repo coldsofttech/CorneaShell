@@ -3,11 +3,12 @@
 from typing import TYPE_CHECKING, Any
 
 from cornea.core.app.appdata import AppData
+from cornea.core.app.autostart import Autostart, AutostartStatus
 
 if TYPE_CHECKING:
     from cornea.core.app.app import AppFactory
 
-__all__ = ["AppData", "AppFactory"]
+__all__ = ["AppData", "AppFactory", "Autostart", "AutostartStatus"]
 
 
 def __getattr__(name: str) -> Any:

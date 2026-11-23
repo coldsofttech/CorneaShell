@@ -174,6 +174,15 @@ A page can also switch the hold on and off itself, which works from the command 
 
 **Opening files** is off by default too. With `--open-files` (or `Bridge(open_files=True)`) the page can call the `open_file` action, which opens a document in the program Windows has for it, and `reveal`, which shows a file or folder in Explorer. Programs, scripts and shortcuts (`.exe`, `.bat`, `.ps1`, `.lnk` and similar), network paths and missing files are refused.
 
+## Start at login
+
+An app with an id can register itself to start when the user logs in. It is per user (the `Run` key under `HKEY_CURRENT_USER`), so no administrator rights are needed, and it only happens when your code asks:
+
+```python
+shell = Shell(Static("web/dist"), identity=App(id="com.example.notes"))
+shell.autostart.enable()  # shell.autostart.status() and shell.autostart.disable() too
+```
+
 ## Windows notifications
 
 Windows can show a notification (a toast) with a title and a message, even while your window is minimized. Windows draws and places it, so its look is Windows' own. It needs the optional extra:

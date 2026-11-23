@@ -18,6 +18,7 @@ import uvicorn
 from fastapi import APIRouter, FastAPI
 
 from cornea.core.app.app import AppFactory
+from cornea.core.app.autostart import Autostart
 from cornea.core.bridge.bridge import ActionRegistry
 from cornea.core.config import App, Bridge, Loading, Security, Server, Window
 from cornea.core.environment import Environment
@@ -334,6 +335,26 @@ class Shell:
             self.app.state.window.show_notification(title, message, notification_id)
         except Unavailable as exc:
             raise RuntimeError(str(exc)) from exc
+
+    @property
+    def autostart(self) -> Autostart:
+        """Start the app when the user logs in: ``shell.autostart.enable()``.
+
+        It is registered for the current user only (the ``Run`` key under ``HKEY_CURRENT_USER``),
+        named after the app's id. Use ``enable()``, ``disable()`` and ``status()``. Nothing is
+        registered unless you call ``enable()``. Windows only.
+
+        Raises:
+            ValueError: If the app has no id; set ``App(id=...)``.
+
+        Example:
+            >>> shell = Shell(window=None, identity=App(id="com.example.notes"))
+            >>> shell.autostart.app_id
+            'com.example.notes'
+        """
+        if self.identity.id is None:
+            raise ValueError("autostart needs an app id; pass identity=App(id='com.example.app')")
+        return Autostart(self.identity.id)
 
     @property
     def is_direct(self) -> bool:

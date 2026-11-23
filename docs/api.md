@@ -21,7 +21,7 @@ The sections below follow the order you usually need them in. The [recipes](#rec
 - **Settings:** [`Window`](#window), [`Security`](#security), [`DEV_CSP`](#dev_csp), [`Server`](#server), [`Bridge`](#bridge), [`App`](#app)
 - **Building blocks:** [`create_app`](#create_app)
 - **Logging:** [`configure_logging`](#configure_logging), [`LogLevel`](#loglevel)
-- **Other:** [`AppFactory`](#appfactory), [`Loading`](#loading), [`preload`](#preload)
+- **Other:** [`AppFactory`](#appfactory), [`Autostart`](#autostart), [`AutostartStatus`](#autostartstatus), [`Loading`](#loading), [`preload`](#preload)
 
 ## Running the shell
 
@@ -71,6 +71,7 @@ Properties:
 
 - `timings`: How long start-up took so far. See `Timings`.
 - `actions`: The native actions the page can call. Register your own with `action`.
+- `autostart`: Start the app when the user logs in: `shell.autostart.enable()`.
 - `is_direct`: Whether the window opens a `Url` itself, with no local server.
 - `running`: Whether the server is accepting requests.
 - `port`: The port the server is bound to. Available after `start`.
@@ -721,6 +722,77 @@ AppFactory()
 
 Builds the FastAPI app the shell serves.
 
+### `Autostart`
+
+```python
+Autostart(
+    app_id: str,
+)
+```
+
+The start-at-login entry of one app.
+
+Properties:
+
+- `enabled`: Whether the app starts at login now.
+
+#### `Autostart.enable`
+
+```python
+def Autostart.enable(
+    command: str | None = None,
+) -> AutostartStatus
+```
+
+Start the app at login. `command` defaults to `default_command`.
+
+Calling it again replaces the entry, so it also repairs one that points elsewhere.
+
+**Raises:**
+
+- `ValueError`: If the command is not allowed.
+- `RuntimeError`: If this is not Windows.
+
+#### `Autostart.disable`
+
+```python
+def Autostart.disable() -> bool
+```
+
+Stop starting the app at login. Returns whether there was an entry to remove.
+
+#### `Autostart.status`
+
+```python
+def Autostart.status() -> AutostartStatus
+```
+
+Whether the app starts at login now.
+
+Example:
+
+```pycon
+>>> Autostart("com.example.notes").app_id
+'com.example.notes'
+```
+
+### `AutostartStatus`
+
+Whether the app starts at login, and with which command.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `enabled` | `bool` | `required` | Whether an entry for this app exists. |
+| `command` | `str \| None` | `None` | The command stored in the entry, or `None` when there is none. |
+| `current` | `bool` | `False` | Whether the stored command is the one this process would register now. `False` for an enabled app means the entry points somewhere else, for example at a moved program. |
+
+Example:
+
+```pycon
+>>> AutostartStatus(enabled=False).command is None
+True
+```
+
 ### `Loading`
 
 The loading screen the window shows while the app starts. On by default.
@@ -843,6 +915,20 @@ Shell(source, security=Security(csp=DEV_CSP)).run()  # dev servers inject inline
 ```
 
 Cornea starts the command, waits for the address, and stops the command and everything it started when the window closes. Proxy mode needs the `proxy` extra.
+
+### Start the app when the user logs in
+
+```python
+from cornea import App, Shell, Static
+
+shell = Shell(Static("web/dist"), identity=App(id="com.example.notes"))
+status = shell.autostart.enable()  # registers this program for the current user
+print(status.enabled, status.command)
+shell.autostart.status()  # AutostartStatus(enabled=True, command=..., current=True)
+shell.autostart.disable()  # True if there was an entry to remove
+```
+
+The entry is stored per user under `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`, named after the app id, so no administrator rights are needed. By default the command is the one that started this program (`pythonw.exe` for a script, so no console window appears); pass `enable(command="...")` for another one. Calling `enable()` again replaces the entry, which repairs one that points at a moved program (`status().current` is `False` then). Only your code can turn it on, never the page. It needs an app id, and it is Windows only.
 
 ### Let the page show notifications, open files and accept drops
 

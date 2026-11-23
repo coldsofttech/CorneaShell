@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- An app can start when its user logs in: `shell.autostart.enable()`, `disable()` and `status()` (also `cornea.Autostart`). It registers the app for the current user only, in the `Run` key under `HKEY_CURRENT_USER`, named after the app id. Nothing is registered unless your code asks.
+
 ## [0.1.1] - 2026-11-08
 
 ### Changed
