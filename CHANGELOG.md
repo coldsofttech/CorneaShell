@@ -4,6 +4,12 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- `Window(background=...)` (and `--background`) sets the colour the window shows before the page paints. With a loading screen it follows the screen's `background`, or its theme, which removes the white flash on a dark loading screen. `theme="auto"` follows the Windows app mode.
+- `Colour`, a hex colour with `Colour.rgb()` and ready-made `Colour.LIGHT` and `Colour.DARK`, accepted by `Window.background` and `Loading.background` and `foreground`.
+- `Loading(footer=...)` (and `--loading-footer`) shows a small note at the bottom right of the loading screen, such as the publisher's name. Text is escaped; wrap it in `Html(...)` to use markup.
+
 ## [0.1.1] - 2026-11-08
 
 ### Changed

@@ -246,6 +246,14 @@ IconFlag = Annotated[
     Path | None,
     _flag("--icon", help="Window and taskbar icon: .ico, .png, .bmp, .gif or .jpg.", panel=WINDOW),
 ]
+BackgroundFlag = Annotated[
+    str | None,
+    _flag(
+        "--background",
+        help="Colour of the window before the page paints, like #1a1a1a.",
+        panel=WINDOW,
+    ),
+]
 LoadingFlag = Annotated[
     bool | None,
     _flag(
@@ -285,6 +293,14 @@ LoadingBackground = Annotated[
 LoadingForeground = Annotated[
     str | None,
     _flag("--loading-foreground", help="Text colour, like #ffffff.", panel=LOADING),
+]
+LoadingFooter = Annotated[
+    str | None,
+    _flag(
+        "--loading-footer",
+        help="Small text at the bottom right of the loading screen, like a publisher name.",
+        panel=LOADING,
+    ),
 ]
 LoadingMinDisplay = Annotated[
     float | None,

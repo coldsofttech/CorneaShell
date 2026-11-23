@@ -27,7 +27,7 @@ from cornea.core.security.close_guard import CloseGuard
 from cornea.core.security.single_instance import AlreadyRunning, InstanceLock, activate_existing
 from cornea.core.sources.process import ProcessRunner
 from cornea.core.sources.sources import Process, Url, WebSource, coerce_source
-from cornea.core.window.loading import check_loading, render_loading
+from cornea.core.window.loading import check_loading, render_loading, splash_background
 from cornea.core.window.window import (
     SimulatedWindow,
     Unavailable,
@@ -627,6 +627,7 @@ class Shell:
             self._mark,
             self.actions,
             splash=splash,
+            background=splash_background(self.loading, settings) if splash is not None else None,
         )
         if self._lock is not None:
             self._lock.serve(controller.activate)

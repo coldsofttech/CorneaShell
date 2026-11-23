@@ -202,6 +202,7 @@ def build_loading(
     foreground: str | None,
     html: Path | None,
     min_display: float | None = None,
+    footer: str | None = None,
 ) -> Loading | None:
     """The loading screen, or ``None`` when ``--no-loading`` turned it off."""
     if enabled is False:
@@ -216,6 +217,7 @@ def build_loading(
             foreground=foreground,
             html=html,
             min_display=min_display,
+            footer=footer,
         )
     )
 
@@ -251,6 +253,7 @@ def build_window(
     icon: Path | None = None,
     drop_files: bool | None = None,
     downloads: bool | None = None,
+    background: str | None = None,
 ) -> Window:
     return Window(
         **_given(
@@ -268,5 +271,6 @@ def build_window(
             icon=icon,
             drop_files=drop_files,
             downloads=downloads,
+            background=background,
         )
     )

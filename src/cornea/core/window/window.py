@@ -487,6 +487,7 @@ def create_native_window(
     on_event: Callable[[str], None] | None = None,
     actions: "ActionRegistry | None" = None,
     splash: str | None = None,
+    background: str | None = None,
 ) -> tuple[Any, NativeWindow]:
     """Create (not yet show) the window and its controller.
 
@@ -519,6 +520,13 @@ def create_native_window(
         extra["js_api"] = api
     if splash is not None:
         extra["html"] = splash
+    paint = (
+        background
+        if background is not None
+        else (str(settings.background) if settings.background is not None else None)
+    )
+    if paint is not None:
+        extra["background_color"] = paint
     window = webview.create_window(
         settings.title,
         url,

@@ -3,7 +3,7 @@
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import ClassVar, Literal
 
 DEFAULT_CSP = (
     "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
@@ -25,6 +25,74 @@ Size = tuple[int, int]
 _CSS_COLOUR = re.compile(
     r"#[0-9a-fA-F]{3,8}|[a-zA-Z]{3,30}|(?:rgb|hsl)a?\([0-9a-zA-Z.,%/ -]{1,40}\)"
 )
+
+
+_HEX_COLOUR = re.compile(r"#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})")
+
+
+@dataclass(frozen=True, slots=True)
+class Colour:
+    """A colour written as hex, which works both on a web page and for the native window.
+
+    Short ``#rgb`` is widened to ``#rrggbb``. It converts to its hex text with ``str()``, so it
+    can be used anywhere a CSS colour string is accepted.
+
+    Example:
+        >>> Colour("#fff").hex
+        '#ffffff'
+        >>> Colour.rgb(13, 17, 23)
+        Colour(hex='#0d1117')
+        >>> str(Colour.DARK)
+        '#0d1117'
+    """
+
+    hex: str
+    """The colour as ``#rrggbb`` (lower case)."""
+
+    WHITE: ClassVar["Colour"]
+    BLACK: ClassVar["Colour"]
+    LIGHT: ClassVar["Colour"]
+    """The built-in light loading screen background."""
+    DARK: ClassVar["Colour"]
+    """The built-in dark loading screen background."""
+
+    def __post_init__(self) -> None:
+        if not _HEX_COLOUR.fullmatch(self.hex):
+            raise ValueError(f"a colour looks like #1a1a1a or #fff, got {self.hex!r}")
+        value = self.hex.lower()
+        if len(value) == 4:
+            value = "#" + "".join(digit * 2 for digit in value[1:])
+        object.__setattr__(self, "hex", value)
+
+    @classmethod
+    def rgb(cls, red: int, green: int, blue: int) -> "Colour":
+        """A colour from red, green and blue, each 0 to 255."""
+        if not all(isinstance(part, int) and 0 <= part <= 255 for part in (red, green, blue)):
+            raise ValueError(f"red, green and blue must be 0 to 255, got {(red, green, blue)}")
+        return cls(f"#{red:02x}{green:02x}{blue:02x}")
+
+    def __str__(self) -> str:
+        return self.hex
+
+
+Colour.WHITE = Colour("#ffffff")
+Colour.BLACK = Colour("#000000")
+Colour.LIGHT = Colour.WHITE
+Colour.DARK = Colour("#0d1117")
+
+
+class Html(str):
+    """Text that is HTML to show as it is, not text to escape.
+
+    Example:
+        >>> Loading(footer=Html("by <b>Acme</b>")).footer
+        'by <b>Acme</b>'
+    """
+
+    __slots__ = ()
+
+    def __new__(cls, markup: str) -> "Html":
+        return super().__new__(cls, markup)
 
 
 def _check_size(name: str, size: Size) -> None:
@@ -191,6 +259,10 @@ class Window:
     drop_files: bool = False
     """Tell the page which files were dropped on the window, with their full paths, as a
     ``cornea:drop`` event. Off by default, because a full path says where a person keeps things."""
+    background: Colour | str | None = None
+    """The colour the window shows before any page has painted, as hex (``#1a1a1a``, ``#fff``) or
+    a :class:`Colour`. It removes the white flash on a dark app. ``None`` follows the loading
+    screen when there is one (its ``background``, else its theme), otherwise the system default."""
     js_api: bool = False
     """Give the page ``window.pywebview.api``: the window controls and the native actions.
 
@@ -200,6 +272,8 @@ class Window:
     def __post_init__(self) -> None:
         _check_size("size", self.size)
         _check_size("min_size", self.min_size)
+        if self.background is not None:
+            object.__setattr__(self, "background", Colour(str(self.background)))
         if self.icon is not None and Path(self.icon).suffix.lower() not in ICON_TYPES:
             raise ValueError(
                 f"icon must be one of {', '.join(sorted(ICON_TYPES))}, got {str(self.icon)!r}"
@@ -239,10 +313,15 @@ class Loading:
     """The picture above the title. ``None`` uses the window icon, or none if it has none."""
     theme: Literal["auto", "light", "dark"] = "auto"
     """``auto`` follows the system setting."""
-    background: str | None = None
-    """A CSS colour for the background. ``None`` uses the theme's colour."""
-    foreground: str | None = None
+    background: Colour | str | None = None
+    """A CSS colour for the background. ``None`` uses the theme's colour. Give hex or a
+    :class:`Colour` to also colour the window before the page paints."""
+    foreground: Colour | str | None = None
     """A CSS colour for the text. ``None`` uses the theme's colour."""
+    footer: Html | str | None = None
+    """A small note at the bottom right, such as the publisher's name. Plain text is escaped; wrap
+    it in :class:`Html` to use markup (links and pictures do not load: the page allows no
+    scripts and no network). Ignored when ``html`` replaces the page."""
     html: Path | str | None = None
     """Replace the page. A :class:`~pathlib.Path` is read as a file; a string is the page itself.
     Scripts in it can run, so it is yours to keep free of anything you do not trust."""
@@ -260,5 +339,5 @@ class Loading:
             )
         for name in ("background", "foreground"):
             value = getattr(self, name)
-            if value is not None and not _CSS_COLOUR.fullmatch(value):
+            if value is not None and not _CSS_COLOUR.fullmatch(str(value)):
                 raise ValueError(f"{name} must be a CSS colour such as #1a1a1a, got {value!r}")

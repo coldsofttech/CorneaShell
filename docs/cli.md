@@ -100,6 +100,7 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--drop-files`: Tell the page the full paths of files dropped on the window.
 * `--downloads`: Let the page download files; the person chooses where to save each one.
 * `--icon <path>`: Window and taskbar icon: .ico, .png, .bmp, .gif or .jpg.
+* `--background <str>`: Colour of the window before the page paints, like #1a1a1a.
 * `--loading / --no-loading`: Show a loading screen while the app starts (default on).
 * `--loading-subtitle <str>`: Tag line on the loading screen.
 * `--loading-title <str>`: Heading on the loading screen (default: window title).
@@ -109,6 +110,7 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--loading-foreground <str>`: Text colour, like #ffffff.
 * `--loading-html <path>`: Your own HTML page to show instead.
 * `--loading-min-display <float>`: Seconds to keep the loading screen up at least (default 0.3).
+* `--loading-footer <str>`: Small text at the bottom right of the loading screen, like a publisher name.
 * `--app-id <str>`: Name of the app, like com.example.notes.
 * `--single-instance`: Run one copy; a second start shows the first.
 * `--remember-window`: Reopen the window where it was, at its size.
@@ -394,11 +396,11 @@ csp-profile = "dev"       # public-path, require-origin
 [bridge]        # disable-action
 
 [window]        # title, size, min-size, position, frameless, resizable, on-top,
-title = "My App"          # context-menu, devtools, debug, js-api, icon
+title = "My App"          # context-menu, devtools, debug, js-api, icon, background
 frameless = true
 
 [loading]       # enabled, subtitle, title, icon, theme, background, foreground,
-subtitle = "Getting ready"   # html, min-display
+subtitle = "Getting ready"   # footer, html, min-display
 
 [app]           # id, single-instance, remember-window
 id = "com.example.notes"

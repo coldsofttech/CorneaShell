@@ -10,6 +10,7 @@ from cornea.cli.commands import (
     AppDir,
     AppIdFlag,
     AsgiFlag,
+    BackgroundFlag,
     ContextMenu,
     CookieSameSite,
     Csp,
@@ -28,6 +29,7 @@ from cornea.cli.commands import (
     JsonFriendlyFlag,
     LoadingBackground,
     LoadingFlag,
+    LoadingFooter,
     LoadingForeground,
     LoadingHtml,
     LoadingIcon,
@@ -116,6 +118,7 @@ def open_window(
     drop_files: DropFiles = None,
     downloads: Downloads = None,
     icon: IconFlag = None,
+    background: BackgroundFlag = None,
     loading: LoadingFlag = None,
     loading_subtitle: LoadingSubtitle = None,
     loading_title: LoadingTitle = None,
@@ -125,6 +128,7 @@ def open_window(
     loading_foreground: LoadingForeground = None,
     loading_html: LoadingHtml = None,
     loading_min_display: LoadingMinDisplay = None,
+    loading_footer: LoadingFooter = None,
     app_id: AppIdFlag = None,
     single_instance: SingleInstanceFlag = None,
     remember_window: RememberWindowFlag = None,
@@ -172,6 +176,7 @@ def open_window(
             drop_files=drop_files,
             downloads=downloads,
             icon=icon,
+            background=background,
         )
         loading_screen = options.build_loading(
             enabled=loading,
@@ -183,6 +188,7 @@ def open_window(
             foreground=loading_foreground,
             html=loading_html,
             min_display=loading_min_display,
+            footer=loading_footer,
         )
         server = options.build_server(host=host, port=port)
         security = options.build_security(

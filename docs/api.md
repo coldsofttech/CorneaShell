@@ -21,7 +21,7 @@ The sections below follow the order you usually need them in. The [recipes](#rec
 - **Settings:** [`Window`](#window), [`Security`](#security), [`DEV_CSP`](#dev_csp), [`Server`](#server), [`Bridge`](#bridge), [`App`](#app)
 - **Building blocks:** [`create_app`](#create_app)
 - **Logging:** [`configure_logging`](#configure_logging), [`LogLevel`](#loglevel)
-- **Other:** [`AppFactory`](#appfactory), [`Loading`](#loading), [`preload`](#preload)
+- **Other:** [`AppFactory`](#appfactory), [`Colour`](#colour), [`Html`](#html), [`Loading`](#loading), [`preload`](#preload)
 
 ## Running the shell
 
@@ -531,6 +531,7 @@ Native window options. The context menu and developer tools are off unless enabl
 | `icon` | `Path \| str \| None` | `None` | Icon for the window and its taskbar button: an `.ico` file or an image (`.png`, `.bmp`, `.gif`, `.jpg`). A relative path is relative to the current folder. |
 | `downloads` | `bool` | `False` | Let the page download files. The person chooses where to save each one in a native dialog. Off by default, so a page cannot put files on disk. |
 | `drop_files` | `bool` | `False` | Tell the page which files were dropped on the window, with their full paths, as a `cornea:drop` event. Off by default, because a full path says where a person keeps things. |
+| `background` | `cornea.core.config.Colour \| str \| None` | `None` | The colour the window shows before any page has painted, as hex (`#1a1a1a`, `#fff`) or a `Colour`. It removes the white flash on a dark app. `None` follows the loading screen when there is one (its `background`, else its theme), otherwise the system default. |
 | `js_api` | `bool` | `False` | Give the page `window.pywebview.api`: the window controls and the native actions. It lets a frameless window show an address that Cornea does not serve. Every page that loads in the window gets these powers, so use it only for pages you trust. |
 
 Properties:
@@ -721,6 +722,45 @@ AppFactory()
 
 Builds the FastAPI app the shell serves.
 
+### `Colour`
+
+A colour written as hex, which works both on a web page and for the native window.
+
+Short `#rgb` is widened to `#rrggbb`. It converts to its hex text with `str()`, so it
+can be used anywhere a CSS colour string is accepted.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `hex` | `str` | `required` | The colour as `#rrggbb` (lower case). |
+
+Example:
+
+```pycon
+>>> Colour("#fff").hex
+'#ffffff'
+>>> Colour.rgb(13, 17, 23)
+Colour(hex='#0d1117')
+>>> str(Colour.DARK)
+'#0d1117'
+```
+
+### `Html`
+
+```python
+Html(
+    markup: str,
+)
+```
+
+Text that is HTML to show as it is, not text to escape.
+
+Example:
+
+```pycon
+>>> Loading(footer=Html("by <b>Acme</b>")).footer
+'by <b>Acme</b>'
+```
+
 ### `Loading`
 
 The loading screen the window shows while the app starts. On by default.
@@ -735,8 +775,9 @@ to `cornea.core.shell.Shell` to turn it off.
 | `title` | `str \| None` | `None` | The heading. `None` uses the window title. |
 | `icon` | `Path \| str \| None` | `None` | The picture above the title. `None` uses the window icon, or none if it has none. |
 | `theme` | `Literal['auto', 'light', 'dark']` | `'auto'` | `auto` follows the system setting. |
-| `background` | `str \| None` | `None` | A CSS colour for the background. `None` uses the theme's colour. |
-| `foreground` | `str \| None` | `None` | A CSS colour for the text. `None` uses the theme's colour. |
+| `background` | `cornea.core.config.Colour \| str \| None` | `None` | A CSS colour for the background. `None` uses the theme's colour. Give hex or a `Colour` to also colour the window before the page paints. |
+| `foreground` | `cornea.core.config.Colour \| str \| None` | `None` | A CSS colour for the text. `None` uses the theme's colour. |
+| `footer` | `cornea.core.config.Html \| str \| None` | `None` | A small note at the bottom right, such as the publisher's name. Plain text is escaped; wrap it in `Html` to use markup (links and pictures do not load: the page allows no scripts and no network). Ignored when `html` replaces the page. |
 | `html` | `Path \| str \| None` | `None` | Replace the page. A `pathlib.Path` is read as a file; a string is the page itself. Scripts in it can run, so it is yours to keep free of anything you do not trust. |
 | `min_display` | `float` | `0.3` | Seconds to keep the page up at least, so a quick start does not flash it. |
 

@@ -55,6 +55,7 @@ FLAGS: dict[type, dict[str, str]] = {
         "drop_files": "--drop-files",
         "downloads": "--downloads",
         "icon": "--icon",
+        "background": "--background",
     },
     Bridge: {
         "disabled": "--disable-action",
@@ -70,6 +71,7 @@ FLAGS: dict[type, dict[str, str]] = {
         "foreground": "--loading-foreground",
         "html": "--loading-html",
         "min_display": "--loading-min-display",
+        "footer": "--loading-footer",
     },
     App: {
         "id": "--app-id",

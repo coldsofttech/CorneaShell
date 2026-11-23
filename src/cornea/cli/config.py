@@ -72,6 +72,7 @@ SECTIONS: dict[str, dict[str, str]] = {
         "drop-files": "drop_files",
         "downloads": "downloads",
         "icon": "icon",
+        "background": "background",
     },
     "loading": {
         "enabled": "loading",
@@ -83,6 +84,7 @@ SECTIONS: dict[str, dict[str, str]] = {
         "foreground": "loading_foreground",
         "html": "loading_html",
         "min-display": "loading_min_display",
+        "footer": "loading_footer",
     },
     "app": {
         "id": "app_id",
