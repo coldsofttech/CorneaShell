@@ -172,6 +172,8 @@ A page can also switch the hold on and off itself, which works from the command 
 
 **Dropped files** are off by default, because a full path says where a person keeps things. Turn them on with `--drop-files` (or `Window(drop_files=True)`) and the page gets a `cornea:drop` event whose `detail.paths` lists the full paths.
 
+**Global hotkeys** are off by default, and only your Python code can register them: `shell.register_hotkey("ctrl+alt+space", shell.toggle_window)` shows or hides the window from anywhere. The page hears each press as a `cornea:hotkey` event.
+
 **Opening files** is off by default too. With `--open-files` (or `Bridge(open_files=True)`) the page can call the `open_file` action, which opens a document in the program Windows has for it, and `reveal`, which shows a file or folder in Explorer. Programs, scripts and shortcuts (`.exe`, `.bat`, `.ps1`, `.lnk` and similar), network paths and missing files are refused.
 
 ## Windows notifications

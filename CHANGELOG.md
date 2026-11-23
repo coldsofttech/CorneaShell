@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Global hotkeys: `Shell.register_hotkey()` registers a keyboard shortcut that works even when the window is not focused, such as a show/hide shortcut (`shell.toggle_window`). The page hears each press as a `cornea:hotkey` event. Off by default: only your Python code can register shortcuts. Also `unregister_hotkey()`, `hotkeys` and `toggle_window()`.
+
 ## [0.1.1] - 2026-11-08
 
 ### Changed

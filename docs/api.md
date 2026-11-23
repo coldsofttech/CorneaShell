@@ -71,6 +71,7 @@ Properties:
 
 - `timings`: How long start-up took so far. See `Timings`.
 - `actions`: The native actions the page can call. Register your own with `action`.
+- `hotkeys`: The global shortcuts registered now.
 - `is_direct`: Whether the window opens a `Url` itself, with no local server.
 - `running`: Whether the server is accepting requests.
 - `port`: The port the server is bound to. Available after `start`.
@@ -190,6 +191,66 @@ Traceback (most recent call last):
 ...
 RuntimeError: There is no window to show a notification from.
 ```
+
+#### `Shell.register_hotkey`
+
+```python
+def Shell.register_hotkey(
+    hotkey: str,
+    handler: Callable[[], None] | None = None,
+) -> str
+```
+
+Register a global keyboard shortcut that fires even when the window is not focused.
+
+`hotkey` is modifiers and a key joined by `+`, such as `"ctrl+alt+space"` or
+`"win+shift+f12"`. It needs `ctrl`, `alt` or `win`. On each press `handler` is
+called (on its own thread) and the page gets a `cornea:hotkey` event whose `detail` is
+`{"hotkey": "ctrl+alt+space"}`. Pass `toggle_window` as the handler for a show/hide
+shortcut. Nothing is registered unless you call this, and the page cannot register
+shortcuts itself. Shortcuts are removed by `unregister_hotkey` and when the shell
+stops. Windows only.
+
+Returns:
+    The shortcut's canonical name (lowercase, modifiers in a fixed order).
+
+**Raises:**
+
+- `ValueError`: If the shortcut is not allowed or is already registered.
+- `RuntimeError`: If it is not Windows, or another program already holds the shortcut.
+
+Example:
+
+```pycon
+>>> shell = Shell(window=None)
+>>> shell.register_hotkey("ctrl+alt+space", shell.toggle_window)
+'ctrl+alt+space'
+```
+
+#### `Shell.unregister_hotkey`
+
+```python
+def Shell.unregister_hotkey(
+    hotkey: str,
+) -> bool
+```
+
+Remove a global shortcut. Returns whether it was registered.
+
+**Raises:**
+
+- `ValueError`: If the shortcut is not a valid one.
+
+#### `Shell.toggle_window`
+
+```python
+def Shell.toggle_window() -> None
+```
+
+Hide the window if it is showing, or bring it to the front if it is hidden or minimized.
+
+Made for a show/hide shortcut, as the handler of `register_hotkey`. Without a window
+this does nothing.
 
 #### `Shell.start`
 
@@ -861,6 +922,27 @@ shell.run()
 ```
 
 The page calls `cornea.call("show_notification", {...})`, `cornea.call("open_file", {"path": ...})`, and listens for `cornea:drop` and `cornea:notification-click`. Notifications need the `notifications` extra.
+
+### Global hotkeys: a show/hide shortcut
+
+Shortcuts that work even when the window is not focused. Only your Python code registers them (a page cannot), so nothing is registered unless you ask. Windows only.
+
+```python
+from cornea import Shell, Static
+
+shell = Shell(Static("web/dist"))
+shell.register_hotkey("ctrl+alt+space", shell.toggle_window)  # show or hide the window
+shell.register_hotkey("ctrl+alt+n")  # only tells the page
+shell.run()  # the shortcuts are removed when the shell stops
+```
+
+A shortcut is modifiers and one key joined by `+`: at least one of `ctrl`, `alt` or `win` (plus optional `shift`), and a letter, a digit, `f1` to `f24`, or `space`, `enter`, `tab`, `esc`, `backspace`, `insert`, `delete`, `home`, `end`, `pageup`, `pagedown`, `left`, `up`, `right`, `down`. On each press your handler runs on its own thread and the page gets a `cornea:hotkey` event:
+
+```js
+cornea.on("hotkey", (detail) => console.log(detail.hotkey)); // "ctrl+alt+n"
+```
+
+`register_hotkey` returns the canonical name (`"ctrl+alt+space"`), raises `ValueError` for a shortcut that is not allowed or is already registered, and `RuntimeError` if another program already holds it. `unregister_hotkey(name)` removes one, and `shell.hotkeys` lists them. `toggle_window()` hides a showing window and brings a hidden or minimized one to the front.
 
 ### Tell the page something, and keep the window open while busy
 

@@ -70,6 +70,9 @@ class FakeWindow:
     def show(self) -> None:
         self.calls.append("show")
 
+    def hide(self) -> None:
+        self.calls.append("hide")
+
     def set_title(self, title: str) -> None:
         self.calls.append(f"title:{title}")
 

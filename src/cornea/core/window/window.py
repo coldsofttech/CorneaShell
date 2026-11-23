@@ -77,6 +77,10 @@ class WindowController(Protocol):
         """Show a Windows toast. Clicking it activates the window and tells the page."""
         ...
 
+    def toggle(self) -> None:
+        """Hide the window if it is showing, or bring it to the front if it is hidden."""
+        ...
+
     def set_title(self, title: str) -> None: ...
     def state(self) -> dict[str, Any]: ...
     def dialog(
@@ -159,6 +163,7 @@ class NativeWindow:
         self._title = settings.title
         self._maximized = bool(start and start.maximized)
         self._minimized = False
+        self._hidden = False
         self._closed = False
         # The window's place when it is neither maximized nor minimized: what gets remembered.
         if start is not None:
@@ -201,8 +206,17 @@ class NativeWindow:
         if self._minimized:
             self._window.restore()
         self._window.show()
+        self._hidden = False
         with contextlib.suppress(Exception):  # focusing is a courtesy; it must not raise
             bring_to_front(self._window)
+
+    def toggle(self) -> None:
+        """Hide the window if it is showing, or bring it to the front if it is hidden."""
+        if self._hidden or self._minimized:
+            self.activate()
+        else:
+            self._window.hide()
+            self._hidden = True
 
     def _on_maximized(self) -> None:
         self._maximized, self._minimized = True, False
@@ -325,11 +339,15 @@ class SimulatedWindow:
         self._title = title
         self._maximized = False
         self._minimized = False
+        self._hidden = False
         self._closed = False
 
     @property
     def headless(self) -> bool:
         return True
+
+    def toggle(self) -> None:
+        self._hidden = not self._hidden
 
     def minimize(self) -> None:
         self._minimized = True

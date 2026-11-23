@@ -43,6 +43,8 @@ Then turn on logging: run with `--debug` (or `--log-level debug --log-file corne
 | A download does nothing | Downloads are blocked until you start with `--downloads` (or `Window(downloads=True)`). |
 | `cornea:drop` never arrives | Start with `--drop-files`, and drop on the page, not on the title bar. |
 | `files of that type cannot be opened from a page` | `open_file` never opens programs, scripts or shortcuts. Use `reveal` to show them. |
+| `could not be registered; another program may already use it` | Another program holds that global shortcut. Pick another combination. |
+| `cornea:hotkey` never arrives | Register the shortcut from Python with `shell.register_hotkey(...)`; the command line and the page cannot. |
 | The window will not close | An app close guard or the page is holding it. Look for `cornea:close-blocked` in the page; `POST /api/window/close` with `{"force": true}` closes anyway. |
 
 ## Settings and files

@@ -27,6 +27,7 @@ from cornea.core.security.close_guard import CloseGuard
 from cornea.core.security.single_instance import AlreadyRunning, InstanceLock, activate_existing
 from cornea.core.sources.process import ProcessRunner
 from cornea.core.sources.sources import Process, Url, WebSource, coerce_source
+from cornea.core.window.hotkeys import Hotkeys
 from cornea.core.window.loading import check_loading, render_loading
 from cornea.core.window.window import (
     SimulatedWindow,
@@ -204,6 +205,7 @@ class Shell:
         self._start_error: BaseException | None = None
         self._app_started = threading.Event()
         self._start_began = False
+        self._hotkeys = Hotkeys(lambda name: self.notify("hotkey", {"hotkey": name}))
 
     # ----- what the server is ---------------------------------------------------------------
 
@@ -335,6 +337,54 @@ class Shell:
         except Unavailable as exc:
             raise RuntimeError(str(exc)) from exc
 
+    def register_hotkey(self, hotkey: str, handler: Callable[[], None] | None = None) -> str:
+        """Register a global keyboard shortcut that fires even when the window is not focused.
+
+        ``hotkey`` is modifiers and a key joined by ``+``, such as ``"ctrl+alt+space"`` or
+        ``"win+shift+f12"``. It needs ``ctrl``, ``alt`` or ``win``. On each press ``handler`` is
+        called (on its own thread) and the page gets a ``cornea:hotkey`` event whose ``detail`` is
+        ``{"hotkey": "ctrl+alt+space"}``. Pass ``toggle_window`` as the handler for a show/hide
+        shortcut. Nothing is registered unless you call this, and the page cannot register
+        shortcuts itself. Shortcuts are removed by :meth:`unregister_hotkey` and when the shell
+        stops. Windows only.
+
+        Returns:
+            The shortcut's canonical name (lowercase, modifiers in a fixed order).
+
+        Raises:
+            ValueError: If the shortcut is not allowed or is already registered.
+            RuntimeError: If it is not Windows, or another program already holds the shortcut.
+
+        Example:
+            >>> shell = Shell(window=None)
+            >>> shell.register_hotkey("ctrl+alt+space", shell.toggle_window)  # doctest: +SKIP
+            'ctrl+alt+space'
+        """
+        return self._hotkeys.register(hotkey, handler)
+
+    def unregister_hotkey(self, hotkey: str) -> bool:
+        """Remove a global shortcut. Returns whether it was registered.
+
+        Raises:
+            ValueError: If the shortcut is not a valid one.
+        """
+        return self._hotkeys.unregister(hotkey)
+
+    @property
+    def hotkeys(self) -> list[str]:
+        """The global shortcuts registered now."""
+        return self._hotkeys.registered()
+
+    def toggle_window(self) -> None:
+        """Hide the window if it is showing, or bring it to the front if it is hidden or minimized.
+
+        Made for a show/hide shortcut, as the handler of :meth:`register_hotkey`. Without a window
+        this does nothing.
+        """
+        controller = self.app.state.window
+        if controller is not None:
+            controller.toggle()
+
     @property
     def is_direct(self) -> bool:
         """Whether the window opens a ``Url`` itself, with no local server."""
@@ -424,6 +474,7 @@ class Shell:
             False
         """
         began = time.perf_counter()
+        self._hotkeys.close()
         server, thread, listener = self._uvicorn, self._thread, self._socket
         # The command goes down beside the server, so its event streams drop at once and the
         # server does not wait for them.
