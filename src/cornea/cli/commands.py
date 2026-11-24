@@ -318,6 +318,14 @@ RememberWindowFlag = Annotated[
     bool | None,
     _flag("--remember-window", help="Reopen the window where it was, at its size.", panel=APP),
 ]
+LaunchEventsFlag = Annotated[
+    bool | None,
+    _flag(
+        "--launch-events",
+        help="Tell the page what a second start was given, as a cornea:launch event.",
+        panel=APP,
+    ),
+]
 Title = Annotated[str | None, _flag("--title", help="Window title.", panel=WINDOW)]
 Size = Annotated[str | None, _flag("--size", help="Window size, like 1200x800.", panel=WINDOW)]
 MinSize = Annotated[
@@ -579,6 +587,7 @@ def _show_details(
             for name, on in (
                 ("single instance", identity.single_instance),
                 ("remembers its window", identity.remember_window),
+                ("launch events", identity.launch_events),
             )
             if on
         ]

@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- An app can register a custom URL scheme (`myapp://...`) and file types for the current user: `shell.associations.register_protocol("myapp")` and `register_file_type(".notes")`, with matching `unregister_...` and `..._command` calls. Nothing is registered unless your code asks; a file type is only added to "Open with" and never becomes the default, and schemes and programs that the system owns are refused.
+- With `single_instance`, a second start now hands its arguments (an address or the path of a file) to the running copy. Hear them with `@shell.on_launch`, or on the page as a `cornea:launch` event with `App(launch_events=True)` / `--launch-events` (off by default). `shell.launch` has what this copy was started with.
+
 ## [0.1.1] - 2026-11-08
 
 ### Changed

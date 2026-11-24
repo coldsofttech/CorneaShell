@@ -43,6 +43,9 @@ Then turn on logging: run with `--debug` (or `--log-level debug --log-file corne
 | A download does nothing | Downloads are blocked until you start with `--downloads` (or `Window(downloads=True)`). |
 | `cornea:drop` never arrives | Start with `--drop-files`, and drop on the page, not on the title bar. |
 | `files of that type cannot be opened from a page` | `open_file` never opens programs, scripts or shortcuts. Use `reveal` to show them. |
+| `cornea:launch` never arrives | It needs `--single-instance` and `--launch-events` (or `App(single_instance=True, launch_events=True)`). The first start's own arguments are in `shell.launch`, not an event. |
+| `... belongs to the system and cannot be registered` / `... cannot be claimed` | `http`, `file`, `mailto` and similar schemes, and program or script types such as `.exe` or `.bat`, cannot be registered. |
+| Double-clicking a file does not use the app | The app is only added to "Open with"; choose it there once. Windows keeps the default with the person. |
 | The window will not close | An app close guard or the page is holding it. Look for `cornea:close-blocked` in the page; `POST /api/window/close` with `{"force": true}` closes anyway. |
 
 ## Settings and files

@@ -174,6 +174,22 @@ A page can also switch the hold on and off itself, which works from the command 
 
 **Opening files** is off by default too. With `--open-files` (or `Bridge(open_files=True)`) the page can call the `open_file` action, which opens a document in the program Windows has for it, and `reveal`, which shows a file or folder in Explorer. Programs, scripts and shortcuts (`.exe`, `.bat`, `.ps1`, `.lnk` and similar), network paths and missing files are refused.
 
+## Links and files that open your app
+
+Register your own URL scheme and file types, and a click on `notes://open/42` or a double-click on a `.notes` file starts the app, or, with `--single-instance`, brings the running one forward and hands it the address or file path:
+
+```python
+shell.associations.register_protocol("notes")  # notes://...
+shell.associations.register_file_type(".notes")  # added to "Open with"
+
+
+@shell.on_launch
+def opened(request):
+    print(request.urls, request.files)
+```
+
+It is per user, only when your code asks, and never takes over a type's default program. The page hears the same as a `cornea:launch` event if you start with `--launch-events`. Treat the arguments as untrusted input.
+
 ## Windows notifications
 
 Windows can show a notification (a toast) with a title and a message, even while your window is minimized. Windows draws and places it, so its look is Windows' own. It needs the optional extra:

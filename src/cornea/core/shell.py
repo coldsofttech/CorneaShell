@@ -18,6 +18,8 @@ import uvicorn
 from fastapi import APIRouter, FastAPI
 
 from cornea.core.app.app import AppFactory
+from cornea.core.app.associations import Associations
+from cornea.core.app.launch import LaunchRequest
 from cornea.core.bridge.bridge import ActionRegistry
 from cornea.core.config import App, Bridge, Loading, Security, Server, Window
 from cornea.core.environment import Environment
@@ -163,6 +165,7 @@ class Shell:
         if window is None and (self.identity.single_instance or self.identity.remember_window):
             raise ValueError("single_instance and remember_window need a window")
         self._lock: InstanceLock | None = None
+        self._launch_handlers: list[Callable[[LaunchRequest], None]] = []
         self._measure = measure
         self._reported = False
         self._started_at: float | None = None
@@ -334,6 +337,55 @@ class Shell:
             self.app.state.window.show_notification(title, message, notification_id)
         except Unavailable as exc:
             raise RuntimeError(str(exc)) from exc
+
+    def on_launch(
+        self, function: Callable[[LaunchRequest], None]
+    ) -> Callable[[LaunchRequest], None]:
+        """Hear what a second start was given: ``@shell.on_launch``.
+
+        With ``App(single_instance=True)`` a second start brings this window to the front and
+        hands over its arguments, such as ``myapp://open/42`` or the path of a registered file,
+        as a :class:`~cornea.core.app.launch.LaunchRequest`. The handler runs on its own thread.
+        The arguments come from outside the app, so check them before using them. A handler that
+        raises is logged and does not stop the next start from being heard. With
+        ``App(launch_events=True)`` the page gets the same request as a ``cornea:launch`` event.
+
+        Example:
+            >>> shell = Shell(window=None)
+            >>> @shell.on_launch
+            ... def opened(request):
+            ...     print(request.urls)
+        """
+        self._launch_handlers.append(function)
+        return function
+
+    @property
+    def launch(self) -> LaunchRequest:
+        """What this copy was started with: ``shell.launch.urls`` and ``shell.launch.files``.
+
+        This reads the program's own command line, so a ``myapp://`` link that started the app
+        is here. A link or file handed to an already-running copy goes to :meth:`on_launch`.
+        """
+        return LaunchRequest.from_args()
+
+    @property
+    def associations(self) -> Associations:
+        """Register a URL scheme and file types: ``shell.associations.register_protocol("myapp")``.
+
+        Registered for the current user only; nothing is registered unless you call it. See
+        :class:`~cornea.core.app.associations.Associations`. Windows only.
+
+        Raises:
+            ValueError: If the app has no id; set ``App(id=...)``.
+
+        Example:
+            >>> shell = Shell(window=None, identity=App(id="com.example.notes"))
+            >>> shell.associations.app_id
+            'com.example.notes'
+        """
+        if self.identity.id is None:
+            raise ValueError("associations need an app id; pass identity=App(id='com.example.app')")
+        return Associations(self.identity.id)
 
     @property
     def is_direct(self) -> bool:
@@ -553,7 +605,16 @@ class Shell:
             return
         lock = InstanceLock(self.identity.id)
         if not lock.acquire():
-            raise AlreadyRunning(self.identity.id, activated=activate_existing(self.identity.id))
+            try:
+                launch = LaunchRequest.from_args()
+            except ValueError:
+                launch = None  # too many or odd arguments: still bring the first copy forward
+            raise AlreadyRunning(
+                self.identity.id,
+                activated=activate_existing(
+                    self.identity.id, launch if launch and launch.args else None
+                ),
+            )
         self._lock = lock
 
     def _start_process(self) -> None:
@@ -629,7 +690,7 @@ class Shell:
             splash=splash,
         )
         if self._lock is not None:
-            self._lock.serve(controller.activate)
+            self._lock.serve(controller.activate, self._launched)
         controller.guard = self._guard
         controller.notifier = Notifier(self.identity.id, settings.title, settings.icon)
         self.app.state.window = controller
@@ -642,6 +703,16 @@ class Shell:
                 settings,
                 lambda: self._start_behind_loading_screen(window, loading, on_ready),
             )
+
+    def _launched(self, request: LaunchRequest) -> None:
+        """A second start handed its arguments over: tell the handlers and, if asked, the page."""
+        for handler in list(self._launch_handlers):
+            try:
+                handler(request)
+            except Exception:
+                logger.exception("A launch handler raised")
+        if self.identity.launch_events:
+            self.notify("launch", request.as_json())
 
     def _set_window_error(self, error: BaseException) -> None:
         self._window_error = error

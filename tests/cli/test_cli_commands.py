@@ -75,6 +75,7 @@ FLAGS: dict[type, dict[str, str]] = {
         "id": "--app-id",
         "single_instance": "--single-instance",
         "remember_window": "--remember-window",
+        "launch_events": "--launch-events",
     },
     Url: {"url": "--url", "mode": "--mode"},
     Process: {

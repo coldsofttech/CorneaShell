@@ -9,6 +9,8 @@ __version__ = "0.1.1"
 
 from typing import TYPE_CHECKING, Any
 
+from cornea.core.app.associations import Associations
+from cornea.core.app.launch import LaunchRequest
 from cornea.core.config import DEV_CSP, App, Bridge, Loading, Security, Server, Window
 from cornea.core.logs import LOG_LEVELS, LogLevel, Logs
 from cornea.core.preload import preload
@@ -37,7 +39,9 @@ __all__ = [
     "App",
     "AppFactory",
     "Asgi",
+    "Associations",
     "Bridge",
+    "LaunchRequest",
     "Loading",
     "LogLevel",
     "Process",

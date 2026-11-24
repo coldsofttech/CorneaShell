@@ -119,6 +119,11 @@ class App:
     """Allow one copy at a time: starting a second one brings the first window to the front."""
     remember_window: bool = False
     """Reopen the window where it was and at the size it had."""
+    launch_events: bool = False
+    """With ``single_instance``, tell the page what a second start was given (an address such as
+    ``myapp://open/42`` or a file's path) as a ``cornea:launch`` event. Off by default, because a
+    file's full path says where a person keeps things; your Python code can always hear it with
+    ``Shell.on_launch``."""
 
     def __post_init__(self) -> None:
         if self.id is not None and not APP_ID.match(self.id):
@@ -127,6 +132,10 @@ class App:
             )
         if (self.single_instance or self.remember_window) and self.id is None:
             raise ValueError("single_instance and remember_window need an id")
+        if self.launch_events and not self.single_instance:
+            raise ValueError(
+                "launch_events needs single_instance: it reports what a second start got"
+            )
 
 
 @dataclass(frozen=True, slots=True)

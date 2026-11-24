@@ -112,6 +112,7 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--app-id <str>`: Name of the app, like com.example.notes.
 * `--single-instance`: Run one copy; a second start shows the first.
 * `--remember-window`: Reopen the window where it was, at its size.
+* `--launch-events`: Tell the page what a second start was given, as a cornea:launch event.
 * `--log-level <debug|info|warning|error>`: Show log messages of this level and above on stderr (default: warning).
 * `--log-file <path>`: Also write a full debug log to this file.
 * `--measure`: Print how long start-up took (on stderr) once the first page has loaded.

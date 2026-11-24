@@ -88,6 +88,7 @@ SECTIONS: dict[str, dict[str, str]] = {
         "id": "app_id",
         "single-instance": "single_instance",
         "remember-window": "remember_window",
+        "launch-events": "launch_events",
     },
     "logging": {"level": "log_level", "file": "log_file"},
 }

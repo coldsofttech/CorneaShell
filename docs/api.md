@@ -21,7 +21,7 @@ The sections below follow the order you usually need them in. The [recipes](#rec
 - **Settings:** [`Window`](#window), [`Security`](#security), [`DEV_CSP`](#dev_csp), [`Server`](#server), [`Bridge`](#bridge), [`App`](#app)
 - **Building blocks:** [`create_app`](#create_app)
 - **Logging:** [`configure_logging`](#configure_logging), [`LogLevel`](#loglevel)
-- **Other:** [`AppFactory`](#appfactory), [`Loading`](#loading), [`preload`](#preload)
+- **Other:** [`AppFactory`](#appfactory), [`Associations`](#associations), [`LaunchRequest`](#launchrequest), [`Loading`](#loading), [`preload`](#preload)
 
 ## Running the shell
 
@@ -71,6 +71,8 @@ Properties:
 
 - `timings`: How long start-up took so far. See `Timings`.
 - `actions`: The native actions the page can call. Register your own with `action`.
+- `launch`: What this copy was started with: `shell.launch.urls` and `shell.launch.files`.
+- `associations`: Register a URL scheme and file types: `shell.associations.register_protocol("myapp")`.
 - `is_direct`: Whether the window opens a `Url` itself, with no local server.
 - `running`: Whether the server is accepting requests.
 - `port`: The port the server is bound to. Available after `start`.
@@ -189,6 +191,32 @@ Example:
 Traceback (most recent call last):
 ...
 RuntimeError: There is no window to show a notification from.
+```
+
+#### `Shell.on_launch`
+
+```python
+def Shell.on_launch(
+    function: Callable[[LaunchRequest], None],
+) -> Callable[...]
+```
+
+Hear what a second start was given: `@shell.on_launch`.
+
+With `App(single_instance=True)` a second start brings this window to the front and
+hands over its arguments, such as `myapp://open/42` or the path of a registered file,
+as a `cornea.core.app.launch.LaunchRequest`. The handler runs on its own thread.
+The arguments come from outside the app, so check them before using them. A handler that
+raises is logged and does not stop the next start from being heard. With
+`App(launch_events=True)` the page gets the same request as a `cornea:launch` event.
+
+Example:
+
+```pycon
+>>> shell = Shell(window=None)
+>>> @shell.on_launch
+... def opened(request):
+...     print(request.urls)
 ```
 
 #### `Shell.start`
@@ -634,6 +662,7 @@ under `python.exe`) and the single-instance lock. Several copies run independent
 | `id` | `str \| None` | `None` | A short name such as `com.example.notes`: letters, digits, dots, dashes, underscores. |
 | `single_instance` | `bool` | `False` | Allow one copy at a time: starting a second one brings the first window to the front. |
 | `remember_window` | `bool` | `False` | Reopen the window where it was and at the size it had. |
+| `launch_events` | `bool` | `False` | With `single_instance`, tell the page what a second start was given (an address such as `myapp://open/42` or a file's path) as a `cornea:launch` event. Off by default, because a file's full path says where a person keeps things; your Python code can always hear it with `Shell.on_launch`. |
 
 Example:
 
@@ -720,6 +749,139 @@ AppFactory()
 ```
 
 Builds the FastAPI app the shell serves.
+
+### `Associations`
+
+```python
+Associations(
+    app_id: str,
+)
+```
+
+The URL scheme and file types one app registers for the current user.
+
+#### `Associations.register_protocol`
+
+```python
+def Associations.register_protocol(
+    scheme: str,
+    *,
+    command: str | None = None,
+    name: str | None = None,
+) -> str
+```
+
+Make `scheme://...` links start the app. Returns the scheme.
+
+`command` replaces the program to start (the address is added after it) and `name` is
+the description Windows shows. Registering again replaces the entry.
+
+**Raises:**
+
+- `ValueError`: If the scheme is not allowed (it needs 2 or more characters and must not be one Windows or browsers own) or the command or name is not usable.
+- `RuntimeError`: If this is not Windows.
+
+#### `Associations.unregister_protocol`
+
+```python
+def Associations.unregister_protocol(
+    scheme: str,
+) -> bool
+```
+
+Remove a scheme this app registered. Returns whether there was one to remove.
+
+A scheme registered by another program is left alone.
+
+#### `Associations.protocol_command`
+
+```python
+def Associations.protocol_command(
+    scheme: str,
+) -> str | None
+```
+
+The command registered for `scheme`, or `None` when there is none.
+
+#### `Associations.register_file_type`
+
+```python
+def Associations.register_file_type(
+    extension: str,
+    *,
+    description: str | None = None,
+    command: str | None = None,
+) -> str
+```
+
+Add the app to the "Open with" list of `extension`. Returns the extension.
+
+The app is not made the default program: Windows leaves that to the person. `command`
+replaces the program to start (the file's path is added after it).
+
+**Raises:**
+
+- `ValueError`: If the extension is not allowed (programs and scripts cannot be claimed) or the command or description is not usable.
+- `RuntimeError`: If this is not Windows.
+
+#### `Associations.unregister_file_type`
+
+```python
+def Associations.unregister_file_type(
+    extension: str,
+) -> bool
+```
+
+Remove this app from the "Open with" list of `extension`.
+
+Returns whether there was an entry to remove.
+
+#### `Associations.file_type_command`
+
+```python
+def Associations.file_type_command(
+    extension: str,
+) -> str | None
+```
+
+The command registered for `extension`, or `None` when there is none.
+
+Example:
+
+```pycon
+>>> Associations("com.example.notes").app_id
+'com.example.notes'
+>>> Associations.check_scheme("MyApp")
+'myapp'
+```
+
+### `LaunchRequest`
+
+The arguments a copy of the app was started with.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `args` | `tuple[str, ...]` | `()` | Every argument after the program, as given. Files are made absolute. |
+| `urls` | `tuple[str, ...]` | `()` | The arguments that look like `scheme://...` addresses. |
+| `files` | `tuple[str, ...]` | `()` | The arguments that name an existing file, as absolute paths. |
+
+#### `LaunchRequest.as_json`
+
+```python
+def LaunchRequest.as_json() -> dict[str, list[str]]
+```
+
+The request as JSON, which is also the detail of the page's `cornea:launch` event.
+
+Example:
+
+```pycon
+>>> request = LaunchRequest.from_args(["myapp://open/42", "--flag"])
+>>> request.urls
+('myapp://open/42',)
+>>> request.args
+('myapp://open/42', '--flag')
+```
 
 ### `Loading`
 
@@ -843,6 +1005,40 @@ Shell(source, security=Security(csp=DEV_CSP)).run()  # dev servers inject inline
 ```
 
 Cornea starts the command, waits for the address, and stops the command and everything it started when the window closes. Proxy mode needs the `proxy` extra.
+
+### Open `myapp://` links and files in the running app
+
+```python
+from cornea import App, Shell, Static
+
+shell = Shell(
+    Static("web/dist"),
+    identity=App(id="com.example.notes", single_instance=True, launch_events=True),
+)
+
+# Once, for example from an installer or a settings switch:
+shell.associations.register_protocol("notes", name="Notes link")  # notes://open/42
+shell.associations.register_file_type(".notes", description="Notes file")
+
+
+@shell.on_launch
+def opened(request):
+    print(request.urls, request.files)  # what a second start was given
+
+
+print(shell.launch.urls)  # what this copy was started with
+shell.run()
+```
+
+Registration is for the current user only (`HKEY_CURRENT_USER\Software\Classes`), so no administrator rights are needed, and it only happens when your code calls it. A file type is added to the "Open with" list and never takes over the default program: that stays with the person. Schemes Windows or browsers own (`http`, `file`, `mailto` and so on) and programs or scripts (`.exe`, `.bat`, `.ps1`, `.lnk`, ...) are refused. Entries that another app made are never touched.
+
+With `single_instance`, starting the app again (by clicking a link or opening a file) brings the running window to the front and hands over the arguments. Your `on_launch` handler gets a `LaunchRequest` (`args`, `urls`, `files`, with file names made absolute), and with `launch_events=True` the page gets the same as a `cornea:launch` event:
+
+```js
+cornea.on("launch", (detail) => console.log(detail.urls, detail.files));
+```
+
+`launch_events` is off by default because a file's full path says where a person keeps things. The arguments come from outside the app (a web page can open `notes://` links), so check them before using them. Windows only.
 
 ### Let the page show notifications, open files and accept drops
 

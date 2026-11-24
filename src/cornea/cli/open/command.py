@@ -26,6 +26,7 @@ from cornea.cli.commands import (
     JsApi,
     JsonFileFlag,
     JsonFriendlyFlag,
+    LaunchEventsFlag,
     LoadingBackground,
     LoadingFlag,
     LoadingForeground,
@@ -128,6 +129,7 @@ def open_window(
     app_id: AppIdFlag = None,
     single_instance: SingleInstanceFlag = None,
     remember_window: RememberWindowFlag = None,
+    launch_events: LaunchEventsFlag = None,
     log_level: LogLevelFlag = None,
     log_file: LogFileFlag = None,
     measure: MeasureFlag = None,
@@ -199,7 +201,10 @@ def open_window(
             disable_action=disable_action, open_files=open_files, notifications=notifications
         )
         identity = options.build_app(
-            app_id=app_id, single_instance=single_instance, remember_window=remember_window
+            app_id=app_id,
+            single_instance=single_instance,
+            remember_window=remember_window,
+            launch_events=launch_events,
         )
     except ValueError as exc:
         output.error(str(exc))

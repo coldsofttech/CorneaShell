@@ -184,10 +184,19 @@ def build_security(
 
 
 def build_app(
-    *, app_id: str | None, single_instance: bool | None, remember_window: bool | None
+    *,
+    app_id: str | None,
+    single_instance: bool | None,
+    remember_window: bool | None,
+    launch_events: bool | None = None,
 ) -> App:
     return App(
-        **_given(id=app_id, single_instance=single_instance, remember_window=remember_window)
+        **_given(
+            id=app_id,
+            single_instance=single_instance,
+            remember_window=remember_window,
+            launch_events=launch_events,
+        )
     )
 
 
