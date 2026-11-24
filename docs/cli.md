@@ -86,6 +86,8 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--disable-action <str>`: Switch a built-in action off. Repeatable.
 * `--open-files`: Let the page open a file in its program and show it in Explorer.
 * `--notifications`: Let the page show Windows notifications (needs the notifications extra).
+* `--storage`: Let the page read and write the app&#x27;s settings and data (needs an app id).
+* `--secrets`: Let the page read and write secrets in Windows Credential Manager (needs an app id).
 * `--title <str>`: Window title.
 * `--size <str>`: Window size, like 1200x800.
 * `--min-size <str>`: Smallest window size, like 400x300.
@@ -220,6 +222,8 @@ $ cornea serve [OPTIONS] [SOURCE]
 * `--disable-action <str>`: Switch a built-in action off. Repeatable.
 * `--open-files`: Let the page open a file in its program and show it in Explorer.
 * `--notifications`: Let the page show Windows notifications (needs the notifications extra).
+* `--storage`: Let the page read and write the app&#x27;s settings and data (needs an app id).
+* `--secrets`: Let the page read and write secrets in Windows Credential Manager (needs an app id).
 * `--log-level <debug|info|warning|error>`: Show log messages of this level and above on stderr (default: warning).
 * `--log-file <path>`: Also write a full debug log to this file.
 * `--measure`: Print how long start-up took (on stderr) once the first page has loaded.
@@ -274,7 +278,7 @@ Every setting of the Python API has a flag, grouped in `--help`: server (`--host
 | `--single-instance` | Run one copy at a time. Needs `--app-id`. |
 | `--remember-window` | Reopen the window at its last size, position and maximized state. Needs `--app-id`. |
 
-The app keeps its files in `%LOCALAPPDATA%\Cornea\<id>\`. A second launch of a single-instance app brings the first window to the front (restoring it if minimized), prints a message and exits with code `0`. If it cannot reach the first copy it exits with code `1`.
+The app keeps its files in `%LOCALAPPDATA%\ColdSoft Technologies\Cornea\<id>\`. A second launch of a single-instance app brings the first window to the front (restoring it if minimized), prints a message and exits with code `0`. If it cannot reach the first copy it exits with code `1`.
 
 ### Logging
 
@@ -283,7 +287,7 @@ The app keeps its files in `%LOCALAPPDATA%\Cornea\<id>\`. A second launch of a s
 | `--log-level LEVEL` | Show log messages of this level and above on stderr: `debug`, `info`, `warning` (the default) or `error`. |
 | `--log-file PATH` | Also write a full debug log to this file. The folder is created if needed. |
 
-`--debug` (for `open`) also turns on debug logging, unless `--log-level` says otherwise. With no `--log-file`, it writes the log to `%LOCALAPPDATA%\Cornea\logs\cornea.log` (the folder is created; the file is started over at 1 MB, keeping three older ones). If that file cannot be written, debug messages only go to stderr. An unwritable log file is an error before anything starts. Logs go to stderr, so the JSON line of `serve` on stdout stays clean. The start-up token is never written.
+`--debug` (for `open`) also turns on debug logging, unless `--log-level` says otherwise. With no `--log-file`, it writes the log to `cornea.log` in the `logs` folder of the app, `%LOCALAPPDATA%\ColdSoft Technologies\Cornea\<id>\logs` (or `...\Cornea\logs` when there is no `--app-id`; the folder is created; the file is started over at 1 MB, keeping three older ones). If that file cannot be written, debug messages only go to stderr. An unwritable log file is an error before anything starts. Logs go to stderr, so the JSON line of `serve` on stdout stays clean. The start-up token is never written.
 
 ```console
 $ cornea open web/dist --log-level debug --log-file cornea.log

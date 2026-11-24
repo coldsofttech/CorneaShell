@@ -8,12 +8,14 @@ import re
 import subprocess
 import sys
 import webbrowser
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
 from cornea.core.page.notifications import Notifier
+from cornea.core.storage import AppStorage, Namespace, SecretsUnavailable
 from cornea.core.window.window import Unavailable, WindowController
 
 logger = logging.getLogger(__name__)
@@ -45,6 +47,11 @@ OPT_IN_FILES = frozenset({"open_file", "reveal"})
 """Built-in actions that are off until ``Bridge(open_files=True)``."""
 OPT_IN_NOTIFICATIONS = frozenset({"show_notification"})
 """Built-in actions that are off until ``Bridge(notifications=True)``."""
+OPT_IN_STORAGE = frozenset({"storage_get", "storage_set", "storage_delete", "storage_keys"})
+"""Built-in actions that are off until ``Bridge(storage=True)``."""
+OPT_IN_SECRETS = frozenset({"secret_get", "secret_set", "secret_delete", "secret_keys"})
+"""Built-in actions that are off until ``Bridge(secrets=True)``."""
+STORAGE_AREAS = ("store", "settings")
 
 
 class BuiltinActions:
@@ -200,6 +207,67 @@ class BuiltinActions:
 BUILTINS: dict[str, Callable[..., Any]] = BuiltinActions.table()
 
 
+def _area(storage: AppStorage, area: object) -> Namespace:
+    if area not in STORAGE_AREAS:
+        raise BadArguments(f"area must be one of {', '.join(STORAGE_AREAS)}")
+    return storage.data if area == "store" else storage.settings
+
+
+def storage_actions(
+    storage: AppStorage, *, data: bool, secrets: bool
+) -> dict[str, Callable[..., Any]]:
+    """The page's storage actions, bound to one app's storage.
+
+    Each takes the window first, like every built-in, and ignores it. Values and keys are checked
+    by the storage itself (a bad one is a :class:`ValueError`, which the page sees as a 422).
+    """
+    table: dict[str, Callable[..., Any]] = {}
+    if data:
+
+        def storage_get(window: Any, key: str, default: Any = None, area: str = "store") -> Any:
+            return _area(storage, area).get(key, default)
+
+        def storage_set(window: Any, key: str, value: Any, area: str = "store") -> Any:
+            _area(storage, area).set(key, value)
+            return {"stored": True}
+
+        def storage_delete(window: Any, key: str, area: str = "store") -> Any:
+            return {"deleted": _area(storage, area).delete(key)}
+
+        def storage_keys(window: Any, prefix: str = "", area: str = "store") -> Any:
+            return _area(storage, area).keys(prefix)
+
+        table |= {f.__name__: f for f in (storage_get, storage_set, storage_delete, storage_keys)}
+    if secrets:
+
+        @contextmanager
+        def vault() -> Iterator[None]:
+            try:
+                yield
+            except SecretsUnavailable as exc:
+                raise Unavailable(str(exc)) from exc
+
+        def secret_get(window: Any, key: str, default: str | None = None) -> Any:
+            with vault():
+                return storage.secrets.get(key, default)
+
+        def secret_set(window: Any, key: str, value: str) -> Any:
+            with vault():
+                storage.secrets.set(key, value)
+            return {"stored": True}
+
+        def secret_delete(window: Any, key: str) -> Any:
+            with vault():
+                return {"deleted": storage.secrets.delete(key)}
+
+        def secret_keys(window: Any) -> Any:
+            with vault():
+                return storage.secrets.keys()
+
+        table |= {f.__name__: f for f in (secret_get, secret_set, secret_delete, secret_keys)}
+    return table
+
+
 class ActionRegistry:
     """The actions the page may call: the built-ins that are on, and the host's own.
 
@@ -218,9 +286,12 @@ class ActionRegistry:
         *,
         open_files: bool = False,
         notifications: bool = False,
+        storage: AppStorage | None = None,
+        page_storage: bool = False,
+        page_secrets: bool = False,
     ) -> None:
         off = set(disabled)
-        unknown = off - set(BUILTINS)
+        unknown = off - set(BUILTINS) - OPT_IN_STORAGE - OPT_IN_SECRETS
         if unknown:
             raise ValueError(f"cannot disable unknown built-in actions: {sorted(unknown)}")
         self._builtins = {
@@ -230,13 +301,16 @@ class ActionRegistry:
             and (open_files or name not in OPT_IN_FILES)
             and (notifications or name not in OPT_IN_NOTIFICATIONS)
         }
+        if storage is not None and (page_storage or page_secrets):
+            wanted = storage_actions(storage, data=page_storage, secrets=page_secrets)
+            self._builtins |= {name: fn for name, fn in wanted.items() if name not in off}
         self._custom: dict[str, Callable[..., Any]] = {}
 
     def register(self, name: str, function: Callable[..., Any]) -> Callable[..., Any]:
         """Add the host's own action. Names are lowercase words joined by underscores."""
         if not ACTION_NAME.match(name):
             raise ValueError(f"action names look like 'pick_report', got {name!r}")
-        if name in BUILTINS:
+        if name in BUILTINS or name in OPT_IN_STORAGE or name in OPT_IN_SECRETS:
             raise ValueError(f"{name!r} is a built-in action and cannot be replaced")
         if name in self._custom:
             raise ValueError(f"action {name!r} is already registered")

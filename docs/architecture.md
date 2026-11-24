@@ -33,9 +33,12 @@ src/cornea/core/environment.py            Environment: versions and places, for 
 src/cornea/core/asgi.py                   the ASGI types the middleware and sources share
 src/cornea/core/client.js                 the script served as /api/client.js
 src/cornea/core/app/app.py                AppFactory: puts the pieces below into one FastAPI app
-src/cornea/core/app/appdata.py            AppData: the per-app data folder
+src/cornea/core/app/appdata.py            AppData: the per-app data and log folders
+src/cornea/core/storage/__init__.py       AppStorage: settings, data and secrets of one app, and the import from the old folder
+src/cornea/core/storage/database.py       Database and Namespace: the SQLite file and its key-value areas
+src/cornea/core/storage/credentials.py    SecretStore: Windows Credential Manager through advapi32
 src/cornea/core/window/window.py          pywebview window, window controller, environment checks
-src/cornea/core/window/memory.py          remembered window size and position
+src/cornea/core/window/memory.py          remembered window size and position (stored in the database)
 src/cornea/core/window/api.py             the opt-in js_api object
 src/cornea/core/window/routes.py          /api/window routes
 src/cornea/core/bridge/bridge.py          BuiltinActions and the ActionRegistry
@@ -141,7 +144,7 @@ The failures are: the command exited early, the address did not answer in time, 
 
 `App(id, single_instance, remember_window)` is passed to `Shell` as `identity=` (`app` is already the FastAPI app). The two options need an id.
 
-- **Data folder.** `%LOCALAPPDATA%\Cornea\<id>\` holds `window.json` (the remembered window) and `instance.json` (while the app runs).
+- **Data folder.** `%LOCALAPPDATA%\ColdSoft Technologies\Cornea\<id>\` holds `app.db` (settings, data and the remembered window), `logs\cornea.log` and, while the app runs, `instance.json`. See [persistent storage](#persistent-storage).
 - **Remembered window.** Size, position and the maximized state are saved when the window closes and used at the next start. The size never goes below the minimum. A position is kept only if the window's top-left corner would still be on a screen; otherwise it is dropped and the system places the window, which handles an unplugged monitor.
 - **Single instance.** The first copy takes a named Windows mutex, so the system releases the lock if the app crashes and no stale lock can exist. It also listens on a private loopback port and writes that port and a random secret to `instance.json`. A second copy fails to get the mutex, reads the file, and sends the secret to that port. The first copy checks the secret, restores and activates its window, and the second exits (`AlreadyRunning`, with `.activated` telling whether the first copy answered). A request without the secret is ignored. Single instance needs a window.
 - **Taskbar identity.** The id is set as the Windows app identity, so the taskbar does not group the window under `python.exe`.
@@ -209,11 +212,21 @@ The text is limited (title 64, message 256 characters), plain, and XML-escaped w
 
 Windows calls back on a thread of its own when a toast is clicked, dismissed or fails. Live toasts are kept in a set until then, because a toast that is freed early never calls back. A click activates the window and sends the page `cornea:notification-click` with the `notification_id`. Click callbacks for unpackaged apps depend on Windows delivering the event to the running process; this was not tested with a real click.
 
+## Persistent storage
+
+`AppStorage(app_id)` is everything one app keeps between runs. Nothing is opened or created until it is first used.
+
+- **One SQLite file, `app.db`.** One table, `entries(namespace, key, value, updated)`, with a JSON value. The namespaces are `settings` (`shell.settings`), `store` (`shell.storage`) and `cornea.window` (the remembered window; the app has no handle to it). SQLite was chosen over JSON files because a crash mid-write cannot leave a half-written file, a second process can share the file, and it is in the standard library. Each call opens a short connection, so one object is safe to share between threads and there is nothing to close. The schema version is `PRAGMA user_version`; a file made by a newer Cornea is refused rather than changed, and a file that is not a database is renamed to `app.db.corrupt-<time>` and started over.
+- **Limits.** Keys start with a letter or digit and use `. _ : / -` (up to 200 characters). A value must be JSON (no `NaN`) and at most 1 MB.
+- **Secrets are not in the file.** `SecretStore` reads and writes generic credentials named `Cornea/<id>/<key>` through `CredReadW`, `CredWriteW`, `CredDeleteW` and `CredEnumerateW` (`ctypes`, no extra package), with `CRED_PERSIST_LOCAL_MACHINE`. Windows encrypts them for the signed-in user. A secret is at most 2560 bytes, Credential Manager's own limit. Off Windows, or if a call fails, it raises `SecretsUnavailable`; the page sees that as `available: false`, like a dialog without a window. The backend is a small protocol, so tests use a dictionary.
+- **The page.** Nothing is exposed by default. `Bridge(storage=True)` adds `storage_get`, `storage_set`, `storage_delete` and `storage_keys`, which can reach only `store` and `settings`. `Bridge(secrets=True)` adds the four `secret_*` actions, including reading a value back. They go through the same bridge route (and `js_api`) as every action, so the session, host and origin checks apply. Neither takes arguments or returns values into the log.
+- **The old folder.** Versions before the database kept `window.json` in `%LOCALAPPDATA%\Cornea\<id>\`. On first use the file is read into `cornea.window`, unless the database already has a place, and renamed to `window.json.migrated`. An unreadable file is left alone. Old logs are not moved.
+
 ## Logging
 
 Every module logs to a child of the `cornea` logger, and Cornea never configures logging itself, so a program that sets up logging sees these messages like any library's. `configure_logging(level, file=...)` is the quick way: it adds a stderr handler at `level` and, with a file, a file handler that always records `debug`. The `cornea` command calls it for `--log-level`, `--log-file` and `--debug`.
 
-Debug mode (`Window(debug=True)`, which `Shell.run()` checks, or `--debug`) calls `Logs.enable_debug()`. It does nothing if the `cornea` logger or the root logger already has a handler, because the program chose where logs go. Otherwise it logs at `debug` to stderr and to `cornea.log` in `%LOCALAPPDATA%\Cornea\logs` (`appdata.logs_dir()`), which does not depend on where the program was started. If the file cannot be opened it logs to stderr only. Files rotate at 1 MB and keep three backups. The first lines of a debug log are `environment_details()` (the versions, the WebView2 runtime and the log folder) and the window, server, security and app settings; none of them holds a secret.
+Debug mode (`Window(debug=True)`, which `Shell.run()` checks, or `--debug`) calls `Logs.enable_debug()`. It does nothing if the `cornea` logger or the root logger already has a handler, because the program chose where logs go. Otherwise it logs at `debug` to stderr and to `cornea.log` in the `logs` folder of the app (`appdata.logs_dir(app_id)`; without an app id, `logs` beside the apps), which does not depend on where the program was started. If the file cannot be opened it logs to stderr only. Files rotate at 1 MB and keep three backups. The first lines of a debug log are `environment_details()` (the versions, the WebView2 runtime and the log folder) and the window, server, security and app settings; none of them holds a secret.
 
 What is logged, all at `debug`: start-up and shutdown steps with their timings, requests the security layer refused (method, path and reason), proxy failures, native action names and outcomes, and the dev-server command's output lines. Query strings, cookies, action arguments and results are never logged, and a formatter hides anything that looks like `cornea_token=...` as a last line of defence, tracebacks included. The default is quiet because most messages are only useful when something is wrong.
 

@@ -27,6 +27,7 @@ from cornea.core.security.close_guard import CloseGuard
 from cornea.core.security.single_instance import AlreadyRunning, InstanceLock, activate_existing
 from cornea.core.sources.process import ProcessRunner
 from cornea.core.sources.sources import Process, Url, WebSource, coerce_source
+from cornea.core.storage import AppStorage, Namespace, SecretStore
 from cornea.core.window.loading import check_loading, render_loading
 from cornea.core.window.window import (
     SimulatedWindow,
@@ -162,6 +163,11 @@ class Shell:
         self.identity = identity or App()
         if window is None and (self.identity.single_instance or self.identity.remember_window):
             raise ValueError("single_instance and remember_window need a window")
+        if bridge is not None and (bridge.storage or bridge.secrets) and self.identity.id is None:
+            raise ValueError("Bridge(storage=True) and Bridge(secrets=True) need an app id")
+        self._app_storage: AppStorage | None = (
+            AppStorage(self.identity.id) if self.identity.id is not None else None
+        )
         self._lock: InstanceLock | None = None
         self._measure = measure
         self._reported = False
@@ -192,6 +198,7 @@ class Shell:
             security=self.security,
             bridge=bridge,
             app_id=self.identity.id,
+            storage=self._app_storage,
         )
         self._guard: CloseGuard = self.app.state.close_guard
         if window is None:
@@ -222,7 +229,7 @@ class Shell:
 
     def _log_environment(self) -> None:
         """Write the versions and settings to the top of a debug log. No secrets are in them."""
-        for name, value in Environment.details().items():
+        for name, value in Environment.details(self.identity.id).items():
             logger.debug("%s: %s", name, value)
         logger.debug("Window: %r", self.window)
         logger.debug("Server: %r", self.server)
@@ -240,6 +247,45 @@ class Shell:
             return
         logger.info(timings.summary())
         print(timings.summary(), file=sys.stderr)  # noqa: T201 - the point of measure=True
+
+    def _need_storage(self) -> AppStorage:
+        if self._app_storage is None:
+            raise RuntimeError("settings, storage and secrets need App(id=...)")
+        return self._app_storage
+
+    @property
+    def settings(self) -> Namespace:
+        """The app's settings: ``get(key, default)``, ``set``, ``delete``, ``keys``, ``items``.
+
+        Kept in the app's SQLite file between runs. Values are JSON. Needs ``App(id=...)``.
+
+        Example:
+            >>> import tempfile, os
+            >>> os.environ["LOCALAPPDATA"] = tempfile.mkdtemp()
+            >>> shell = Shell(window=None, identity=App(id="com.example.notes"))
+            >>> shell.settings.set("theme", "dark")
+            >>> shell.settings.get("theme")
+            'dark'
+        """
+        return self._need_storage().settings
+
+    @property
+    def storage(self) -> Namespace:
+        """The app's key-value data, the same kind of store as :attr:`settings` but separate.
+
+        Use it for caches, history and state; use :attr:`settings` for choices the person made.
+        Needs ``App(id=...)``.
+        """
+        return self._need_storage().data
+
+    @property
+    def secrets(self) -> SecretStore:
+        """The app's secrets in Windows Credential Manager: ``get``, ``set``, ``delete``, ``keys``.
+
+        Nothing is written to the app's files. Raises :class:`SecretsUnavailable` off Windows.
+        Needs ``App(id=...)``.
+        """
+        return self._need_storage().secrets
 
     @property
     def actions(self) -> ActionRegistry:
@@ -480,7 +526,7 @@ class Shell:
         """
         self._started_at = time.perf_counter()
         if self.window is not None and self.window.debug:
-            Logs.enable_debug()
+            Logs.enable_debug(self.identity.id)
         logger.debug(
             "Starting: %s, %s",
             "direct address" if self._direct_url is not None else "local server",

@@ -11,7 +11,7 @@ class Environment:
     """A description of the machine and the Cornea install."""
 
     @staticmethod
-    def details() -> dict[str, str]:
+    def details(app_id: str | None = None) -> dict[str, str]:
         """The versions and places that matter when something goes wrong."""
         from cornea import __version__
 
@@ -28,5 +28,5 @@ class Environment:
                 details["pywebview"] = importlib.metadata.version("pywebview")
             except importlib.metadata.PackageNotFoundError:
                 details["pywebview"] = "not installed"
-        details["logs"] = str(AppData.logs_dir())
+        details["logs"] = str(AppData.logs_dir(app_id))
         return details

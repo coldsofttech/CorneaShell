@@ -56,6 +56,8 @@ SECTIONS: dict[str, dict[str, str]] = {
         "disable-action": "disable_action",
         "open-files": "open_files",
         "notifications": "notifications",
+        "storage": "storage",
+        "secrets": "secrets",
     },
     "window": {
         "title": "title",

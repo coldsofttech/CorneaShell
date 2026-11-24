@@ -18,6 +18,7 @@ from cornea.core.security.single_instance import (
     InstanceLock,
     activate_existing,
 )
+from cornea.core.storage import AppStorage
 from cornea.core.window import window as window_module
 from cornea.core.window.memory import MIN_VISIBLE, Remembered, WindowMemory, fit_to_screens
 from cornea.core.window.window import NativeWindow, create_native_window
@@ -73,7 +74,7 @@ def test_an_id_alone_only_names_the_app() -> None:
 def test_data_lives_under_the_local_app_data_folder(local_data: Path) -> None:
     folder = AppData.data_dir("notes")
 
-    assert folder == local_data / "Cornea" / "notes"
+    assert folder == local_data / "ColdSoft Technologies" / "Cornea" / "notes"
     assert folder.is_dir()
 
 
@@ -89,45 +90,48 @@ def test_single_instance_and_memory_need_a_window() -> None:
 # ----- remembering a window -------------------------------------------------------------------
 
 
-def test_a_window_is_saved_and_loaded(tmp_path: Path) -> None:
-    memory = WindowMemory(tmp_path / "window.json")
+def memory_for(app_id: str = "memory-test") -> WindowMemory:
+    return WindowMemory(AppStorage(app_id).window)
+
+
+def test_a_window_is_saved_and_loaded() -> None:
+    memory = memory_for()
     place = Remembered(900, 600, 40, 50, True)
 
     memory.save(place)
 
     assert memory.load() == place
-    assert not list(tmp_path.glob("*.tmp"))
 
 
-def test_a_window_that_was_never_placed_is_loaded(tmp_path: Path) -> None:
-    memory = WindowMemory(tmp_path / "window.json")
+def test_a_window_that_was_never_placed_is_loaded() -> None:
+    memory = memory_for()
     memory.save(Remembered(900, 600))
 
     assert memory.load() == Remembered(900, 600, None, None, False)
 
 
-def test_nothing_remembered_means_none(tmp_path: Path) -> None:
-    assert WindowMemory(tmp_path / "missing.json").load() is None
+def test_nothing_remembered_means_none() -> None:
+    assert memory_for().load() is None
 
 
 @pytest.mark.parametrize(
     "content",
     [
-        "not json",
-        "[]",
-        "{}",
-        '{"width": 100}',
-        '{"width": -1, "height": 100}',
-        '{"width": 100, "height": 0}',
-        '{"width": "wide", "height": 100}',
-        '{"width": 100, "height": 100, "x": 5}',
+        "not a place",
+        [],
+        {},
+        {"width": 100},
+        {"width": -1, "height": 100},
+        {"width": 100, "height": 0},
+        {"width": "wide", "height": 100},
+        {"width": 100, "height": 100, "x": 5},
     ],
 )
-def test_a_damaged_file_is_ignored(content: str, tmp_path: Path) -> None:
-    path = tmp_path / "window.json"
-    path.write_text(content, encoding="utf-8")
+def test_a_damaged_value_is_ignored(content: Any) -> None:
+    storage = AppStorage("memory-test")
+    storage.window.set(WindowMemory.KEY, content)
 
-    assert WindowMemory(path).load() is None
+    assert WindowMemory(storage.window).load() is None
 
 
 def test_the_size_is_never_below_the_minimum() -> None:
@@ -287,10 +291,12 @@ def create(
     return window, controller
 
 
-def write_memory(app_id: str, place: dict[str, Any]) -> Path:
-    path = AppData.data_dir(app_id) / "window.json"
-    path.write_text(json.dumps(place), encoding="utf-8")
-    return path
+def write_memory(app_id: str, place: dict[str, Any]) -> None:
+    AppStorage(app_id).window.set(WindowMemory.KEY, place)
+
+
+def saved_place(app_id: str = "notes") -> Any:
+    return AppStorage(app_id).window.get(WindowMemory.KEY)
 
 
 def test_the_window_reopens_where_it_was(webview: FakeWebview) -> None:
@@ -344,7 +350,7 @@ def test_closing_saves_the_place(webview: FakeWebview) -> None:
 
     window.events.closing.fire()
 
-    saved = json.loads((AppData.data_dir("notes") / "window.json").read_text(encoding="utf-8"))
+    saved = saved_place()
     assert saved == {"width": 1000, "height": 650, "x": 60, "y": 70, "maximized": False}
 
 
@@ -357,7 +363,7 @@ def test_closing_a_maximized_window_saves_the_normal_place(webview: FakeWebview)
 
     window.events.closing.fire()
 
-    saved = json.loads((AppData.data_dir("notes") / "window.json").read_text(encoding="utf-8"))
+    saved = saved_place()
     assert saved == {"width": 1000, "height": 650, "x": 60, "y": 70, "maximized": True}
 
 
@@ -366,7 +372,7 @@ def test_a_window_is_not_saved_unless_asked(webview: FakeWebview) -> None:
 
     window.events.closing.fire()
 
-    assert not (AppData.data_dir("notes") / "window.json").exists()
+    assert saved_place() is None
     # Only the close guard listens, and it lets the window close.
     assert len(window.events.closing.handlers) == 1
 

@@ -13,6 +13,7 @@ from cornea.core.config import DEV_CSP, App, Bridge, Loading, Security, Server, 
 from cornea.core.logs import LOG_LEVELS, LogLevel, Logs
 from cornea.core.preload import preload
 from cornea.core.sources.sources import Asgi, Process, Static, Url, WebSource, Wsgi
+from cornea.core.storage import Namespace, SecretStore, SecretsUnavailable
 
 if TYPE_CHECKING:
     from cornea.core.app.app import AppFactory
@@ -40,7 +41,10 @@ __all__ = [
     "Bridge",
     "Loading",
     "LogLevel",
+    "Namespace",
     "Process",
+    "SecretStore",
+    "SecretsUnavailable",
     "Security",
     "Server",
     "Shell",

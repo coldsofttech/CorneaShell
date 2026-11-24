@@ -242,7 +242,19 @@ cornea open web/dist --app-id com.example.notes --single-instance --remember-win
 - **Reopen where it was** (`--remember-window`): the window comes back at the size and place you left it. If that place is no longer on a screen, for example an unplugged monitor, Windows places it instead.
 - **Its own taskbar identity:** the name also keeps the icon from being grouped under `python.exe`.
 
-The name uses letters, digits, dots, dashes and underscores. In Python these are the `App` options. Remembered details are kept in `%LOCALAPPDATA%\Cornea\<name>`.
+The name uses letters, digits, dots, dashes and underscores. In Python these are the `App` options. Remembered details are kept in `%LOCALAPPDATA%\ColdSoft Technologies\Cornea\<name>`.
+
+## Keeping settings, data and secrets
+
+With an app name (`--app-id`), your app can keep things between runs, from Python or, when you allow it, from the page:
+
+```python
+shell.settings.set("theme", "dark")  # choices the person made
+shell.storage.set("recent", ["a.txt"])  # caches, history, state
+shell.secrets.set("api-token", "...")  # Windows Credential Manager
+```
+
+Settings and data are stored in one SQLite file, `app.db`, in the app's folder. Secrets are not in any file: they go in the signed-in user's Windows Credential Manager. The page gets none of this unless you turn it on: `--storage` lets it read and write settings and data, and `--secrets` lets it read and write secrets (use it only for pages you trust). In the page, `cornea.storage.get("recent")` and `cornea.secrets.get("api-token")` call them. See the [Python API reference](https://github.com/coldsofttech/CorneaShell/blob/main/docs/api.md#keep-settings-data-and-secrets-between-runs).
 
 ## Keeping your settings in a file
 
@@ -267,7 +279,7 @@ Cornea is quiet by default. To see what it is doing, turn on logging:
 cornea open web/dist --log-level debug --log-file cornea.log
 ```
 
-`--log-level` (`debug`, `info`, `warning` or `error`) controls what appears on screen, and `--log-file` also writes everything to a file you can attach to a bug report. Debug mode (`--debug`, or `Window(debug=True)` in Python) turns on debug logging along with the right-click menu and developer tools. If you have not set up logging yourself, Cornea writes the log to `%LOCALAPPDATA%\Cornea\logs\cornea.log`, a folder every user can write to, and also shows it on screen. If that file cannot be written, the log only appears on screen. When the file reaches 1 MB it is started over, keeping the three previous ones (`cornea.log.1` to `cornea.log.3`). If you already set up logging, or use `--log-file` or `--log-level`, Cornea uses that and creates nothing.
+`--log-level` (`debug`, `info`, `warning` or `error`) controls what appears on screen, and `--log-file` also writes everything to a file you can attach to a bug report. Debug mode (`--debug`, or `Window(debug=True)` in Python) turns on debug logging along with the right-click menu and developer tools. If you have not set up logging yourself, Cornea writes the log to `cornea.log` in the `logs` folder of your app (`%LOCALAPPDATA%\ColdSoft Technologies\Cornea\<name>\logs`), a folder every user can write to, and also shows it on screen. If that file cannot be written, the log only appears on screen. When the file reaches 1 MB it is started over, keeping the three previous ones (`cornea.log.1` to `cornea.log.3`). If you already set up logging, or use `--log-file` or `--log-level`, Cornea uses that and creates nothing.
 
 The log starts with the versions and settings in use (no secrets). It shows start-up steps, refused requests, dev-server output and native action names. It never shows the start-up token, cookies, or what your page sends to an action. In Python, `configure_logging("debug", file="my.log")` does the same without debug mode.
 

@@ -226,6 +226,22 @@ Notifications = Annotated[
         panel=NATIVE,
     ),
 ]
+Storage = Annotated[
+    bool | None,
+    _flag(
+        "--storage",
+        help="Let the page read and write the app's settings and data (needs an app id).",
+        panel=NATIVE,
+    ),
+]
+Secrets = Annotated[
+    bool | None,
+    _flag(
+        "--secrets",
+        help="Let the page read and write secrets in Windows Credential Manager (needs an app id).",
+        panel=NATIVE,
+    ),
+]
 Downloads = Annotated[
     bool | None,
     _flag(
@@ -619,7 +635,9 @@ def launch(
         level, file, use_default = logging_options
         try:
             if use_default:
-                file = Logs.start_debug()  # falls back to the screen if it cannot write
+                file = Logs.start_debug(
+                    identity.id if identity is not None else None
+                )  # falls back to the screen if it cannot write
             else:
                 Logs.configure(level, file=file)
         except OSError as exc:

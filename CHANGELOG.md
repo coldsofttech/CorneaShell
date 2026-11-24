@@ -4,6 +4,15 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Apps with an `App(id=...)` can now keep settings, data and secrets between runs: `shell.settings` and `shell.storage` are saved in a small database in the app's folder, and `shell.secrets` uses Windows Credential Manager, so nothing sensitive is written to a file.
+- The page can read and write them too, only when you allow it: `Bridge(storage=True)` / `--storage` for settings and data, and `Bridge(secrets=True)` / `--secrets` for secrets. In the page, use `cornea.storage` and `cornea.secrets`.
+
+### Changed
+
+- An app's files now live in `%LOCALAPPDATA%\ColdSoft Technologies\Cornea\<id>`, and the debug log is in the `logs` folder there. The remembered window is kept in the new database, and an existing remembered window is brought over automatically the first time you run the new version. Old log files are not moved.
+
 ## [0.1.1] - 2026-11-08
 
 ### Changed

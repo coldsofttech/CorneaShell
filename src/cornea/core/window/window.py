@@ -5,6 +5,7 @@ import importlib
 import json
 import logging
 import re
+import sqlite3
 import sys
 import threading
 from collections.abc import Callable, Sequence
@@ -12,9 +13,9 @@ from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Literal, Protocol
 
-from cornea.core.app.appdata import AppData
 from cornea.core.config import App, Window
 from cornea.core.security.close_guard import CloseGuard
+from cornea.core.storage import AppStorage, StorageError
 from cornea.core.window.memory import Remembered, WindowMemory, fit_to_screens
 
 if TYPE_CHECKING:
@@ -502,7 +503,7 @@ def create_native_window(
     if app is not None and app.id is not None:
         set_app_user_model_id(app.id)
         if app.remember_window:
-            memory = WindowMemory(AppData.data_dir(app.id) / "window.json")
+            memory = WindowMemory(AppStorage(app.id).window)
             saved = memory.load()
             if saved is not None:
                 start = fit_to_screens(saved, screen_rectangles(webview), settings.min_size)
@@ -587,7 +588,9 @@ def create_native_window(
         remembered_window = memory
 
         def save_place() -> None:
-            with contextlib.suppress(OSError):  # not remembering beats failing to close
+            with contextlib.suppress(
+                OSError, sqlite3.Error, StorageError
+            ):  # not remembering beats failing to close
                 remembered_window.save(controller.remember())
 
         window.events.closing += save_place

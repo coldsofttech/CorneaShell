@@ -16,6 +16,7 @@ from cornea.core.security.security import SecurityMiddleware, SessionGate, new_t
 from cornea.core.sources.proxy import ProxyApp
 from cornea.core.sources.sources import Asgi, Process, Static, Url, WebSource, Wsgi, coerce_source
 from cornea.core.sources.static import BundleFiles
+from cornea.core.storage import AppStorage
 from cornea.core.window.routes import router as window_router
 
 _ALL_METHODS = ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
@@ -33,6 +34,7 @@ class AppFactory:
         bridge: Bridge | None = None,
         bootstrap_token: str | None = None,
         app_id: str | None = None,
+        storage: AppStorage | None = None,
     ) -> FastAPI:
         """Build the FastAPI app that the shell serves.
 
@@ -41,7 +43,9 @@ class AppFactory:
         prefix and ``/health``) always win over the source. The bootstrap token and the
         allowed-host set are on ``app.state`` for the shell; add the bound address with
         :meth:`AppFactory.allow_host` once the port is known. ``app_id`` is part of the session
-        cookie's name.
+        cookie's name. ``storage`` is the app's :class:`~cornea.core.storage.AppStorage`; with an
+        ``app_id`` and none given, one is made. It is needed when the ``bridge`` offers storage
+        or secrets to the page.
 
         Example:
             >>> app = AppFactory.create()
@@ -65,8 +69,18 @@ class AppFactory:
         app.state.window = None  # set by the shell once a window exists
         app.state.close_guard = CloseGuard()
         settings = bridge or Bridge()
+        if storage is None and app_id is not None:
+            storage = AppStorage(app_id)
+        if (settings.storage or settings.secrets) and storage is None:
+            raise ValueError("Bridge(storage=True) and Bridge(secrets=True) need an app id")
+        app.state.storage = storage
         app.state.actions = ActionRegistry(
-            settings.disabled, open_files=settings.open_files, notifications=settings.notifications
+            settings.disabled,
+            open_files=settings.open_files,
+            notifications=settings.notifications,
+            storage=storage,
+            page_storage=settings.storage,
+            page_secrets=settings.secrets,
         )
 
         @app.get("/health")

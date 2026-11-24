@@ -31,8 +31,10 @@ from cornea.cli.commands import (
     RunCwd,
     RunFlag,
     RunTimeout,
+    Secrets,
     SourceArgument,
     SpaFlag,
+    Storage,
     TokenTtl,
     UrlFlag,
     WebDist,
@@ -76,6 +78,8 @@ def serve(
     disable_action: DisableAction = None,
     open_files: OpenFiles = None,
     notifications: Notifications = None,
+    storage: Storage = None,
+    secrets: Secrets = None,
     log_level: LogLevelFlag = None,
     log_file: LogFileFlag = None,
     measure: MeasureFlag = None,
@@ -121,7 +125,11 @@ def serve(
             csp_profile=csp_profile,
         )
         bridge = options.build_bridge(
-            disable_action=disable_action, open_files=open_files, notifications=notifications
+            disable_action=disable_action,
+            open_files=open_files,
+            notifications=notifications,
+            storage=storage,
+            secrets=secrets,
         )
     except ValueError as exc:
         output.error(str(exc))

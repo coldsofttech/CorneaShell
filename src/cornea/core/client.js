@@ -85,6 +85,45 @@
       );
     },
 
+    /**
+     * The app's settings and data, when the app allows it (Bridge storage). `area` is "store"
+     * (the default) or "settings". Values are anything JSON can hold. Rejects with a CorneaError
+     * when the app has not turned storage on.
+     */
+    storage: {
+      get: function (key, defaultValue, area) {
+        return cornea.call("storage_get", { key: key, default: defaultValue, area: area || "store" });
+      },
+      set: function (key, value, area) {
+        return cornea.call("storage_set", { key: key, value: value, area: area || "store" });
+      },
+      remove: function (key, area) {
+        return cornea.call("storage_delete", { key: key, area: area || "store" });
+      },
+      keys: function (prefix, area) {
+        return cornea.call("storage_keys", { prefix: prefix || "", area: area || "store" });
+      },
+    },
+
+    /**
+     * Secrets in Windows Credential Manager, when the app allows it (Bridge secrets). Handle with
+     * care: a secret you read is in the page's memory.
+     */
+    secrets: {
+      get: function (key, defaultValue) {
+        return cornea.call("secret_get", { key: key, default: defaultValue });
+      },
+      set: function (key, value) {
+        return cornea.call("secret_set", { key: key, value: value });
+      },
+      remove: function (key) {
+        return cornea.call("secret_delete", { key: key });
+      },
+      keys: function () {
+        return cornea.call("secret_keys");
+      },
+    },
+
     /** The names of the actions this page may call. */
     actions: function () {
       return request("/bridge").then(function (data) {

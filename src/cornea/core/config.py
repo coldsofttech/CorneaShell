@@ -104,8 +104,9 @@ APP_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 class App:
     """Who the app is, for the things that must tell one app from another.
 
-    The id names the app's data folder, the Windows taskbar identity (so its icon is not grouped
-    under ``python.exe``) and the single-instance lock. Several copies run independently unless
+    The id names the app's data folder (``%LOCALAPPDATA%\\ColdSoft Technologies\\Cornea\\<id>``,
+    with its database and logs), the Windows taskbar identity (so its icon is not grouped under
+    ``python.exe``) and the single-instance lock. Several copies run independently unless
     ``single_instance`` is on.
 
     Example:
@@ -147,6 +148,15 @@ class Bridge:
     """Add the ``open_file`` and ``reveal`` actions, which open a file in the program Windows has
     for it and show a file in Explorer. Off by default. A page can name any path, so ``open_file``
     still refuses programs, scripts and shortcuts, network paths and missing files."""
+    storage: bool = False
+    """Add the ``storage_get``, ``storage_set``, ``storage_delete`` and ``storage_keys`` actions,
+    which let the page read and write the app's settings and key-value data. Off by default.
+    Needs ``App(id=...)``."""
+    secrets: bool = False
+    """Add the ``secret_get``, ``secret_set``, ``secret_delete`` and ``secret_keys`` actions, which
+    let the page read and write the app's secrets in Windows Credential Manager. Off by default,
+    and separate from ``storage``: a page that can read secrets can leak them, so turn it on only
+    for pages you trust. Needs ``App(id=...)``."""
 
 
 @dataclass(frozen=True, slots=True)

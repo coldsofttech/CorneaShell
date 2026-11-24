@@ -21,7 +21,7 @@ The sections below follow the order you usually need them in. The [recipes](#rec
 - **Settings:** [`Window`](#window), [`Security`](#security), [`DEV_CSP`](#dev_csp), [`Server`](#server), [`Bridge`](#bridge), [`App`](#app)
 - **Building blocks:** [`create_app`](#create_app)
 - **Logging:** [`configure_logging`](#configure_logging), [`LogLevel`](#loglevel)
-- **Other:** [`AppFactory`](#appfactory), [`Loading`](#loading), [`preload`](#preload)
+- **Other:** [`AppFactory`](#appfactory), [`Loading`](#loading), [`Namespace`](#namespace), [`SecretStore`](#secretstore), [`SecretsUnavailable`](#secretsunavailable), [`preload`](#preload)
 
 ## Running the shell
 
@@ -70,6 +70,9 @@ to receive the `Timings` yourself. `timings` has the numbers in either case.
 Properties:
 
 - `timings`: How long start-up took so far. See `Timings`.
+- `settings`: The app's settings: `get(key, default)`, `set`, `delete`, `keys`, `items`.
+- `storage`: The app's key-value data, the same kind of store as `settings` but separate.
+- `secrets`: The app's secrets in Windows Credential Manager: `get`, `set`, `delete`, `keys`.
 - `actions`: The native actions the page can call. Register your own with `action`.
 - `is_direct`: Whether the window opens a `Url` itself, with no local server.
 - `running`: Whether the server is accepting requests.
@@ -613,6 +616,8 @@ Which built-in native actions the page may call. All of them are on by default.
 | `disabled` | `tuple[str, ...]` | `()` | Built-in actions to switch off. A disabled action answers like an unknown one. |
 | `notifications` | `bool` | `False` | Add the `show_notification` action, which shows a Windows toast. Off by default, so a page cannot raise alerts unless you allow it. Needs the `notifications` extra. |
 | `open_files` | `bool` | `False` | Add the `open_file` and `reveal` actions, which open a file in the program Windows has for it and show a file in Explorer. Off by default. A page can name any path, so `open_file` still refuses programs, scripts and shortcuts, network paths and missing files. |
+| `storage` | `bool` | `False` | Add the `storage_get`, `storage_set`, `storage_delete` and `storage_keys` actions, which let the page read and write the app's settings and key-value data. Off by default. Needs `App(id=...)`. |
+| `secrets` | `bool` | `False` | Add the `secret_get`, `secret_set`, `secret_delete` and `secret_keys` actions, which let the page read and write the app's secrets in Windows Credential Manager. Off by default, and separate from `storage`: a page that can read secrets can leak them, so turn it on only for pages you trust. Needs `App(id=...)`. |
 
 Example:
 
@@ -625,8 +630,9 @@ Example:
 
 Who the app is, for the things that must tell one app from another.
 
-The id names the app's data folder, the Windows taskbar identity (so its icon is not grouped
-under `python.exe`) and the single-instance lock. Several copies run independently unless
+The id names the app's data folder (`%LOCALAPPDATA%\ColdSoft Technologies\Cornea\<id>`,
+with its database and logs), the Windows taskbar identity (so its icon is not grouped under
+`python.exe`) and the single-instance lock. Several copies run independently unless
 `single_instance` is on.
 
 | Parameter | Type | Default | Description |
@@ -657,6 +663,7 @@ def create_app(
     bridge: Bridge | None = None,
     bootstrap_token: str | None = None,
     app_id: str | None = None,
+    storage: AppStorage | None = None,
 ) -> FastAPI
 ```
 
@@ -667,7 +674,9 @@ Build the FastAPI app that the shell serves.
 prefix and `/health`) always win over the source. The bootstrap token and the
 allowed-host set are on `app.state` for the shell; add the bound address with
 `AppFactory.allow_host` once the port is known. `app_id` is part of the session
-cookie's name.
+cookie's name. `storage` is the app's `cornea.core.storage.AppStorage`; with an
+`app_id` and none given, one is made. It is needed when the `bridge` offers storage
+or secrets to the page.
 
 Example:
 
@@ -748,6 +757,180 @@ Example:
 >>> Loading(subtitle="Getting things ready", theme="dark").theme
 'dark'
 ```
+
+### `Namespace`
+
+```python
+Namespace(
+    database: Database | Callable[[], Database],
+    name: str,
+)
+```
+
+One named area of the database, used like a small dictionary of JSON values.
+
+#### `Namespace.get`
+
+```python
+def Namespace.get(
+    key: str,
+    default: Any = None,
+) -> Any
+```
+
+The value of `key`, or `default`.
+
+#### `Namespace.set`
+
+```python
+def Namespace.set(
+    key: str,
+    value: Any,
+) -> None
+```
+
+Store a JSON-compatible value (numbers, strings, booleans, `None`, lists, dicts).
+
+#### `Namespace.delete`
+
+```python
+def Namespace.delete(
+    key: str,
+) -> bool
+```
+
+Remove `key`. `True` if it was there.
+
+#### `Namespace.has`
+
+```python
+def Namespace.has(
+    key: str,
+) -> bool
+```
+
+Whether `key` has a value.
+
+#### `Namespace.keys`
+
+```python
+def Namespace.keys(
+    prefix: str = '',
+) -> list[str]
+```
+
+The keys that start with `prefix`.
+
+#### `Namespace.items`
+
+```python
+def Namespace.items(
+    prefix: str = '',
+) -> dict[str, Any]
+```
+
+The keys that start with `prefix`, with their values.
+
+#### `Namespace.clear`
+
+```python
+def Namespace.clear() -> int
+```
+
+Remove everything in this namespace. Returns how many values there were.
+
+Example:
+
+```pycon
+>>> import tempfile, pathlib
+>>> area = Namespace(Database(pathlib.Path(tempfile.mkdtemp()) / "app.db"), "demo")
+>>> area.set("theme", "dark")
+>>> area.get("theme"), area.get("missing", "light")
+('dark', 'light')
+>>> area.keys()
+['theme']
+```
+
+### `SecretStore`
+
+```python
+SecretStore(
+    app_id: str,
+    backend: CredentialBackend | None = None,
+)
+```
+
+The secrets of one app: `get`, `set`, `delete` and `keys`, all by text key.
+
+#### `SecretStore.get`
+
+```python
+def SecretStore.get(
+    key: str,
+    default: str | None = None,
+) -> str | None
+```
+
+The secret, or `default` if there is none.
+
+#### `SecretStore.set`
+
+```python
+def SecretStore.set(
+    key: str,
+    value: str,
+) -> None
+```
+
+Save a secret, replacing any earlier one.
+
+#### `SecretStore.delete`
+
+```python
+def SecretStore.delete(
+    key: str,
+) -> bool
+```
+
+Remove a secret. `True` if there was one.
+
+#### `SecretStore.has`
+
+```python
+def SecretStore.has(
+    key: str,
+) -> bool
+```
+
+Whether a secret exists.
+
+#### `SecretStore.keys`
+
+```python
+def SecretStore.keys() -> list[str]
+```
+
+The keys of this app's secrets.
+
+Example:
+
+```pycon
+>>> from cornea.core.storage.credentials import MemoryCredentials
+>>> secrets = SecretStore("com.example.notes", MemoryCredentials())
+>>> secrets.set("api-token", "s3cret")
+>>> secrets.get("api-token"), secrets.keys()
+('s3cret', ['api-token'])
+```
+
+### `SecretsUnavailable`
+
+```python
+SecretsUnavailable(
+    message: str = 'Secure storage is not available.',
+)
+```
+
+Credential Manager cannot be used here (not Windows, or the call failed).
 
 ### `preload`
 
@@ -891,7 +1074,28 @@ Shell(
 ).run()
 ```
 
-A second start brings the first window to the front. The window comes back at its last size and place. The app keeps its files in `%LOCALAPPDATA%\Cornea\com.example.notes\`.
+A second start brings the first window to the front. The window comes back at its last size and place. The app keeps its files in `%LOCALAPPDATA%\ColdSoft Technologies\Cornea\com.example.notes\`.
+
+### Keep settings, data and secrets between runs
+
+```python
+from cornea import App, Bridge, Shell, Static
+
+shell = Shell(
+    Static("web/dist"),
+    identity=App(id="com.example.notes"),
+    bridge=Bridge(storage=True),  # the page may use settings and data; secrets stay off
+)
+
+shell.settings.set("theme", "dark")  # choices the person made
+theme = shell.settings.get("theme", "light")
+shell.storage.set("recent", ["a.txt", "b.txt"])  # everything else: caches, history, state
+shell.secrets.set("api-token", "...")  # Windows Credential Manager, not a file
+```
+
+Settings and data are JSON values in one SQLite file, `app.db`, in the app's folder. Keys use letters, digits and `. _ : / -`; a value may be up to 1 MB. Secrets are text of up to 2560 bytes in the signed-in user's Credential Manager, named `Cornea/<id>/<key>`, so nothing sensitive is in the app's files.
+
+All three need `App(id=...)`. The page gets nothing unless you allow it: `Bridge(storage=True)` adds `storage_get`, `storage_set`, `storage_delete` and `storage_keys` (with `area` set to `"store"`, the default, or `"settings"`), and `Bridge(secrets=True)` adds `secret_get`, `secret_set`, `secret_delete` and `secret_keys`. They are separate on purpose: a page that can read secrets can leak them, so allow it only for pages you trust. From the page, `cornea.storage.get("recent")` and `cornea.secrets.get("api-token")` call them.
 
 ### Serve without a window, or test your app
 

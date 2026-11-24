@@ -78,13 +78,15 @@ class Logs:
         logger.propagate = False  # the handlers above are the whole setup: no doubled lines
 
     @staticmethod
-    def default_log_file() -> Path:
+    def default_log_file(app_id: str | None = None) -> Path:
         """Where debug mode writes its log when nothing else is set up.
 
-        That is ``cornea.log`` in ``%LOCALAPPDATA%\\Cornea\\logs``, which every user can write to,
-        whatever folder the program was started from.
+        That is ``cornea.log`` in ``logs`` inside the app's folder under
+        ``%LOCALAPPDATA%\\ColdSoft Technologies\\Cornea\\<app id>``, or in ``Cornea\\logs`` when
+        there is no app id. Every user can write there, whatever folder the program was started
+        from.
         """
-        return AppData.logs_dir() / "cornea.log"
+        return AppData.logs_dir(app_id) / "cornea.log"
 
     @staticmethod
     def _has_handlers(logger: logging.Logger) -> bool:
@@ -92,7 +94,7 @@ class Logs:
         return logger.hasHandlers()
 
     @staticmethod
-    def enable_debug() -> Path | None:
+    def enable_debug(app_id: str | None = None) -> Path | None:
         """Debug mode's logging: do nothing if logging is already set up, otherwise log to a file.
 
         Logging counts as set up when the ``cornea`` logger, or the root logger, already has a
@@ -103,13 +105,13 @@ class Logs:
         """
         if Logs._has_handlers(logging.getLogger(_ROOT)):
             return None
-        return Logs.start_debug()
+        return Logs.start_debug(app_id)
 
     @staticmethod
-    def start_debug() -> Path | None:
+    def start_debug(app_id: str | None = None) -> Path | None:
         """Set up debug logging to the default file, whatever is configured."""
         logger = logging.getLogger(_ROOT)
-        target = Logs.default_log_file()
+        target = Logs.default_log_file(app_id)
         try:
             Logs.configure("debug", file=target)
         except OSError as exc:

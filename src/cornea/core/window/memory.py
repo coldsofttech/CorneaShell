@@ -1,10 +1,11 @@
 """Remember where a window was and how big it was, between runs."""
 
-import json
+import sqlite3
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
-from pathlib import Path
 from typing import Any
+
+from cornea.core.storage.database import Namespace
 
 MIN_VISIBLE = (120, 60)
 """How much of the window's top-left corner must lie on a screen for the position to be kept."""
@@ -23,30 +24,30 @@ class Remembered:
 
 
 class WindowMemory:
-    """Reads and writes one remembered window in a JSON file."""
+    """Reads and writes one remembered window in the app's database."""
 
-    def __init__(self, path: Path) -> None:
-        self.path = path
+    KEY = "place"
+
+    def __init__(self, area: Namespace) -> None:
+        self.area = area
 
     def load(self) -> Remembered | None:
         """What was remembered, or ``None`` if there is nothing usable."""
         try:
-            data: Any = json.loads(self.path.read_text(encoding="utf-8"))
+            data: Any = self.area.get(self.KEY)
             width, height = int(data["width"]), int(data["height"])
             x = int(data["x"]) if data.get("x") is not None else None
             y = int(data["y"]) if data.get("y") is not None else None
             maximized = bool(data.get("maximized", False))
-        except (OSError, ValueError, KeyError, TypeError):
+        except (OSError, ValueError, KeyError, TypeError, AttributeError, sqlite3.Error):
             return None
         if width <= 0 or height <= 0 or (x is None) != (y is None):
             return None
         return Remembered(width, height, x, y, maximized)
 
     def save(self, remembered: Remembered) -> None:
-        """Write it so that a crash half-way never leaves a broken file."""
-        temporary = self.path.with_suffix(".tmp")
-        temporary.write_text(json.dumps(asdict(remembered)), encoding="utf-8")
-        temporary.replace(self.path)
+        """Store it. The database makes a crash half-way harmless."""
+        self.area.set(self.KEY, asdict(remembered))
 
 
 def fit_to_screens(

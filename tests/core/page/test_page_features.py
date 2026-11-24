@@ -221,7 +221,7 @@ def test_the_log_folder_check_leaves_nothing_behind(
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
 
     assert doctor_checks._log_folder().status == "ok"
-    assert list((tmp_path / "Cornea" / "logs").iterdir()) == []
+    assert list((tmp_path / "ColdSoft Technologies" / "Cornea" / "logs").iterdir()) == []
 
 
 def test_the_command_reports_and_exits_zero_when_all_is_well(

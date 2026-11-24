@@ -29,7 +29,7 @@ shell.run()
 ```
 
 Do not write next to the program: it usually sits in `Program Files`, which a normal user cannot
-write to. Cornea keeps its own files (remembered window, logs) under `%LOCALAPPDATA%\Cornea`.
+write to. Cornea keeps its own files (the database with settings and the remembered window, logs) under `%LOCALAPPDATA%\ColdSoft Technologies\Cornea`.
 
 ## 2. Build
 
@@ -84,4 +84,4 @@ next try. Sign the program and the installer with a code signing certificate bef
 1. Start the built program on a machine without Python.
 2. Run `cornea doctor` on a developer machine to rule out missing parts there.
 3. If something is wrong, run the program with debug mode on and read the log in
-   `%LOCALAPPDATA%\Cornea\logs`.
+   `%LOCALAPPDATA%\ColdSoft Technologies\Cornea\<id>\logs`.

@@ -209,7 +209,15 @@ def test_debug_mode_logs_to_the_local_app_data_folder(nothing_configured: Path) 
 
     logging.getLogger("cornea.test").debug("a detail")
 
-    assert written == nothing_configured / "appdata" / "Cornea" / "logs" / "cornea.log"
+    assert (
+        written
+        == nothing_configured
+        / "appdata"
+        / "ColdSoft Technologies"
+        / "Cornea"
+        / "logs"
+        / "cornea.log"
+    )
     assert Logs.default_log_file() == written
     text = written.read_text(encoding="utf-8")
     assert "a detail" in text
@@ -249,7 +257,7 @@ def test_a_debug_window_turns_on_debug_logging(
     Shell(Static(tmp_path), window=Window(debug=True), loading=None).run()
 
     assert "Serving on http://127.0.0.1:" in (
-        tmp_path / "appdata" / "Cornea" / "logs" / "cornea.log"
+        tmp_path / "appdata" / "ColdSoft Technologies" / "Cornea" / "logs" / "cornea.log"
     ).read_text(encoding="utf-8")
 
 
@@ -277,14 +285,18 @@ def test_the_cli_debug_flag_writes_the_default_log_file(
     result = runner.invoke(app, ["open", "web", "--debug"])
 
     assert result.exit_code == 0
-    assert (nothing_configured / "appdata" / "Cornea" / "logs" / "cornea.log").exists()
+    assert (
+        nothing_configured / "appdata" / "ColdSoft Technologies" / "Cornea" / "logs" / "cornea.log"
+    ).exists()
 
 
 def test_debug_mode_logs_to_the_screen_when_the_file_cannot_be_written(
     nothing_configured: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     blocker = nothing_configured / "appdata"
-    blocker.write_text("not a folder", encoding="utf-8")  # LOCALAPPDATA\Cornea cannot be made
+    blocker.write_text(
+        "not a folder", encoding="utf-8"
+    )  # LOCALAPPDATA\ColdSoft Technologies cannot be made
 
     assert Logs.enable_debug() is None
     logging.getLogger("cornea.test").debug("still logged")
