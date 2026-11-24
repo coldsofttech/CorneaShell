@@ -13,6 +13,7 @@ from cornea.core.config import DEV_CSP, App, Bridge, Loading, Security, Server, 
 from cornea.core.logs import LOG_LEVELS, LogLevel, Logs
 from cornea.core.preload import preload
 from cornea.core.sources.sources import Asgi, Process, Static, Url, WebSource, Wsgi
+from cornea.core.update import Custom, GitHubRelease, JsonFeed, Release, UpdateError, Updater
 
 if TYPE_CHECKING:
     from cornea.core.app.app import AppFactory
@@ -38,14 +39,20 @@ __all__ = [
     "AppFactory",
     "Asgi",
     "Bridge",
+    "Custom",
+    "GitHubRelease",
+    "JsonFeed",
     "Loading",
     "LogLevel",
     "Process",
+    "Release",
     "Security",
     "Server",
     "Shell",
     "Static",
     "Timings",
+    "UpdateError",
+    "Updater",
     "Url",
     "WebSource",
     "Window",

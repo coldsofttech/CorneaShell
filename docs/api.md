@@ -19,6 +19,7 @@ The sections below follow the order you usually need them in. The [recipes](#rec
 - **Running the shell:** [`Shell`](#shell), [`run`](#run), [`ready_line`](#ready_line), [`Timings`](#timings)
 - **Web sources:** [`WebSource`](#websource), [`Static`](#static), [`Url`](#url), [`Process`](#process), [`Asgi`](#asgi), [`Wsgi`](#wsgi)
 - **Settings:** [`Window`](#window), [`Security`](#security), [`DEV_CSP`](#dev_csp), [`Server`](#server), [`Bridge`](#bridge), [`App`](#app)
+- **Auto-update:** [`Updater`](#updater), [`JsonFeed`](#jsonfeed), [`GitHubRelease`](#githubrelease), [`Custom`](#custom), [`Release`](#release), [`UpdateError`](#updateerror)
 - **Building blocks:** [`create_app`](#create_app)
 - **Logging:** [`configure_logging`](#configure_logging), [`LogLevel`](#loglevel)
 - **Other:** [`AppFactory`](#appfactory), [`Loading`](#loading), [`preload`](#preload)
@@ -41,6 +42,7 @@ Shell(
     identity: App | None = None,
     measure: bool | Callable[[Timings], None] = False,
     loading: Loading | bool | None = True,
+    update: Updater | None = None,
 )
 ```
 
@@ -66,6 +68,11 @@ raises the error.
 With `measure=True` the start-up time is printed on stderr (and logged) once the first
 page has loaded, or once the server answers when there is no window. Pass a function instead
 to receive the `Timings` yourself. `timings` has the numbers in either case.
+
+Give an `cornea.Updater` as `update` to let the app update itself: it tells
+the page what it is doing with `cornea:update-*` events and restarts the app into the new
+version. With `Updater(page_control=True)` the page can also ask for the steps with the
+`check_update`, `download_update`, `install_update` and `update_status` actions.
 
 Properties:
 
@@ -280,6 +287,7 @@ def run(
     title: str | None = None,
     debug: bool | None = None,
     on_ready: Callable[[Shell], None] | None = None,
+    update: Updater | None = None,
 ) -> None
 ```
 
@@ -641,6 +649,269 @@ Example:
 >>> App(id="com.example.notes", remember_window=True).remember_window
 True
 ```
+
+## Auto-update
+
+Check a source for a newer version, download and verify it, and restart into it.
+
+### `Updater`
+
+```python
+Updater(
+    source: UpdateSource,
+    *,
+    current_version: str,
+    public_key: str | None = None,
+    require_hash: bool = True,
+    allowed_hosts: tuple[str, ...] = (),
+    install_dir: Path | str | None = None,
+    installer_args: tuple[str, ...] = (),
+    download_dir: Path | str | None = None,
+    check_on_start: bool = False,
+    page_control: bool = False,
+)
+```
+
+Keeps an app up to date from one `cornea.core.update.sources.UpdateSource`.
+
+The steps are separate so an app can run them on its own terms: `check` asks the
+source, `download` fetches and verifies the file, `install` hands over to a
+helper that replaces the files and starts the new version. `update` does all three.
+Progress goes to the page as `cornea:update-*` events (see below) when the updater is
+given to a `cornea.core.shell.Shell`.
+
+**Verification.** A SHA-256 from the source is always checked, and is required unless
+`require_hash=False`. A checksum served next to the file only catches a damaged download:
+anyone who can change the feed can change both. For updates you can trust, pass
+`public_key` (a base64 Ed25519 key); every release must then carry a `signature` of the
+file's SHA-256 digest that this key accepts, and anything else is refused. Needs the
+`signed-updates` extra.
+
+**Events** on the page's `window`, each with the detail shown: `cornea:update-checking`,
+`update-none` (`{"version"}`), `update-available` (the release), `update-progress`
+(`{"received", "total", "percent"}`), `update-verified`, `update-ready` (the app is
+about to restart) and `update-error` (`{"stage", "message"}`).
+
+Properties:
+
+- `signed`: Whether signed-update mode is on.
+
+#### `Updater.bind`
+
+```python
+def Updater.bind(
+    notify: Callable[[str, Any], None],
+    exit_app: Callable[[], None],
+    data_dir: Path | None = None,
+) -> None
+```
+
+Connect the updater to a running app. `cornea.core.shell.Shell` does this.
+
+`notify` sends an event to the page, `exit_app` closes the app so the helper can
+replace its files, and `data_dir` is where downloads go unless `download_dir` is set.
+
+#### `Updater.status`
+
+```python
+def Updater.status() -> dict[str, Any]
+```
+
+Where the updater is now, as JSON, for a page that loaded after an event was sent.
+
+#### `Updater.check`
+
+```python
+def Updater.check() -> Release | None
+```
+
+Ask the source. Returns the release if it is newer than `current_version`.
+
+**Raises:**
+
+- `UpdateError`: If the source cannot be read or what it says is not usable.
+
+#### `Updater.download`
+
+```python
+def Updater.download(
+    release: Release | None = None,
+) -> Path
+```
+
+Download `release` (default: the one `check` found) and verify it.
+
+**Raises:**
+
+- `UpdateError`: If there is nothing to download, the download fails, or the file does not match its checksum or signature. A file that fails is deleted.
+
+#### `Updater.install`
+
+```python
+def Updater.install(
+    path: Path | None = None,
+) -> None
+```
+
+Replace the app's files with the downloaded update and restart into it.
+
+This starts a helper, tells the page (`update-ready`) and closes the app; the helper
+waits for it to exit, copies the files and starts the new version. It needs a
+`cornea.core.shell.Shell` (to close) and a packaged program (or `install_dir`).
+
+**Raises:**
+
+- `UpdateError`: If nothing was downloaded, the file cannot be installed here, or the helper cannot start. Nothing is closed in that case.
+
+#### `Updater.update`
+
+```python
+def Updater.update() -> bool
+```
+
+Check, download, verify and install. Returns `False` when already up to date.
+
+Example:
+
+```pycon
+>>> from cornea.core.update.sources import Custom
+>>> updater = Updater(Custom(lambda: None), current_version="1.0.0")
+>>> updater.check() is None
+True
+```
+
+### `JsonFeed`
+
+```python
+JsonFeed(
+    url: str,
+    *,
+    headers: Mapping[str, str] | None = None,
+    timeout: float = 15.0,
+)
+```
+
+A JSON document at an `https` address that describes the newest release.
+
+The document is one object: `version` and `url` are needed; `sha256`, `signature`,
+`notes`, `size` and `min_version` are optional. A relative `url` is resolved against
+the feed's own address. A feed can be a static file on any web host.
+
+#### `JsonFeed.latest`
+
+```python
+def JsonFeed.latest() -> Release | None
+```
+
+Example:
+
+```pycon
+>>> feed = JsonFeed("https://example.com/myapp/latest.json")
+>>> feed.url
+'https://example.com/myapp/latest.json'
+```
+
+### `GitHubRelease`
+
+```python
+GitHubRelease(
+    repo: str,
+    *,
+    asset: str,
+    prerelease: bool = False,
+    token: str | None = None,
+    api_url: str = 'https://api.github.com',
+    timeout: float = 15.0,
+)
+```
+
+The newest release of a GitHub repository, with the asset that matches `asset`.
+
+`asset` is a file-name pattern such as `MyApp-*-win64.zip`; exactly one asset must match.
+The checksum is taken from the asset's GitHub digest, or from a `<name>.sha256` asset next
+to it; a `<name>.sig` asset is the signature for the signed-update mode. Drafts are never
+offered, and pre-releases only with `prerelease=True`. A `token` only raises GitHub's
+rate limit for the check; downloads use the public asset address.
+
+#### `GitHubRelease.latest`
+
+```python
+def GitHubRelease.latest() -> Release | None
+```
+
+Example:
+
+```pycon
+>>> GitHubRelease("coldsofttech/CorneaShell", asset="*.zip").repo
+'coldsofttech/CorneaShell'
+```
+
+### `Custom`
+
+```python
+Custom(
+    function: Callable[[], Release | Mapping[str, Any] | None],
+)
+```
+
+Your own function as the source: return a `Release`, a feed-style dict, or `None`.
+
+Use it for an internal API, a file share or anything else that can tell the version and
+where the file is.
+
+#### `Custom.latest`
+
+```python
+def Custom.latest() -> Release | None
+```
+
+Example:
+
+```pycon
+>>> source = Custom(lambda: {"version": "2.0", "url": "https://example.com/app.zip"})
+>>> source.latest().version
+'2.0'
+```
+
+### `Release`
+
+One downloadable version, as an update source describes it.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `version` | `str` | `required` | The version this release brings, for example `1.4.0`. |
+| `url` | `str` | `required` | Where the file is. `https` only. |
+| `sha256` | `str \| None` | `None` | Hex SHA-256 of the file. The download is refused if it differs. |
+| `signature` | `str \| None` | `None` | Base64 Ed25519 signature of the file's SHA-256 digest, for the signed-update mode. |
+| `notes` | `str \| None` | `None` | Release notes in plain text, for the page to show. |
+| `size` | `int \| None` | `None` | Size of the file in bytes, if the source says. Used for progress. |
+| `min_version` | `str \| None` | `None` | The oldest version that may update straight to this one. |
+
+#### `Release.as_dict`
+
+```python
+def Release.as_dict() -> dict[str, Any]
+```
+
+The fields the page may see. The signature and hash are internal.
+
+Example:
+
+```pycon
+>>> Release("1.4.0", "https://example.com/app-1.4.0.zip").version
+'1.4.0'
+```
+
+### `UpdateError`
+
+```python
+UpdateError(
+    message: str,
+    stage: str = 'update',
+)
+```
+
+An update step failed. The message says which one and is safe to show to a person.
 
 ## Building blocks
 

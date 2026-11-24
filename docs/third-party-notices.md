@@ -25,17 +25,18 @@ These install only when you ask for them.
 | `wsgi`          | `a2wsgi`                                | Apache-2.0   | mounting Flask and other WSGI apps        |
 | `proxy`         | `httpx`                                 | BSD-3-Clause | showing another server's pages            |
 | `proxy`         | `websockets`                            | BSD-3-Clause | forwarding WebSockets through the proxy   |
+| `signed-updates` | `cryptography` | Apache-2.0 OR BSD-3-Clause | checking update signatures (Ed25519) |
 | `notifications` | `winrt-runtime` and five `winrt-windows-*` packages | MIT | Windows notifications (Windows only) |
 
 ## All runtime dependencies, by license
 
-This counts the direct dependencies, the optional extras and everything they depend on: 39 packages in all, on Windows.
+This counts the direct dependencies, the optional extras and everything they depend on: 40 packages in all, on Windows.
 
 | License       | Packages |
 | ------------- | -------- |
 | MIT           | 22       |
 | BSD-3-Clause  | 10       |
-| Apache-2.0    | 2        |
+| Apache-2.0    | 3        |
 | BSD-2-Clause  | 1        |
 | ISC           | 1        |
 | MIT-0         | 1        |

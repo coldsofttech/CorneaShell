@@ -287,6 +287,11 @@ GROUPS: tuple[tuple[str, str, tuple[str, ...]], ...] = (
         "Frozen dataclasses. Each one validates its values when you create it.",
         ("Window", "Security", "DEV_CSP", "Server", "Bridge", "App"),
     ),
+    (
+        "Auto-update",
+        "Check a source for a newer version, download and verify it, and restart into it.",
+        ("Updater", "JsonFeed", "GitHubRelease", "Custom", "Release", "UpdateError"),
+    ),
     ("Building blocks", "For tests and for mounting Cornea in a larger program.", ("create_app",)),
     (
         "Logging",

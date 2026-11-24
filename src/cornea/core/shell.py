@@ -18,6 +18,7 @@ import uvicorn
 from fastapi import APIRouter, FastAPI
 
 from cornea.core.app.app import AppFactory
+from cornea.core.app.appdata import AppData
 from cornea.core.bridge.bridge import ActionRegistry
 from cornea.core.config import App, Bridge, Loading, Security, Server, Window
 from cornea.core.environment import Environment
@@ -27,6 +28,8 @@ from cornea.core.security.close_guard import CloseGuard
 from cornea.core.security.single_instance import AlreadyRunning, InstanceLock, activate_existing
 from cornea.core.sources.process import ProcessRunner
 from cornea.core.sources.sources import Process, Url, WebSource, coerce_source
+from cornea.core.update.release import UpdateError
+from cornea.core.update.updater import Updater
 from cornea.core.window.loading import check_loading, render_loading
 from cornea.core.window.window import (
     SimulatedWindow,
@@ -139,6 +142,11 @@ class Shell:
     page has loaded, or once the server answers when there is no window. Pass a function instead
     to receive the :class:`Timings` yourself. :attr:`timings` has the numbers in either case.
 
+    Give an :class:`~cornea.Updater` as ``update`` to let the app update itself: it tells
+    the page what it is doing with ``cornea:update-*`` events and restarts the app into the new
+    version. With ``Updater(page_control=True)`` the page can also ask for the steps with the
+    ``check_update``, ``download_update``, ``install_update`` and ``update_status`` actions.
+
     Example:
         >>> with Shell(window=None) as shell:
         ...     shell.url.startswith("http://127.0.0.1:")
@@ -157,6 +165,7 @@ class Shell:
         identity: App | None = None,
         measure: bool | Callable[[Timings], None] = False,
         loading: Loading | bool | None = True,
+        update: Updater | None = None,
     ) -> None:
         self.security = security or Security()
         self.identity = identity or App()
@@ -204,6 +213,10 @@ class Shell:
         self._start_error: BaseException | None = None
         self._app_started = threading.Event()
         self._start_began = False
+        self.updater: Updater | None = update
+        """The :class:`~cornea.Updater` given to this shell, if any."""
+        if update is not None:
+            self._attach_updater(update)
 
     # ----- what the server is ---------------------------------------------------------------
 
@@ -564,6 +577,54 @@ class Shell:
             self._runner.start()
             self._mark("process_ready")
 
+    def _attach_updater(self, updater: Updater) -> None:
+        """Connect the updater to this shell: events, a way to exit, and the page's actions."""
+        app_dir = AppData.app_dir(self.identity.id) if self.identity.id else None
+        updater.bind(self.notify, self._request_exit, app_dir)
+        if not updater.page_control:
+            return
+
+        @self.action("update_status")
+        def update_status() -> dict[str, Any]:
+            return updater.status()
+
+        @self.action("check_update")
+        def check_update() -> dict[str, Any] | None:
+            release = updater.check()
+            return release.as_dict() if release else None
+
+        @self.action("download_update")
+        def download_update() -> dict[str, Any]:
+            updater.download()
+            return updater.status()
+
+        @self.action("install_update")
+        def install_update() -> dict[str, Any]:
+            updater.install()
+            return updater.status()
+
+    def _check_for_update(self) -> None:
+        """Ask the update source once, quietly. The page reads the result with ``update_status``."""
+        updater = self.updater
+        if updater is None or not updater.check_on_start:
+            return
+
+        def check() -> None:
+            try:
+                updater.check()
+            except UpdateError:
+                logger.debug("The start-up update check failed", exc_info=True)
+
+        threading.Thread(target=check, name="cornea-update-check", daemon=True).start()
+
+    def _request_exit(self) -> None:
+        """Close the app so the update helper can replace its files."""
+        controller = self.app.state.window
+        if controller is not None and not getattr(controller, "headless", True):
+            controller.close(force=True)
+        elif self._uvicorn is not None:
+            self._uvicorn.should_exit = True
+
     def _require_server(self) -> None:
         if self._direct_url is not None:
             raise RuntimeError("a direct URL has no local server")
@@ -589,6 +650,7 @@ class Shell:
             self.start()
         else:
             self._start_process()
+        self._check_for_update()
 
     def _start_behind_loading_screen(
         self, window: Any, loading: Loading, on_ready: Callable[["Shell"], None] | None
@@ -698,6 +760,7 @@ def run(
     title: str | None = None,
     debug: bool | None = None,
     on_ready: Callable[[Shell], None] | None = None,
+    update: Updater | None = None,
 ) -> None:
     """Show the web UI: build a :class:`Shell` and run it until it is closed.
 
@@ -728,5 +791,6 @@ def run(
         identity=identity,
         measure=measure,
         loading=loading,
+        update=update,
     )
     shell.run(on_ready=on_ready)

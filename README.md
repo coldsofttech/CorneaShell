@@ -46,7 +46,7 @@ Or with [uv](https://docs.astral.sh/uv/):
 uv add cornea-shell
 ```
 
-Two optional extras: `pip install "cornea-shell[wsgi]"` to run Flask or Django apps (WSGI), and `pip install "cornea-shell[proxy]"` to serve a page from another server through Cornea (see below).
+Optional extras: `pip install "cornea-shell[wsgi]"` to run Flask or Django apps (WSGI), `pip install "cornea-shell[proxy]"` to serve a page from another server through Cornea (see below), and `pip install "cornea-shell[signed-updates]"` to require signed updates.
 
 ## Quick start
 
@@ -222,6 +222,20 @@ const stop = cornea.on("drop", (detail) => console.log(detail.paths));   // a co
 
 A page cannot save files to disk unless you allow it. With `--downloads` (or `Window(downloads=True)`) a download starts a save dialog, and the person chooses where it goes each time.
 
+## Updating your app
+
+Give the shell an `Updater` and the app can check for a newer version, download it, verify it and restart into it, from a JSON feed, GitHub releases or your own function. The page sees each step as a `cornea:update-*` event. Signed updates (Ed25519) are optional. See the [auto-update guide](https://github.com/coldsofttech/CorneaShell/blob/main/docs/updates.md).
+
+```python
+from cornea import App, GitHubRelease, Shell, Static, Updater
+
+Shell(
+    Static("web"),
+    identity=App(id="com.example.notes"),
+    update=Updater(GitHubRelease("acme/notes", asset="Notes-*-win64.zip"), current_version="1.3.0"),
+).run()
+```
+
 ## Checking your machine
 
 `cornea doctor` checks that Python, the WebView2 runtime and pywebview are there, that a loopback port can be opened, that your `cornea.toml` is valid, and that the log folder can be written. It exits with code 1 if something is wrong, and `--json` prints the result for other programs.
@@ -322,6 +336,7 @@ See the [command line reference](https://github.com/coldsofttech/CorneaShell/blo
 - [How it works](https://github.com/coldsofttech/CorneaShell/blob/main/docs/architecture.md)
 - [Troubleshooting](https://github.com/coldsofttech/CorneaShell/blob/main/docs/troubleshooting.md)
 - [Packaging an app](https://github.com/coldsofttech/CorneaShell/blob/main/docs/packaging.md)
+- [Auto-update](https://github.com/coldsofttech/CorneaShell/blob/main/docs/updates.md)
 - [Third-party notices](https://github.com/coldsofttech/CorneaShell/blob/main/docs/third-party-notices.md)
 
 ## Development setup

@@ -15,9 +15,14 @@ class AppData:
     @staticmethod
     def data_dir(app_id: str) -> Path:
         """The folder for ``app_id`` under the user's local application data, created on use."""
-        folder = AppData._cornea_dir() / app_id
+        folder = AppData.app_dir(app_id)
         folder.mkdir(parents=True, exist_ok=True)
         return folder
+
+    @staticmethod
+    def app_dir(app_id: str) -> Path:
+        """Where the folder for ``app_id`` is, without creating it."""
+        return AppData._cornea_dir() / app_id
 
     @staticmethod
     def _cornea_dir() -> Path:
