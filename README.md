@@ -213,6 +213,8 @@ Every page that talks to its window makes the same `fetch()` calls. Cornea serve
 await cornea.window.minimize();                       // also maximize, restore, close, setTitle
 const folder = await cornea.call("choose_folder");    // any built-in or your own action
 await cornea.closeGuard(true);                        // hold the window open while busy
+const theme = await cornea.theme();                                    // {mode: "dark", accent: "#0078d4"}
+cornea.on("theme-change", (theme) => console.log(theme.mode));         // a cornea:theme-change event
 const stop = cornea.on("drop", (detail) => console.log(detail.paths));   // a cornea:drop event
 ```
 

@@ -8,6 +8,7 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Request, Response
 
+from cornea.core.page.theme import read_theme
 from cornea.core.security.security import REPORT_PATH
 
 logger = logging.getLogger(__name__)
@@ -29,6 +30,12 @@ def client(request: Request) -> Response:
     prefix = request.app.state.security.api_prefix
     source = _client_source().replace("__API_PREFIX__", prefix)
     return Response(source, media_type="text/javascript")
+
+
+@router.get("/theme")
+def theme() -> dict[str, str | None]:
+    """The system theme: ``mode`` (``light`` or ``dark``) and ``accent`` (``#rrggbb`` or null)."""
+    return read_theme().as_dict()
 
 
 def _without_query(address: object) -> str:

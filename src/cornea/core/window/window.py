@@ -478,6 +478,15 @@ def _install_drop(window: Any, controller: "NativeWindow", skip_loads: int = 0) 
     window.events.loaded += install
 
 
+def _watch_theme(window: Any, controller: "NativeWindow") -> None:
+    """Tell the page with ``cornea:theme-change`` when the system theme or accent colour changes."""
+    from cornea.core.page.theme import ThemeWatcher
+
+    watcher = ThemeWatcher(lambda theme: controller.notify("theme-change", theme.as_dict()))
+    window.events.shown += watcher.start
+    window.events.closed += watcher.stop
+
+
 def create_native_window(
     webview: ModuleType,
     url: str | None,
@@ -579,6 +588,7 @@ def create_native_window(
 
         window.events.loaded += page_loaded
     controller = NativeWindow(window, settings, webview, start)
+    _watch_theme(window, controller)
     if settings.drop_files:
         _install_drop(window, controller, skip_loads=1 if splash is not None else 0)
     if api is not None:

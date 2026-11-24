@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Your page can read the system light or dark theme and the accent colour with `cornea.theme()`, and is told with a `cornea:theme-change` event when they change.
+
 ## [0.1.1] - 2026-11-08
 
 ### Changed

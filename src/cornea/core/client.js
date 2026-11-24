@@ -85,6 +85,14 @@
       );
     },
 
+    /**
+     * The system theme: {mode: "light" | "dark", accent: "#rrggbb" or null}. When it changes the
+     * page gets a "theme-change" event with the same shape: cornea.on("theme-change", fn).
+     */
+    theme: function () {
+      return request("/theme");
+    },
+
     /** The names of the actions this page may call. */
     actions: function () {
       return request("/bridge").then(function (data) {
@@ -101,8 +109,8 @@
     },
 
     /**
-     * Listen for an event from the host, such as "close-blocked", "drop" or
-     * "notification-click", or one the app sends with shell.notify(). The handler gets the
+     * Listen for an event from the host, such as "close-blocked", "drop",
+     * "theme-change" or "notification-click", or one the app sends with shell.notify(). The handler gets the
      * event's detail. Returns a function that stops listening.
      */
     on: function (name, handler) {

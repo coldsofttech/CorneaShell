@@ -13,6 +13,7 @@ from typer.testing import CliRunner
 from cornea import Security, Shell, Static, Window
 from cornea.cli import app, doctor
 from cornea.cli.doctor import checks as doctor_checks
+from cornea.core.page import Theme
 from cornea.core.window.window import show_window
 from window_fakes import FakeWebview
 
@@ -51,6 +52,26 @@ def request(
 def signed_in(shell: Shell) -> dict[str, str]:
     _, headers, _ = request(shell, f"/?cornea_token={shell.app.state.bootstrap_token}")
     return {"Cookie": headers["set-cookie"].split(";")[0]}
+
+
+# ----- the system theme ---------------------------------------------------------------------------
+
+
+def test_the_theme_route_answers_with_mode_and_accent(
+    shell: Any, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("cornea.core.page.routes.read_theme", lambda: Theme("dark", "#0078d4"))
+
+    status, _, body = request(shell, "/api/theme", headers=signed_in(shell))
+
+    assert status == 200
+    assert body == b'{"mode":"dark","accent":"#0078d4"}'
+
+
+def test_the_theme_route_needs_the_session(shell: Any) -> None:
+    status, _, _ = request(shell, "/api/theme")
+
+    assert status != 200
 
 
 # ----- the JavaScript client ----------------------------------------------------------------------

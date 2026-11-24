@@ -49,6 +49,7 @@ src/cornea/core/security/close_guard.py   holds the window open while the app is
 src/cornea/core/security/single_instance.py  one copy at a time, and waking the first copy
 src/cornea/core/page/routes.py            /api/client.js and /api/csp-report
 src/cornea/core/page/notifications.py     Notifier: Windows toast notifications through the winrt bindings
+src/cornea/core/page/theme.py             Theme: the system light/dark mode and accent colour, and a watcher for changes
 src/cornea/cli/                           the cornea command: a thin wrapper over run()
 src/cornea/cli/config.py                  cornea.toml and [tool.cornea]: defaults for the command
 src/cornea/cli/commands.py                the Typer app, the flags both commands share and the launch helpers
@@ -200,6 +201,10 @@ Dropped files use pywebview's DOM events. They are installed once, after the fir
 ## Downloads
 
 `Window(downloads=True)` sets pywebview's `ALLOW_DOWNLOADS`, which is otherwise forced off in `show_window`. With it on, pywebview shows its own save dialog for each download, so the person chooses the location; Cornea does not pick a folder or save silently.
+
+## Theme
+
+`GET <api prefix>/theme` (`cornea.theme()` in the client) answers `{"mode": "light" | "dark", "accent": "#rrggbb" | null}`. It is read from the current user's registry (`AppsUseLightTheme` under `Themes\Personalize`, `AccentColor` under `DWM`), read-only, and falls back to light with no accent where those are missing or the system is not Windows. A native window runs a `ThemeWatcher` thread that checks once a second and sends the page `cornea:theme-change` with the same shape when the answer changes. Polling is used because Windows has no cheap change event to wait on from Python. Only the two values reach the page.
 
 ## Notifications
 
