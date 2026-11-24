@@ -300,18 +300,102 @@ def test_install_writes_a_helper_for_a_zip_and_exits(
     assert exits == [1]
 
 
-def test_install_runs_an_installer_with_its_arguments(
+@pytest.mark.parametrize(
+    ("kind", "name", "switches"),
+    [
+        ("inno", "Setup.exe", "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-"),
+        ("nsis", "Setup.exe", "/S"),
+        ("wix", "Setup.exe", "/quiet /norestart"),
+    ],
+)
+def test_install_runs_an_exe_silently_and_waits_for_it(
+    kind: str, name: str, switches: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    started: list[Path] = []
+    monkeypatch.setattr(install_module, "spawn_helper", started.append)
+    installer = tmp_path / name
+    installer.write_bytes(b"MZ")
+    updater, _, exits = make_updater(Custom(lambda: None), tmp_path, installer=kind)
+    updater.install(installer)
+    lines = started[0].read_text().splitlines()
+    assert f'start "" /wait "{installer}" {switches}' in lines
+    assert f'>"{tmp_path / "result.txt"}" echo %ERRORLEVEL%' in lines
+    assert lines.index(f'start "" /wait "{installer}" {switches}') < next(
+        i for i, line in enumerate(lines) if line.startswith('start "" "')
+    )
+    assert exits == [1]
+
+
+def test_install_runs_an_msi_quietly_without_naming_the_tool(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     started: list[Path] = []
     monkeypatch.setattr(install_module, "spawn_helper", started.append)
-    installer = tmp_path / "Setup.exe"
-    installer.write_bytes(b"MZ")
-    updater, _, exits = make_updater(Custom(lambda: None), tmp_path, installer_args=("/SILENT",))
-    updater.install(installer)
-    lines = started[0].read_text().splitlines()
-    assert f'"{installer}" /SILENT' in lines
-    assert exits == [1]
+    package = tmp_path / "Setup.msi"
+    package.write_bytes(b"x")
+    updater, _, _ = make_updater(Custom(lambda: None), tmp_path, installer_args=("REINSTALL=ALL",))
+    updater.install(package)
+    assert f'start "" /wait msiexec /i "{package}" /qn /norestart REINSTALL=ALL' in (
+        started[0].read_text().splitlines()
+    )
+
+
+def test_an_exe_installer_must_say_which_tool_made_it(tmp_path: Path) -> None:
+    package = tmp_path / "Setup.exe"
+    package.write_bytes(b"MZ")
+    updater, _, exits = make_updater(Custom(lambda: None), tmp_path)
+    with pytest.raises(UpdateError, match="say which tool"):
+        updater.install(package)
+    assert exits == []
+
+
+def test_custom_installers_need_their_own_switches(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    package = tmp_path / "Setup.exe"
+    package.write_bytes(b"MZ")
+    updater, _, _ = make_updater(Custom(lambda: None), tmp_path, installer="custom")
+    with pytest.raises(UpdateError, match="needs installer_args"):
+        updater.install(package)
+    started: list[Path] = []
+    monkeypatch.setattr(install_module, "spawn_helper", started.append)
+    ready, _, _ = make_updater(
+        Custom(lambda: None), tmp_path, installer="custom", installer_args=("--quiet",)
+    )
+    ready.install(package)
+    assert f'start "" /wait "{package}" --quiet' in started[0].read_text().splitlines()
+
+
+def test_installer_kind_must_fit_the_file(tmp_path: Path) -> None:
+    exe = tmp_path / "Setup.exe"
+    exe.write_bytes(b"MZ")
+    msi = tmp_path / "Setup.msi"
+    msi.write_bytes(b"x")
+    wrong_for_exe, _, _ = make_updater(Custom(lambda: None), tmp_path, installer="msi")
+    with pytest.raises(UpdateError, match="does not fit"):
+        wrong_for_exe.install(exe)
+    wrong_for_msi, _, _ = make_updater(Custom(lambda: None), tmp_path, installer="inno")
+    with pytest.raises(UpdateError, match="does not fit"):
+        wrong_for_msi.install(msi)
+
+
+@pytest.mark.parametrize(
+    ("text", "ok"), [("0", True), ("3010", True), ("1603", False), ("?", False)]
+)
+def test_the_outcome_of_the_installer_is_read_once_at_start(
+    text: str, ok: bool, tmp_path: Path
+) -> None:
+    folder = tmp_path / "dl" / "1.1.0"
+    folder.mkdir(parents=True)
+    (folder / "result.txt").write_text(text + " \r\n")
+    updater, _, _ = make_updater(Custom(lambda: None), tmp_path)
+    assert updater.last_install is not None
+    assert updater.last_install["version"] == "1.1.0"
+    assert updater.last_install["ok"] is ok
+    assert updater.status()["last_install"] == updater.last_install
+    assert not (folder / "result.txt").exists()
+    again, _, _ = make_updater(Custom(lambda: None), tmp_path)
+    assert again.last_install is None
 
 
 def test_install_does_not_exit_when_the_helper_cannot_start(

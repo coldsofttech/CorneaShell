@@ -119,12 +119,46 @@ print(base64.b64encode(private.sign(digest)).decode())
 | File type | What happens |
 | --- | --- |
 | `.zip` | Unpacked to a staging folder (paths that climb out are refused), then copied over the program's folder. If the zip wraps everything in one folder, that folder's content is used. |
-| `.exe` | Run as an installer after the app exits. Give silent switches with `installer_args=("/SILENT",)`. |
-| `.msi` | Run with `msiexec /i ... /qb`, plus `installer_args`. |
+| `.exe` | Run silently as an installer after the app exits. Say which tool built it with `installer=` (see below). |
+| `.msi` | Run silently with `msiexec /i ... /qn /norestart`. No `installer=` needed. |
 
-A running Windows program cannot replace its own files, so Cornea writes a small batch file, starts it detached, and closes the app. The batch file waits for the app's process to end, copies the files (or runs the installer), starts the new version with the same arguments, and deletes itself.
+### Installers (Control Panel, registry and shortcuts)
 
-For a zip, the folder to replace is the packaged program's own folder. From source (not frozen) there is no such folder, so pass `install_dir=`. A path or argument that contains `" % ^ & | < > !` or a control character is refused, because a batch file cannot quote it safely. The program folder must be writable by the person running the app: an app in `Program Files` needs an installer (`.exe` or `.msi`) that asks for permission, not a zip.
+A zip only copies files. An installer does everything your normal setup does: it updates the entry in Apps & features (version, publisher, links), the registry, shortcuts and anything else it was built to touch. For an app that shows up in Control Panel, ship the installer, not a zip. The installer is found the same way as any file: the feed's `url`, or a `GitHubRelease` asset such as `asset="MyApp-Setup-*.exe"`, always over `https`.
+
+An `.exe` could come from any tool, each with its own silent switches, so you say which one:
+
+| `installer=` | Switches Cornea adds |
+| --- | --- |
+| `"inno"` (Inno Setup) | `/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-` |
+| `"nsis"` (NSIS) | `/S` |
+| `"wix"` (WiX bundle) | `/quiet /norestart` |
+| `"msi"` (the default for `.msi` files) | `/qn /norestart` |
+| `"custom"` | only the ones you pass in `installer_args` |
+
+`installer_args` adds more switches after these, for example `("/DIR=...",)` or `("REINSTALL=ALL",)`. An `.exe` with `installer="auto"` is refused, because guessing the wrong switches would pop up a wizard or fail.
+
+```python
+Updater(
+    GitHubRelease("acme/myapp", asset="MyApp-Setup-*.exe"),
+    current_version="1.3.0",
+    installer="inno",
+    public_key="<base64 Ed25519 public key>",
+)
+```
+
+What to build into your installer so the update behaves:
+
+- **Keep the same identity.** Inno Setup: the same `AppId`. MSI: the same `UpgradeCode`, and a higher `ProductVersion`. Otherwise Windows sees a second program next to the old one.
+- **Set the Control Panel details in the installer**, since that is where they come from: publisher, `URLInfoAbout`, help and support links, the version.
+- **Expect UAC.** A machine-wide installer asks for administrator rights. Windows shows the prompt after the app has closed, and if the person says no the install fails. A per-user installer (`PrivilegesRequired=lowest` in Inno Setup) does not ask.
+- **Sign it.** An installer runs with the person's rights, or elevated. Use `public_key=` (signed updates) for installers, so a changed feed or host cannot run code on your users' machines.
+
+The helper waits for the installer to finish, writes its exit code, then starts the app again. `0`, `3010` and `1641` (restart needed) count as success. After a failure the old version starts again, and on its next start `shell.updater.last_install` (also in `update_status`) says `{"version", "exit_code", "ok"}` so the app can tell the person. It is reported once.
+
+A running Windows program cannot replace its own files, so Cornea writes a small batch file, starts it detached, and closes the app. The batch file waits for the app's process to end, copies the files (or runs the installer and waits for it), starts the app with the same arguments, and deletes itself.
+
+For a zip, the folder to replace is the packaged program's own folder. From source (not frozen) there is no such folder, so pass `install_dir=`. A path or argument that contains `" % ^ & | < > !` or a control character is refused, because a batch file cannot quote it safely. The program folder must be writable by the person running the app: an app in `Program Files` needs an installer (`.exe` or `.msi`) that asks for permission, not a zip. A zip does not change the Control Panel entry or the registry.
 
 ## 5. Events and the page
 

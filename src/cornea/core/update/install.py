@@ -18,8 +18,66 @@ from cornea.core.update.release import UpdateError
 INSTALLER_SUFFIXES = frozenset({".exe", ".msi"})
 SUPPORTED = frozenset({".zip", *INSTALLER_SUFFIXES})
 MAX_EXTRACTED = 8 * 1024**3
+SILENT: dict[str, tuple[str, ...]] = {
+    "inno": ("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-"),
+    "nsis": ("/S",),
+    "wix": ("/quiet", "/norestart"),
+    "msi": ("/qn", "/norestart"),
+}
+"""The switches that make each kind of installer run without showing anything."""
+INSTALLER_KINDS = (*SILENT, "custom")
+SUCCESS_CODES = frozenset({0, 1641, 3010})
+"""Exit codes that mean the installer worked (1641 and 3010: a restart is needed)."""
 _UNSAFE = re.compile(r'[\x00-\x1f"%^&|<>!`]')
 """Characters that mean something to ``cmd`` and cannot be quoted safely in a batch file."""
+
+
+def installer_arguments(kind: str, suffix: str, extra: tuple[str, ...]) -> tuple[str, ...]:
+    """The command-line switches for a silent install, then any ``extra`` ones.
+
+    ``auto`` means ``msi`` for an ``.msi`` file. An ``.exe`` could be built by any tool with its
+    own switches, so it must be named; ``custom`` takes only the switches in ``extra``.
+
+    Raises:
+        UpdateError: If the installer kind is not known, does not fit the file, or is needed.
+    """
+    if kind == "auto":
+        if suffix != ".msi":
+            raise UpdateError(
+                "say which tool built the installer: installer='inno', 'nsis', 'wix' or 'custom'",
+                "install",
+            )
+        kind = "msi"
+    if kind not in INSTALLER_KINDS:
+        raise UpdateError(f"unknown installer {kind!r}; use one of {INSTALLER_KINDS}", "install")
+    if (kind == "msi") != (suffix == ".msi") and kind != "custom":
+        raise UpdateError(f"installer={kind!r} does not fit a {suffix} file", "install")
+    if kind == "custom":
+        if not extra:
+            raise UpdateError(
+                "installer='custom' needs installer_args with the silent switches", "install"
+            )
+        return extra
+    return (*SILENT[kind], *extra)
+
+
+def read_result(folder: Path) -> dict[str, object] | None:
+    """The outcome the helper wrote for the newest finished install under ``folder``, once.
+
+    The file is deleted when read, so each outcome is reported one time.
+    """
+    results = sorted(folder.glob("*/result.txt"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not results:
+        return None
+    newest = results[0]
+    try:
+        code = int(newest.read_text(encoding="utf-8-sig").strip())
+    except (OSError, ValueError):
+        code = -1
+    version = newest.parent.name
+    for path in results:
+        path.unlink(missing_ok=True)
+    return {"version": version, "exit_code": code, "ok": code in SUCCESS_CODES}
 
 
 def check_batch_text(value: str, what: str) -> str:
@@ -87,6 +145,8 @@ class InstallPlan:
     install_dir: Path | None
     relaunch: list[str]
     installer_args: tuple[str, ...] = ()
+    result: Path | None = None
+    """Where the helper writes the installer's exit code, for the next start to read."""
 
     def render(self) -> str:
         """The batch file's text."""
@@ -105,19 +165,23 @@ class InstallPlan:
             assert self.install_dir is not None  # noqa: S101
             options = "/E /R:10 /W:1 /NFL /NDL /NJH /NJS"
             lines.append(f'robocopy "{self.source}" "{self.install_dir}" {options} >NUL')
-        elif self.source.suffix.lower() == ".msi":
-            args = " ".join(self.installer_args)
-            lines.append(f'msiexec /i "{self.source}" /qb {args}'.rstrip())
         else:
             args = " ".join(self.installer_args)
-            lines.append(f'"{self.source}" {args}'.rstrip())
+            program = (
+                f'msiexec /i "{self.source}"'
+                if self.source.suffix.lower() == ".msi"
+                else f'"{self.source}"'
+            )
+            lines.append(f'start "" /wait {program} {args}'.rstrip())
+            if self.result is not None:
+                lines.append(f'>"{self.result}" echo %ERRORLEVEL%')
         command = " ".join(f'"{part}"' for part in self.relaunch)
         lines += [f'start "" {command}', '(goto) 2>NUL & del "%~f0"']
         return "\r\n".join(lines) + "\r\n"
 
     def write(self) -> Path:
         """Write the script, after checking every path and argument that goes into it."""
-        for path in (self.script, self.source, *(p for p in [self.install_dir] if p)):
+        for path in (self.script, self.source, *(p for p in (self.install_dir, self.result) if p)):
             check_batch_text(str(path), "update path")
         for part in (*self.relaunch, *self.installer_args):
             check_batch_text(part, "start-up command")

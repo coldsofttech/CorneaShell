@@ -665,6 +665,7 @@ Updater(
     require_hash: bool = True,
     allowed_hosts: tuple[str, ...] = (),
     install_dir: Path | str | None = None,
+    installer: Literal['auto', 'inno', 'nsis', 'wix', 'msi', 'custom'] = 'auto',
     installer_args: tuple[str, ...] = (),
     download_dir: Path | str | None = None,
     check_on_start: bool = False,

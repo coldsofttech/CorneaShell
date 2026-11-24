@@ -6,7 +6,7 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ### Added
 
-- Auto-update: give `Shell` an `Updater` to check a source, download, verify and restart into a new version. Sources are `JsonFeed`, `GitHubRelease` and `Custom`. Downloads are checked against a SHA-256, and an optional signed-update mode (`public_key=`, Ed25519, `signed-updates` extra) refuses anything not signed by your key. The page hears `cornea:update-*` events and can drive the steps with `Updater(page_control=True)`. See `docs/updates.md`.
+- Auto-update: give `Shell` an `Updater` to check a source, download, verify and restart into a new version. Sources are `JsonFeed`, `GitHubRelease` and `Custom`. Downloads are checked against a SHA-256, and an optional signed-update mode (`public_key=`, Ed25519, `signed-updates` extra) refuses anything not signed by your key. The page hears `cornea:update-*` events and can drive the steps with `Updater(page_control=True)`. Installers (`.exe` from Inno Setup, NSIS or WiX, and `.msi`) run silently with the right switches (`installer=`), so Control Panel and the registry reflect the new version; the outcome is available as `updater.last_install`. See `docs/updates.md`.
 
 ## [0.1.1] - 2026-11-08
 

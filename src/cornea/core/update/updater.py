@@ -7,7 +7,7 @@ import tempfile
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import unquote, urlsplit
 
 from cornea.core.update import http, install, verify
@@ -58,6 +58,7 @@ class Updater:
         require_hash: bool = True,
         allowed_hosts: tuple[str, ...] = (),
         install_dir: Path | str | None = None,
+        installer: Literal["auto", "inno", "nsis", "wix", "msi", "custom"] = "auto",
         installer_args: tuple[str, ...] = (),
         download_dir: Path | str | None = None,
         check_on_start: bool = False,
@@ -72,7 +73,10 @@ class Updater:
         if not all(self.allowed_hosts):
             raise ValueError("allowed_hosts must not contain empty values")
         self.install_dir = Path(install_dir) if install_dir is not None else None
+        self.installer = installer
         self.installer_args = installer_args
+        self.last_install: dict[str, Any] | None = None
+        """How the last installer run ended, read once: ``version``, ``exit_code`` and ``ok``."""
         self.download_dir = Path(download_dir) if download_dir is not None else None
         self.check_on_start = check_on_start
         self.page_control = page_control
@@ -109,6 +113,10 @@ class Updater:
         self._exit = exit_app
         if self.download_dir is None and data_dir is not None:
             self.download_dir = data_dir / "updates"
+        if self.download_dir is not None and self.last_install is None:
+            self.last_install = install.read_result(self.download_dir)
+            if self.last_install is not None:
+                logger.info("The last installer run ended with %s", self.last_install)
 
     def status(self) -> dict[str, Any]:
         """Where the updater is now, as JSON, for a page that loaded after an event was sent."""
@@ -118,6 +126,7 @@ class Updater:
             "release": self.release.as_dict() if self.release else None,
             "error": self.error,
             "signed": self.signed,
+            "last_install": self.last_install,
         }
 
     def _emit(self, event: str, detail: Any = None) -> None:
@@ -284,6 +293,7 @@ class Updater:
         suffix = package.suffix.lower()
         if suffix not in install.SUPPORTED:
             raise UpdateError("that file type cannot be installed", "install")
+        arguments: tuple[str, ...] = ()
         if suffix == ".zip":
             folder = self.install_dir or install.default_install_dir()
             if folder is None:
@@ -297,6 +307,7 @@ class Updater:
             source, action = install.extract_zip(package, staging), "copy"
         else:
             folder, source, action = self.install_dir, package, "run"
+            arguments = install.installer_arguments(self.installer, suffix, self.installer_args)
         plan = install.InstallPlan(
             script=package.parent / "apply-update.bat",
             pid=install.current_pid(),
@@ -304,6 +315,7 @@ class Updater:
             source=source,
             install_dir=folder,
             relaunch=install.relaunch_command(),
-            installer_args=self.installer_args,
+            installer_args=arguments,
+            result=package.parent / "result.txt" if action == "run" else None,
         )
         return plan.write()
