@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Open more windows: `shell.open_window("/settings")` opens a child window on a page of your app. It shares the main window's session and security rules, can be named so asking again brings it to the front, and closes with the main window.
+- Pages can open windows too, with `cornea.windows.open("/settings")`, once you allow it with `Bridge(windows=True)`. Each window's controls (minimize, close and so on) act on that window.
+
 ## [0.1.1] - 2026-11-08
 
 ### Changed

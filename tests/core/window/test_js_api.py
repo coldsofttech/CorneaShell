@@ -40,6 +40,17 @@ class Recorder:
     def notify(self, event: str, detail: object = None) -> None:
         self.calls.append((f"notify:{event}", detail))
 
+    def open_window(
+        self,
+        path: str = "/",
+        *,
+        title: str | None = None,
+        size: tuple[int, int] | None = None,
+        name: str | None = None,
+    ) -> str:
+        self.calls.append(("open_window", path))
+        return "child"
+
     def show_notification(
         self, title: str, message: str, notification_id: str | None = None
     ) -> None:

@@ -45,6 +45,8 @@ OPT_IN_FILES = frozenset({"open_file", "reveal"})
 """Built-in actions that are off until ``Bridge(open_files=True)``."""
 OPT_IN_NOTIFICATIONS = frozenset({"show_notification"})
 """Built-in actions that are off until ``Bridge(notifications=True)``."""
+OPT_IN_WINDOWS = frozenset({"open_window"})
+"""Built-in actions that are off until ``Bridge(windows=True)``."""
 
 
 class BuiltinActions:
@@ -158,6 +160,28 @@ class BuiltinActions:
         return {"shown": True}
 
     @staticmethod
+    def open_window(
+        window: WindowController | None,
+        path: str = "/",
+        title: str | None = None,
+        width: int | None = None,
+        height: int | None = None,
+        name: str | None = None,
+    ) -> Any:
+        """Open another window on one of Cornea's own pages, and return its id.
+
+        ``path`` is an address on this app, like ``/settings``. With a ``name``, asking again
+        brings the window that already has that name to the front instead of opening another.
+        """
+        if (width is None) != (height is None):
+            raise BadArguments("give both width and height, or neither")
+        size = None if width is None or height is None else (width, height)
+        window_id = BuiltinActions._window(window, "a window").open_window(
+            path, title=title, size=size, name=name
+        )
+        return {"id": window_id}
+
+    @staticmethod
     def platform_info(window: WindowController | None) -> Any:
         """Describe the system, the Python in use and whether a window exists."""
         from cornea import __version__
@@ -194,6 +218,7 @@ class BuiltinActions:
             "open_file": BuiltinActions.open_file,
             "reveal": BuiltinActions.reveal,
             "show_notification": BuiltinActions.show_notification,
+            "open_window": BuiltinActions.open_window,
         }
 
 
@@ -218,6 +243,7 @@ class ActionRegistry:
         *,
         open_files: bool = False,
         notifications: bool = False,
+        windows: bool = False,
     ) -> None:
         off = set(disabled)
         unknown = off - set(BUILTINS)
@@ -229,6 +255,7 @@ class ActionRegistry:
             if name not in off
             and (open_files or name not in OPT_IN_FILES)
             and (notifications or name not in OPT_IN_NOTIFICATIONS)
+            and (windows or name not in OPT_IN_WINDOWS)
         }
         self._custom: dict[str, Callable[..., Any]] = {}
 

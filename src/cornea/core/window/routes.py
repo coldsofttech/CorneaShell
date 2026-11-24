@@ -5,7 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from cornea.core.window.window import WindowController
+from cornea.core.window.window import WINDOW_HEADER, WindowController
 
 
 class TitleBody(BaseModel):
@@ -26,8 +26,19 @@ class GuardBody(BaseModel):
     enabled: bool
 
 
+def window_for(request: Request) -> WindowController | None:
+    """The window the request came from: a child window names itself, otherwise the main one."""
+    named = request.headers.get(WINDOW_HEADER)
+    if named:
+        child: WindowController | None = request.app.state.windows.get(named)
+        if child is not None:
+            return child
+    main: WindowController | None = request.app.state.window
+    return main
+
+
 def _controller(request: Request) -> WindowController:
-    controller: WindowController | None = request.app.state.window
+    controller = window_for(request)
     if controller is None:
         raise HTTPException(status_code=409, detail="There is no window to control.")
     return controller

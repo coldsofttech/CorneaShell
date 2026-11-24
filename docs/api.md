@@ -71,6 +71,7 @@ Properties:
 
 - `timings`: How long start-up took so far. See `Timings`.
 - `actions`: The native actions the page can call. Register your own with `action`.
+- `windows`: The ids of the child windows that are open.
 - `is_direct`: Whether the window opens a `Url` itself, with no local server.
 - `running`: Whether the server is accepting requests.
 - `port`: The port the server is bound to. Available after `start`.
@@ -132,6 +133,43 @@ Example:
 ...     return export_running
 >>> busy()
 False
+```
+
+#### `Shell.open_window`
+
+```python
+def Shell.open_window(
+    path: str = '/',
+    *,
+    title: str | None = None,
+    size: tuple[int, int] | None = None,
+    name: str | None = None,
+) -> str
+```
+
+Open another window on a page of this app and return its id.
+
+The window is served by the same local server, so it shares the session and every
+security rule of the main window; `path` must be a path on this app, like
+`/settings`. It takes the main window's settings (frame, icon, developer tools and so
+on) with its own `title` and `size` if given. With a `name`, a window that is
+already open under that name is brought to the front instead of opening another. A child
+is never held open by the close guard, and closing the main window closes them all. Pages
+can ask for one with `cornea.windows.open` when `Bridge(windows=True)`.
+
+**Raises:**
+
+- `ValueError`: If the path, title or size is not allowed, or `Window.max_child_windows` are already open.
+- `RuntimeError`: If there is no open window to add to, or the app shows a direct address.
+
+Example:
+
+```pycon
+>>> shell = Shell(window=None)
+>>> shell.open_window("/settings")
+Traceback (most recent call last):
+...
+RuntimeError: There is no window to open another window from.
 ```
 
 #### `Shell.notify`
@@ -532,6 +570,7 @@ Native window options. The context menu and developer tools are off unless enabl
 | `downloads` | `bool` | `False` | Let the page download files. The person chooses where to save each one in a native dialog. Off by default, so a page cannot put files on disk. |
 | `drop_files` | `bool` | `False` | Tell the page which files were dropped on the window, with their full paths, as a `cornea:drop` event. Off by default, because a full path says where a person keeps things. |
 | `js_api` | `bool` | `False` | Give the page `window.pywebview.api`: the window controls and the native actions. It lets a frameless window show an address that Cornea does not serve. Every page that loads in the window gets these powers, so use it only for pages you trust. |
+| `max_child_windows` | `int` | `8` | The most child windows (see `Shell.open_window`) open at once. |
 
 Properties:
 
@@ -613,6 +652,7 @@ Which built-in native actions the page may call. All of them are on by default.
 | `disabled` | `tuple[str, ...]` | `()` | Built-in actions to switch off. A disabled action answers like an unknown one. |
 | `notifications` | `bool` | `False` | Add the `show_notification` action, which shows a Windows toast. Off by default, so a page cannot raise alerts unless you allow it. Needs the `notifications` extra. |
 | `open_files` | `bool` | `False` | Add the `open_file` and `reveal` actions, which open a file in the program Windows has for it and show a file in Explorer. Off by default. A page can name any path, so `open_file` still refuses programs, scripts and shortcuts, network paths and missing files. |
+| `windows` | `bool` | `False` | Add the `open_window` action, which lets the page open another window on one of Cornea's own pages. Off by default, so a page cannot open windows unless you allow it. Your own code can always call `Shell.open_window`. |
 
 Example:
 

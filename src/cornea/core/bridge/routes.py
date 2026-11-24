@@ -6,6 +6,7 @@ from fastapi import APIRouter, Body, Request
 from fastapi.responses import JSONResponse
 
 from cornea.core.bridge.bridge import ActionRegistry
+from cornea.core.window.routes import window_for
 
 router = APIRouter(prefix="/bridge", tags=["bridge"])
 
@@ -23,5 +24,5 @@ async def call_action(
 ) -> JSONResponse:
     """Run one action with the JSON body as its named arguments."""
     registry: ActionRegistry = request.app.state.actions
-    status, payload = await registry.invoke(action, arguments or {}, request.app.state.window)
+    status, payload = await registry.invoke(action, arguments or {}, window_for(request))
     return JSONResponse(payload, status_code=status)

@@ -8,6 +8,7 @@ import re
 import sys
 import threading
 from collections.abc import Callable, Sequence
+from dataclasses import replace
 from pathlib import Path
 from types import ModuleType
 from typing import TYPE_CHECKING, Any, Literal, Protocol
@@ -45,6 +46,50 @@ def check_event_name(event: str) -> None:
         raise ValueError(f"event names look like 'export-done', got {event!r}")
 
 
+WINDOW_HEADER = "x-cornea-window"
+"""The header a page sends so the window routes act on its own window."""
+WINDOW_PARAM = "cornea_window"
+"""The query parameter that tells a child window's page which window it is."""
+MAX_PATH_LENGTH = 2048
+SizeSetting = tuple[int, int]
+
+
+def check_window_path(path: object) -> str:
+    """A path on this app's own server, for a child window. Anything else is refused.
+
+    Raises:
+        ValueError: If it is not a path starting with a single ``/``.
+
+    Example:
+        >>> check_window_path("/settings?tab=2")
+        '/settings?tab=2'
+    """
+    if not isinstance(path, str) or not path.startswith("/") or path.startswith(("//", "/\\")):
+        raise ValueError("a window opens a path on this app, like '/settings'")
+    if len(path) > MAX_PATH_LENGTH or any(ord(char) < 32 or char == "\\" for char in path):
+        raise ValueError("the window path is too long or contains forbidden characters")
+    if WINDOW_PARAM in path:
+        raise ValueError(f"the window path cannot contain {WINDOW_PARAM!r}")
+    return path
+
+
+def child_settings(parent: Window, title: str | None, size: object) -> Window:
+    """The parent's window settings for a child, with its own title and size if given."""
+    if title is not None and (not isinstance(title, str) or not 1 <= len(title) <= 200):
+        raise ValueError("title must be 1 to 200 characters")
+    changes: dict[str, Any] = {"title": title or parent.title, "position": None}
+    if size is not None:
+        if (
+            not isinstance(size, (tuple, list))
+            or len(size) != 2
+            or not all(isinstance(side, int) and not isinstance(side, bool) for side in size)
+            or not all(100 <= side <= 10000 for side in size)
+        ):
+            raise ValueError("size must be a width and a height between 100 and 10000")
+        changes["size"] = (int(size[0]), int(size[1]))
+    return replace(parent, **changes)
+
+
 class Unavailable(Exception):
     """Raised for something that needs a real window when there is none."""
 
@@ -75,6 +120,20 @@ class WindowController(Protocol):
         self, title: str, message: str, notification_id: str | None = None
     ) -> None:
         """Show a Windows toast. Clicking it activates the window and tells the page."""
+        ...
+
+    def open_window(
+        self,
+        path: str = "/",
+        *,
+        title: str | None = None,
+        size: SizeSetting | None = None,
+        name: str | None = None,
+    ) -> str:
+        """Open another window on a path of this app and return its id.
+
+        With a ``name``, a window already open under that name is brought to the front instead.
+        """
         ...
 
     def set_title(self, title: str) -> None: ...
@@ -171,6 +230,10 @@ class NativeWindow:
         """Decides whether closing is held back. Set by the shell."""
         self.notifier: Notifier | None = None
         """Shows toasts for this app. Set by the shell."""
+        self.opener: Callable[..., str] | None = None
+        """Opens child windows. Set by the shell."""
+        self.on_closed: Callable[[], None] | None = None
+        """Called once the window has closed. Set by the shell for child windows."""
         self._forced = False
         window.events.closing += self._on_closing
         window.events.maximized += self._on_maximized
@@ -215,6 +278,20 @@ class NativeWindow:
 
     def _on_closed(self) -> None:
         self._closed = True
+        if self.on_closed is not None:
+            self.on_closed()
+
+    def open_window(
+        self,
+        path: str = "/",
+        *,
+        title: str | None = None,
+        size: SizeSetting | None = None,
+        name: str | None = None,
+    ) -> str:
+        if self.opener is None:
+            raise Unavailable("There is no window to open another window from.")
+        return self.opener(path, title=title, size=size, name=name)
 
     def _on_closing(self) -> bool:
         """The window is being closed by any means (Alt+F4, the taskbar): hold it if asked to."""
@@ -351,6 +428,16 @@ class SimulatedWindow:
         self, title: str, message: str, notification_id: str | None = None
     ) -> None:
         raise Unavailable("There is no window to show a notification from.")
+
+    def open_window(
+        self,
+        path: str = "/",
+        *,
+        title: str | None = None,
+        size: SizeSetting | None = None,
+        name: str | None = None,
+    ) -> str:
+        raise Unavailable("Opening a window needs a window; this is running without one.")
 
     def set_title(self, title: str) -> None:
         self._title = title

@@ -147,6 +147,10 @@ class Bridge:
     """Add the ``open_file`` and ``reveal`` actions, which open a file in the program Windows has
     for it and show a file in Explorer. Off by default. A page can name any path, so ``open_file``
     still refuses programs, scripts and shortcuts, network paths and missing files."""
+    windows: bool = False
+    """Add the ``open_window`` action, which lets the page open another window on one of Cornea's
+    own pages. Off by default, so a page cannot open windows unless you allow it. Your own code
+    can always call ``Shell.open_window``."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -196,10 +200,14 @@ class Window:
 
     It lets a frameless window show an address that Cornea does not serve. Every page that loads
     in the window gets these powers, so use it only for pages you trust."""
+    max_child_windows: int = 8
+    """The most child windows (see ``Shell.open_window``) open at once."""
 
     def __post_init__(self) -> None:
         _check_size("size", self.size)
         _check_size("min_size", self.min_size)
+        if self.max_child_windows < 0:
+            raise ValueError("max_child_windows cannot be negative")
         if self.icon is not None and Path(self.icon).suffix.lower() not in ICON_TYPES:
             raise ValueError(
                 f"icon must be one of {', '.join(sorted(ICON_TYPES))}, got {str(self.icon)!r}"

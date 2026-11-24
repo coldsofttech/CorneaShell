@@ -4,6 +4,7 @@ import asyncio
 import json
 import logging
 import os
+import secrets
 import socket
 import sys
 import threading
@@ -13,6 +14,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from types import ModuleType, TracebackType
 from typing import Any, Self
+from urllib.parse import urlsplit, urlunsplit
 
 import uvicorn
 from fastapi import APIRouter, FastAPI
@@ -29,9 +31,13 @@ from cornea.core.sources.process import ProcessRunner
 from cornea.core.sources.sources import Process, Url, WebSource, coerce_source
 from cornea.core.window.loading import check_loading, render_loading
 from cornea.core.window.window import (
+    WINDOW_PARAM,
+    NativeWindow,
     SimulatedWindow,
     Unavailable,
     check_event_name,
+    check_window_path,
+    child_settings,
     create_native_window,
     load_webview,
     require_webview2,
@@ -204,6 +210,9 @@ class Shell:
         self._start_error: BaseException | None = None
         self._app_started = threading.Event()
         self._start_began = False
+        self._webview: ModuleType | None = None
+        self._children_lock = threading.Lock()
+        self._child_names: dict[str, str] = {}
 
     # ----- what the server is ---------------------------------------------------------------
 
@@ -288,6 +297,101 @@ class Shell:
         """
         self._guard.add(function)
         return function
+
+    @property
+    def windows(self) -> list[str]:
+        """The ids of the child windows that are open."""
+        return list(self.app.state.windows)
+
+    def open_window(
+        self,
+        path: str = "/",
+        *,
+        title: str | None = None,
+        size: tuple[int, int] | None = None,
+        name: str | None = None,
+    ) -> str:
+        """Open another window on a page of this app and return its id.
+
+        The window is served by the same local server, so it shares the session and every
+        security rule of the main window; ``path`` must be a path on this app, like
+        ``/settings``. It takes the main window's settings (frame, icon, developer tools and so
+        on) with its own ``title`` and ``size`` if given. With a ``name``, a window that is
+        already open under that name is brought to the front instead of opening another. A child
+        is never held open by the close guard, and closing the main window closes them all. Pages
+        can ask for one with ``cornea.windows.open`` when ``Bridge(windows=True)``.
+
+        Raises:
+            ValueError: If the path, title or size is not allowed, or ``Window.max_child_windows``
+                are already open.
+            RuntimeError: If there is no open window to add to, or the app shows a direct address.
+
+        Example:
+            >>> shell = Shell(window=None)
+            >>> shell.open_window("/settings")
+            Traceback (most recent call last):
+            ...
+            RuntimeError: There is no window to open another window from.
+        """
+        main = self.app.state.window
+        if self.window is None or self._webview is None or not isinstance(main, NativeWindow):
+            raise RuntimeError("There is no window to open another window from.")
+        if self._direct_url is not None:
+            raise RuntimeError("A direct URL has no local server to open more windows from.")
+        address = check_window_path(path)
+        settings = child_settings(self.window, title, size)
+        if name is not None and not (isinstance(name, str) and 1 <= len(name) <= 64):
+            raise ValueError("name must be 1 to 64 characters")
+        with self._children_lock:
+            windows: dict[str, Any] = self.app.state.windows
+            if name is not None and self._child_names.get(name) in windows:
+                existing = windows[self._child_names[name]]
+                existing.activate()
+                return str(self._child_names[name])
+            if len(windows) >= self.window.max_child_windows:
+                raise ValueError(f"{self.window.max_child_windows} child windows are already open")
+            window_id = secrets.token_urlsafe(8)
+            self._create_child(window_id, address, settings)
+            if name is not None:
+                self._child_names[name] = window_id
+        return window_id
+
+    def _child_url(self, address: str, window_id: str) -> str:
+        parts = urlsplit(address)
+        query = f"{parts.query}&" if parts.query else ""
+        query += f"{WINDOW_PARAM}={window_id}"
+        return f"{self.base_url}{urlunsplit(('', '', parts.path, query, parts.fragment))}"
+
+    def _create_child(self, window_id: str, address: str, settings: Window) -> None:
+        assert self._webview is not None  # noqa: S101
+        _, controller = create_native_window(
+            self._webview,
+            self._child_url(address, window_id),
+            settings,
+            self._set_window_error,
+            actions=self.actions,
+        )
+        controller.notifier = Notifier(self.identity.id, settings.title, settings.icon)
+        controller.opener = self.open_window
+        windows: dict[str, Any] = self.app.state.windows
+        windows[window_id] = controller
+
+        def forget() -> None:
+            with self._children_lock:
+                windows.pop(window_id, None)
+                for key, value in list(self._child_names.items()):
+                    if value == window_id:
+                        del self._child_names[key]
+
+        controller.on_closed = forget
+        logger.debug("Opened child window %s", window_id)
+
+    def _close_children(self) -> None:
+        """Close every child window: they do not outlive the main one."""
+        with self._children_lock:
+            children = list(self.app.state.windows.values())
+        for child in children:
+            child.close(force=True)
 
     def notify(self, event: str, detail: Any = None) -> None:
         """Tell the page something happened, as a ``cornea:<event>`` event on its ``window``.
@@ -632,6 +736,9 @@ class Shell:
             self._lock.serve(controller.activate)
         controller.guard = self._guard
         controller.notifier = Notifier(self.identity.id, settings.title, settings.icon)
+        controller.opener = self.open_window
+        controller.on_closed = self._close_children
+        self._webview = webview
         self.app.state.window = controller
         loading = self.loading
         if splash is None or loading is None:

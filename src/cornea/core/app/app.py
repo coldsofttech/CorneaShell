@@ -66,8 +66,12 @@ class AppFactory:
         app.state.close_guard = CloseGuard()
         settings = bridge or Bridge()
         app.state.actions = ActionRegistry(
-            settings.disabled, open_files=settings.open_files, notifications=settings.notifications
+            settings.disabled,
+            open_files=settings.open_files,
+            notifications=settings.notifications,
+            windows=settings.windows,
         )
+        app.state.windows = {}  # child windows by id, kept by the shell
 
         @app.get("/health")
         def health() -> dict[str, str]:

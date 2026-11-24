@@ -12,6 +12,30 @@
 
   var PREFIX = "__API_PREFIX__";
 
+  /**
+   * A child window opened by the host has its id in its address. It is kept for the life of the
+   * window and sent with every call, so the window controls act on this window and not the main one.
+   */
+  var windowId = (function () {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var id = params.get("cornea_window");
+      if (id) {
+        window.sessionStorage.setItem("cornea:window", id);
+        params.delete("cornea_window");
+        var query = params.toString();
+        window.history.replaceState(
+          null,
+          "",
+          window.location.pathname + (query ? "?" + query : "") + window.location.hash
+        );
+      }
+      return window.sessionStorage.getItem("cornea:window");
+    } catch (error) {
+      return null;
+    }
+  })();
+
   /** A call that did not work. `status` is the HTTP status; `unavailable` means "not here". */
   function CorneaError(message, status, unavailable) {
     this.name = "CorneaError";
@@ -24,6 +48,9 @@
 
   function request(path, method, body) {
     var options = { method: method || "GET", headers: {} };
+    if (windowId) {
+      options.headers["X-Cornea-Window"] = windowId;
+    }
     if (body !== undefined) {
       options.headers["Content-Type"] = "application/json";
       options.body = JSON.stringify(body);
@@ -66,8 +93,23 @@
     },
   };
 
+  var windows = {
+    /**
+     * Open another window on a page of this app, like "/settings". Needs Bridge(windows=True).
+     * Options: title, width, height and name (asking again for a name that is open brings that
+     * window to the front). Resolves with the new window's id.
+     */
+    open: function (path, options) {
+      var body = Object.assign({ path: path || "/" }, options || {});
+      return cornea.call("open_window", body).then(function (result) {
+        return result.id;
+      });
+    },
+  };
+
   var cornea = {
     window: windowControls,
+    windows: windows,
 
     /**
      * Run a native action. Resolves with its result. Rejects with a CorneaError when the action
