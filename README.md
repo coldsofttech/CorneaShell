@@ -24,7 +24,7 @@ You keep the UI you already have, and Cornea Shell adds the parts around it: the
 - **Your own Python routes** next to the UI, called with ordinary `fetch()`.
 - **Your dev server, started for you.** Cornea runs `npm run dev` (or any command), shows it, and stops it when the window closes.
 - **Native actions your page can call:** choose a folder or file, choose where to save, open a link in the browser, read platform info, and your own.
-- **Opt-in native features:** Windows notifications, opening files, dropped files and downloads. Each one stays off until you allow it.
+- **Opt-in native features:** Windows notifications, taskbar progress and badges, opening files, dropped files and downloads. Each one stays off until you allow it.
 - **A command line and a Python API** that do the same things.
 
 ## Requirements
@@ -173,6 +173,28 @@ A page can also switch the hold on and off itself, which works from the command 
 **Dropped files** are off by default, because a full path says where a person keeps things. Turn them on with `--drop-files` (or `Window(drop_files=True)`) and the page gets a `cornea:drop` event whose `detail.paths` lists the full paths.
 
 **Opening files** is off by default too. With `--open-files` (or `Bridge(open_files=True)`) the page can call the `open_file` action, which opens a document in the program Windows has for it, and `reveal`, which shows a file or folder in Explorer. Programs, scripts and shortcuts (`.exe`, `.bat`, `.ps1`, `.lnk` and similar), network paths and missing files are refused.
+
+## Taskbar progress, badge and jump list
+
+Your app's taskbar button can show a progress bar, a small badge with a count, and a jump list: tasks on its right-click menu. Nothing extra needs installing.
+
+```python
+shell.set_taskbar_progress("normal", 40)  # "none", "indeterminate", "normal", "error" or "paused"
+shell.set_taskbar_badge(3)  # a count (99+ for more), True for a dot, None to clear
+shell.set_jump_list([JumpItem("new-note", "New note", "Start an empty note")])
+```
+
+A page can do the same only if you allow it with `--taskbar` (or `Bridge(taskbar=True)`):
+
+```javascript
+await cornea.call("set_taskbar_progress", { state: "normal", value: 40 });
+await cornea.call("set_taskbar_badge", { count: 3 });
+await cornea.call("set_jump_list", { items: [{ id: "new-note", title: "New note" }] });
+cornea.on("jump-list-click", ({ id }) => openNote(id));
+const { id } = await cornea.call("jump_list_launch"); // the entry this copy was started from
+```
+
+Choosing an entry starts the app again. With `App(single_instance=True)` the running copy comes to the front and the page hears `cornea:jump-list-click`; otherwise the new copy can read `shell.launched_from` or call `jump_list_launch`. The entry adds a `--cornea-jump=<id>` argument, which Cornea removes from `sys.argv` when the `Shell` is created, so create it before parsing your own arguments.
 
 ## Windows notifications
 

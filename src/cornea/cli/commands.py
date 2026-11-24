@@ -226,6 +226,14 @@ Notifications = Annotated[
         panel=NATIVE,
     ),
 ]
+Taskbar = Annotated[
+    bool | None,
+    _flag(
+        "--taskbar",
+        help="Let the page change the taskbar button: progress, badge and jump list.",
+        panel=NATIVE,
+    ),
+]
 Downloads = Annotated[
     bool | None,
     _flag(

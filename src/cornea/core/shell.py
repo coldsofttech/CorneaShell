@@ -8,7 +8,7 @@ import socket
 import sys
 import threading
 import time
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from types import ModuleType, TracebackType
@@ -18,11 +18,12 @@ import uvicorn
 from fastapi import APIRouter, FastAPI
 
 from cornea.core.app.app import AppFactory
-from cornea.core.bridge.bridge import ActionRegistry
+from cornea.core.bridge.bridge import LAUNCH, ActionRegistry
 from cornea.core.config import App, Bridge, Loading, Security, Server, Window
 from cornea.core.environment import Environment
 from cornea.core.logs import Logs
 from cornea.core.page.notifications import Notifier
+from cornea.core.page.taskbar import ITEM_ID, MAX_ID, JumpItem, Taskbar
 from cornea.core.security.close_guard import CloseGuard
 from cornea.core.security.single_instance import AlreadyRunning, InstanceLock, activate_existing
 from cornea.core.sources.process import ProcessRunner
@@ -31,6 +32,7 @@ from cornea.core.window.loading import check_loading, render_loading
 from cornea.core.window.window import (
     SimulatedWindow,
     Unavailable,
+    WindowController,
     check_event_name,
     create_native_window,
     load_webview,
@@ -162,6 +164,8 @@ class Shell:
         self.identity = identity or App()
         if window is None and (self.identity.single_instance or self.identity.remember_window):
             raise ValueError("single_instance and remember_window need a window")
+        if window is not None:
+            LAUNCH.item = Taskbar.take_launch_item()  # before the app's own argument parsing
         self._lock: InstanceLock | None = None
         self._measure = measure
         self._reported = False
@@ -334,6 +338,89 @@ class Shell:
             self.app.state.window.show_notification(title, message, notification_id)
         except Unavailable as exc:
             raise RuntimeError(str(exc)) from exc
+
+    def set_taskbar_progress(self, state: str, value: float | None = None) -> None:
+        """Show progress on the app's taskbar button.
+
+        ``state`` is ``"none"`` (hide it), ``"indeterminate"`` (a busy bar), ``"normal"``,
+        ``"error"`` (red) or ``"paused"`` (yellow). ``value`` is 0 to 100 and is needed for
+        ``"normal"``. This is always available to your code; ``Bridge(taskbar=True)`` is what
+        lets the page change it.
+
+        Raises:
+            ValueError: If the state or value is not allowed.
+            RuntimeError: If there is no window or this is not Windows.
+
+        Example:
+            >>> shell = Shell(window=None)
+            >>> shell.set_taskbar_progress("normal", 40)
+            Traceback (most recent call last):
+            ...
+            RuntimeError: There is no window to show the taskbar in.
+        """
+        Taskbar.check_progress(state, value)
+        self._taskbar_call(lambda w: w.set_taskbar_progress(state, value))
+
+    def set_taskbar_badge(self, count: int | bool | None) -> None:
+        """Put a count (``True`` for a plain dot) over the taskbar icon; ``None`` or 0 clears it.
+
+        Counts above 99 show as ``99+``.
+
+        Raises:
+            ValueError: If ``count`` is not a whole number, ``True`` or ``None``.
+            RuntimeError: If there is no window or this is not Windows.
+
+        Example:
+            >>> shell = Shell(window=None)
+            >>> shell.set_taskbar_badge(3)
+            Traceback (most recent call last):
+            ...
+            RuntimeError: There is no window to show the taskbar in.
+        """
+        Taskbar.check_badge(count)
+        self._taskbar_call(lambda w: w.set_taskbar_badge(count))
+
+    def set_jump_list(self, items: Sequence[JumpItem | Mapping[str, Any]]) -> None:
+        """Replace the tasks on the taskbar button's right-click menu (at most 10).
+
+        Choosing one starts the app again; with ``App(single_instance=True)`` the running copy
+        comes to the front instead. Either way the page gets a ``cornea:jump-list-click`` event
+        with the entry's ``id``, and :attr:`launched_from` is set for a fresh start. An empty list
+        removes the tasks.
+
+        Raises:
+            ValueError: If an entry is not allowed.
+            RuntimeError: If there is no window or this is not Windows.
+
+        Example:
+            >>> shell = Shell(window=None)
+            >>> shell.set_jump_list([JumpItem("new-note", "New note")])
+            Traceback (most recent call last):
+            ...
+            RuntimeError: There is no window to show the taskbar in.
+        """
+        Taskbar.check_items(items)
+        self._taskbar_call(lambda w: w.set_jump_list(items))
+
+    @property
+    def launched_from(self) -> str | None:
+        """The jump list entry this copy of the app was started from, or ``None``."""
+        return LAUNCH.item
+
+    def _taskbar_call(self, function: Callable[[WindowController], None]) -> None:
+        controller = self.app.state.window
+        if controller is None:
+            raise RuntimeError("There is no window to show the taskbar in.")
+        try:
+            function(controller)
+        except Unavailable as exc:
+            raise RuntimeError(str(exc)) from exc
+
+    def _on_jump(self, item_id: str) -> None:
+        """A second copy was started from a jump list entry: tell the page."""
+        controller = self.app.state.window
+        if controller is not None and len(item_id) <= MAX_ID and ITEM_ID.match(item_id):
+            controller.notify("jump-list-click", {"id": item_id})
 
     @property
     def is_direct(self) -> bool:
@@ -553,7 +640,9 @@ class Shell:
             return
         lock = InstanceLock(self.identity.id)
         if not lock.acquire():
-            raise AlreadyRunning(self.identity.id, activated=activate_existing(self.identity.id))
+            raise AlreadyRunning(
+                self.identity.id, activated=activate_existing(self.identity.id, LAUNCH.item)
+            )
         self._lock = lock
 
     def _start_process(self) -> None:
@@ -629,9 +718,10 @@ class Shell:
             splash=splash,
         )
         if self._lock is not None:
-            self._lock.serve(controller.activate)
+            self._lock.serve(controller.activate, self._on_jump)
         controller.guard = self._guard
         controller.notifier = Notifier(self.identity.id, settings.title, settings.icon)
+        controller.taskbar = Taskbar(self.identity.id, lambda: int(window.native.Handle.ToInt64()))
         self.app.state.window = controller
         loading = self.loading
         if splash is None or loading is None:

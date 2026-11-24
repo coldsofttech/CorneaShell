@@ -21,7 +21,7 @@ The sections below follow the order you usually need them in. The [recipes](#rec
 - **Settings:** [`Window`](#window), [`Security`](#security), [`DEV_CSP`](#dev_csp), [`Server`](#server), [`Bridge`](#bridge), [`App`](#app)
 - **Building blocks:** [`create_app`](#create_app)
 - **Logging:** [`configure_logging`](#configure_logging), [`LogLevel`](#loglevel)
-- **Other:** [`AppFactory`](#appfactory), [`Loading`](#loading), [`preload`](#preload)
+- **Other:** [`AppFactory`](#appfactory), [`JumpItem`](#jumpitem), [`Loading`](#loading), [`preload`](#preload)
 
 ## Running the shell
 
@@ -71,6 +71,7 @@ Properties:
 
 - `timings`: How long start-up took so far. See `Timings`.
 - `actions`: The native actions the page can call. Register your own with `action`.
+- `launched_from`: The jump list entry this copy of the app was started from, or `None`.
 - `is_direct`: Whether the window opens a `Url` itself, with no local server.
 - `running`: Whether the server is accepting requests.
 - `port`: The port the server is bound to. Available after `start`.
@@ -189,6 +190,94 @@ Example:
 Traceback (most recent call last):
 ...
 RuntimeError: There is no window to show a notification from.
+```
+
+#### `Shell.set_taskbar_progress`
+
+```python
+def Shell.set_taskbar_progress(
+    state: str,
+    value: float | None = None,
+) -> None
+```
+
+Show progress on the app's taskbar button.
+
+`state` is `"none"` (hide it), `"indeterminate"` (a busy bar), `"normal"`,
+`"error"` (red) or `"paused"` (yellow). `value` is 0 to 100 and is needed for
+`"normal"`. This is always available to your code; `Bridge(taskbar=True)` is what
+lets the page change it.
+
+**Raises:**
+
+- `ValueError`: If the state or value is not allowed.
+- `RuntimeError`: If there is no window or this is not Windows.
+
+Example:
+
+```pycon
+>>> shell = Shell(window=None)
+>>> shell.set_taskbar_progress("normal", 40)
+Traceback (most recent call last):
+...
+RuntimeError: There is no window to show the taskbar in.
+```
+
+#### `Shell.set_taskbar_badge`
+
+```python
+def Shell.set_taskbar_badge(
+    count: int | bool | None,
+) -> None
+```
+
+Put a count (`True` for a plain dot) over the taskbar icon; `None` or 0 clears it.
+
+Counts above 99 show as `99+`.
+
+**Raises:**
+
+- `ValueError`: If `count` is not a whole number, `True` or `None`.
+- `RuntimeError`: If there is no window or this is not Windows.
+
+Example:
+
+```pycon
+>>> shell = Shell(window=None)
+>>> shell.set_taskbar_badge(3)
+Traceback (most recent call last):
+...
+RuntimeError: There is no window to show the taskbar in.
+```
+
+#### `Shell.set_jump_list`
+
+```python
+def Shell.set_jump_list(
+    items: Sequence[JumpItem | Mapping[str, Any]],
+) -> None
+```
+
+Replace the tasks on the taskbar button's right-click menu (at most 10).
+
+Choosing one starts the app again; with `App(single_instance=True)` the running copy
+comes to the front instead. Either way the page gets a `cornea:jump-list-click` event
+with the entry's `id`, and `launched_from` is set for a fresh start. An empty list
+removes the tasks.
+
+**Raises:**
+
+- `ValueError`: If an entry is not allowed.
+- `RuntimeError`: If there is no window or this is not Windows.
+
+Example:
+
+```pycon
+>>> shell = Shell(window=None)
+>>> shell.set_jump_list([JumpItem("new-note", "New note")])
+Traceback (most recent call last):
+...
+RuntimeError: There is no window to show the taskbar in.
 ```
 
 #### `Shell.start`
@@ -612,6 +701,7 @@ Which built-in native actions the page may call. All of them are on by default.
 | --- | --- | --- | --- |
 | `disabled` | `tuple[str, ...]` | `()` | Built-in actions to switch off. A disabled action answers like an unknown one. |
 | `notifications` | `bool` | `False` | Add the `show_notification` action, which shows a Windows toast. Off by default, so a page cannot raise alerts unless you allow it. Needs the `notifications` extra. |
+| `taskbar` | `bool` | `False` | Add the `set_taskbar_progress`, `set_taskbar_badge`, `set_jump_list` and `jump_list_launch` actions, which change the app's taskbar button. Off by default. |
 | `open_files` | `bool` | `False` | Add the `open_file` and `reveal` actions, which open a file in the program Windows has for it and show a file in Explorer. Off by default. A page can name any path, so `open_file` still refuses programs, scripts and shortcuts, network paths and missing files. |
 
 Example:
@@ -720,6 +810,23 @@ AppFactory()
 ```
 
 Builds the FastAPI app the shell serves.
+
+### `JumpItem`
+
+One entry in the jump list: a task the person can start from the taskbar button.
+
+| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `id` | `str` | `required` | What the page and your code hear when it is chosen (`cornea:jump-list-click`). |
+| `title` | `str` | `required` | The text of the entry. |
+| `description` | `str \| None` | `None` | The tooltip of the entry. |
+
+Example:
+
+```pycon
+>>> JumpItem("new-note", "New note").title
+'New note'
+```
 
 ### `Loading`
 

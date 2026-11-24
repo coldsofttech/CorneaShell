@@ -102,7 +102,7 @@
 
     /**
      * Listen for an event from the host, such as "close-blocked", "drop" or
-     * "notification-click", or one the app sends with shell.notify(). The handler gets the
+     * "notification-click", "jump-list-click", or one the app sends with shell.notify(). The handler gets the
      * event's detail. Returns a function that stops listening.
      */
     on: function (name, handler) {

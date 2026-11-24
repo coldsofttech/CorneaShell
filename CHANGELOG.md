@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Show progress, a badge with a count, and a jump list on your app's taskbar button, from Python or, with `--taskbar`, from the page. Choosing a jump list entry tells the running app, or starts it with `shell.launched_from` set.
+
 ## [0.1.1] - 2026-11-08
 
 ### Changed

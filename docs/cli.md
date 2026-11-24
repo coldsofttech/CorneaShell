@@ -86,6 +86,7 @@ $ cornea open [OPTIONS] [SOURCE]
 * `--disable-action <str>`: Switch a built-in action off. Repeatable.
 * `--open-files`: Let the page open a file in its program and show it in Explorer.
 * `--notifications`: Let the page show Windows notifications (needs the notifications extra).
+* `--taskbar`: Let the page change the taskbar button: progress, badge and jump list.
 * `--title <str>`: Window title.
 * `--size <str>`: Window size, like 1200x800.
 * `--min-size <str>`: Smallest window size, like 400x300.
@@ -220,6 +221,7 @@ $ cornea serve [OPTIONS] [SOURCE]
 * `--disable-action <str>`: Switch a built-in action off. Repeatable.
 * `--open-files`: Let the page open a file in its program and show it in Explorer.
 * `--notifications`: Let the page show Windows notifications (needs the notifications extra).
+* `--taskbar`: Let the page change the taskbar button: progress, badge and jump list.
 * `--log-level <debug|info|warning|error>`: Show log messages of this level and above on stderr (default: warning).
 * `--log-file <path>`: Also write a full debug log to this file.
 * `--measure`: Print how long start-up took (on stderr) once the first page has loaded.

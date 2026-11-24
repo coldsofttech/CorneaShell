@@ -58,6 +58,7 @@ from cornea.cli.commands import (
     Size,
     SourceArgument,
     SpaFlag,
+    Taskbar,
     Title,
     TokenTtl,
     UrlFlag,
@@ -102,6 +103,7 @@ def open_window(
     disable_action: DisableAction = None,
     open_files: OpenFiles = None,
     notifications: Notifications = None,
+    taskbar: Taskbar = None,
     title: Title = None,
     size: Size = None,
     min_size: MinSize = None,
@@ -196,7 +198,10 @@ def open_window(
             csp_profile=csp_profile,
         )
         bridge = options.build_bridge(
-            disable_action=disable_action, open_files=open_files, notifications=notifications
+            disable_action=disable_action,
+            open_files=open_files,
+            notifications=notifications,
+            taskbar=taskbar,
         )
         identity = options.build_app(
             app_id=app_id, single_instance=single_instance, remember_window=remember_window

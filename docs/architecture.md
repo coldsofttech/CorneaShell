@@ -49,6 +49,7 @@ src/cornea/core/security/close_guard.py   holds the window open while the app is
 src/cornea/core/security/single_instance.py  one copy at a time, and waking the first copy
 src/cornea/core/page/routes.py            /api/client.js and /api/csp-report
 src/cornea/core/page/notifications.py     Notifier: Windows toast notifications through the winrt bindings
+src/cornea/core/page/taskbar.py           Taskbar: progress, overlay badge and jump list through COM (ctypes)
 src/cornea/cli/                           the cornea command: a thin wrapper over run()
 src/cornea/cli/config.py                  cornea.toml and [tool.cornea]: defaults for the command
 src/cornea/cli/commands.py                the Typer app, the flags both commands share and the launch helpers
@@ -200,6 +201,14 @@ Dropped files use pywebview's DOM events. They are installed once, after the fir
 ## Downloads
 
 `Window(downloads=True)` sets pywebview's `ALLOW_DOWNLOADS`, which is otherwise forced off in `show_window`. With it on, pywebview shows its own save dialog for each download, so the person chooses the location; Cornea does not pick a folder or save silently.
+
+## Taskbar
+
+`set_taskbar_progress`, `set_taskbar_badge`, `set_jump_list` and `jump_list_launch` are built-in actions that exist only with `Bridge(taskbar=True)`; the matching `Shell` methods are always available to the host. Input is checked in `Taskbar` before Windows is asked: a fixed set of progress states, a value from 0 to 100, a whole-number count, and at most 10 jump list entries whose ids are letters, digits and `. _ : -` and whose titles are short plain text. A page can never supply a program or arguments.
+
+`taskbar.py` talks to the shell's COM interfaces with `ctypes` (no new dependency): `ITaskbarList3` for progress and the overlay icon, and `ICustomDestinationList` with shell links for the jump list. Calls run on the window's UI thread, and an error there is re-raised to the caller. The badge picture is drawn in Python (a red disc and a 5x7 pixel font) and turned into an icon with `CreateIconIndirect`, so no font or image file is needed.
+
+A jump list entry runs the app's own command line (`sys.orig_argv`) plus `--cornea-jump=<id>`. `Shell(...)` with a window removes that argument from `sys.argv` and keeps the id (`Shell.launched_from`). With `single_instance`, the second copy passes the id to the first over the existing loopback channel (`ACTIVATE <secret> <id>`); the first brings its window to the front and sends the page `cornea:jump-list-click`. This was written against the documented COM interfaces and covered by tests with Windows stood in; it has not yet been tried on a real Windows taskbar.
 
 ## Notifications
 

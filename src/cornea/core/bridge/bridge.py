@@ -14,6 +14,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from cornea.core.page.notifications import Notifier
+from cornea.core.page.taskbar import Taskbar
 from cornea.core.window.window import Unavailable, WindowController
 
 logger = logging.getLogger(__name__)
@@ -45,6 +46,19 @@ OPT_IN_FILES = frozenset({"open_file", "reveal"})
 """Built-in actions that are off until ``Bridge(open_files=True)``."""
 OPT_IN_NOTIFICATIONS = frozenset({"show_notification"})
 """Built-in actions that are off until ``Bridge(notifications=True)``."""
+OPT_IN_TASKBAR = frozenset(
+    {"set_taskbar_progress", "set_taskbar_badge", "set_jump_list", "jump_list_launch"}
+)
+"""Built-in actions that are off until ``Bridge(taskbar=True)``."""
+
+
+class LaunchItem:
+    """The jump list entry this copy of the app was started from, if any."""
+
+    item: str | None = None
+
+
+LAUNCH = LaunchItem()
 
 
 class BuiltinActions:
@@ -158,6 +172,36 @@ class BuiltinActions:
         return {"shown": True}
 
     @staticmethod
+    def set_taskbar_progress(
+        window: WindowController | None, state: str, value: float | None = None
+    ) -> Any:
+        """Show progress on the taskbar button: ``state`` is none, indeterminate, normal, error
+        or paused, and ``value`` is 0 to 100."""
+        Taskbar.check_progress(state, value)
+        BuiltinActions._window(window, "the taskbar").set_taskbar_progress(state, value)
+        return {"set": True}
+
+    @staticmethod
+    def set_taskbar_badge(window: WindowController | None, count: Any = None) -> Any:
+        """Put a count (or ``true`` for a dot) over the taskbar icon; ``null`` clears it."""
+        Taskbar.check_badge(count)
+        BuiltinActions._window(window, "the taskbar").set_taskbar_badge(count)
+        return {"set": True}
+
+    @staticmethod
+    def set_jump_list(window: WindowController | None, items: Any = ()) -> Any:
+        """Replace the jump list: a list of ``{id, title, description}``. Choosing one sends the
+        page a ``cornea:jump-list-click`` event with its id."""
+        Taskbar.check_items(items)
+        BuiltinActions._window(window, "the taskbar").set_jump_list(items)
+        return {"set": True}
+
+    @staticmethod
+    def jump_list_launch(window: WindowController | None) -> Any:
+        """The id of the jump list entry this copy of the app was started from, or ``null``."""
+        return {"id": LAUNCH.item}
+
+    @staticmethod
     def platform_info(window: WindowController | None) -> Any:
         """Describe the system, the Python in use and whether a window exists."""
         from cornea import __version__
@@ -194,6 +238,10 @@ class BuiltinActions:
             "open_file": BuiltinActions.open_file,
             "reveal": BuiltinActions.reveal,
             "show_notification": BuiltinActions.show_notification,
+            "set_taskbar_progress": BuiltinActions.set_taskbar_progress,
+            "set_taskbar_badge": BuiltinActions.set_taskbar_badge,
+            "set_jump_list": BuiltinActions.set_jump_list,
+            "jump_list_launch": BuiltinActions.jump_list_launch,
         }
 
 
@@ -218,6 +266,7 @@ class ActionRegistry:
         *,
         open_files: bool = False,
         notifications: bool = False,
+        taskbar: bool = False,
     ) -> None:
         off = set(disabled)
         unknown = off - set(BUILTINS)
@@ -229,6 +278,7 @@ class ActionRegistry:
             if name not in off
             and (open_files or name not in OPT_IN_FILES)
             and (notifications or name not in OPT_IN_NOTIFICATIONS)
+            and (taskbar or name not in OPT_IN_TASKBAR)
         }
         self._custom: dict[str, Callable[..., Any]] = {}
 

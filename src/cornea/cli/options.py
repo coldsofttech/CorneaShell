@@ -225,12 +225,14 @@ def build_bridge(
     disable_action: list[str] | None,
     open_files: bool | None = None,
     notifications: bool | None = None,
+    taskbar: bool | None = None,
 ) -> Bridge:
     return Bridge(
         **_given(
             disabled=tuple(disable_action) if disable_action else None,
             open_files=open_files,
             notifications=notifications,
+            taskbar=taskbar,
         )
     )
 

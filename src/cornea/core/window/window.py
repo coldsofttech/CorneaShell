@@ -20,6 +20,7 @@ from cornea.core.window.memory import Remembered, WindowMemory, fit_to_screens
 if TYPE_CHECKING:
     from cornea.core.bridge.bridge import ActionRegistry
     from cornea.core.page.notifications import Notifier
+    from cornea.core.page.taskbar import Taskbar
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +76,18 @@ class WindowController(Protocol):
         self, title: str, message: str, notification_id: str | None = None
     ) -> None:
         """Show a Windows toast. Clicking it activates the window and tells the page."""
+        ...
+
+    def set_taskbar_progress(self, state: str, value: float | None = None) -> None:
+        """Show progress on the taskbar button."""
+        ...
+
+    def set_taskbar_badge(self, count: object) -> None:
+        """Put a count (or a dot) over the taskbar button's icon; ``None`` clears it."""
+        ...
+
+    def set_jump_list(self, items: object) -> None:
+        """Replace the tasks in the taskbar button's jump list."""
         ...
 
     def set_title(self, title: str) -> None: ...
@@ -171,6 +184,8 @@ class NativeWindow:
         """Decides whether closing is held back. Set by the shell."""
         self.notifier: Notifier | None = None
         """Shows toasts for this app. Set by the shell."""
+        self.taskbar: Taskbar | None = None
+        """The taskbar button's progress, badge and jump list. Set by the shell."""
         self._forced = False
         window.events.closing += self._on_closing
         window.events.maximized += self._on_maximized
@@ -234,6 +249,40 @@ class NativeWindow:
             self.notify("notification-click", {"id": notification_id})
 
         self.notifier.show(title, message, clicked)
+
+    def _taskbar(self) -> "Taskbar":
+        if self.taskbar is None:
+            raise Unavailable("There is no window to show the taskbar in.")
+        return self.taskbar
+
+    def _on_ui_thread(self, function: Callable[[], None]) -> None:
+        """Run ``function`` on the window's UI thread and raise what it raised."""
+        failure: list[BaseException] = []
+
+        def run() -> None:
+            try:
+                function()
+            except BaseException as exc:
+                failure.append(exc)
+
+        _invoke(self._window.native, run)
+        if failure:
+            raise failure[0]
+
+    def set_taskbar_progress(self, state: str, value: float | None = None) -> None:
+        taskbar = self._taskbar()
+        taskbar.check_progress(state, value)
+        self._on_ui_thread(lambda: taskbar.set_progress(state, value))
+
+    def set_taskbar_badge(self, count: object) -> None:
+        taskbar = self._taskbar()
+        taskbar.check_badge(count)
+        self._on_ui_thread(lambda: taskbar.set_badge(count))
+
+    def set_jump_list(self, items: object) -> None:
+        taskbar = self._taskbar()
+        taskbar.check_items(items)
+        self._on_ui_thread(lambda: taskbar.set_jump_list(items))
 
     def notify(self, event: str, detail: object = None) -> None:
         check_event_name(event)
@@ -351,6 +400,15 @@ class SimulatedWindow:
         self, title: str, message: str, notification_id: str | None = None
     ) -> None:
         raise Unavailable("There is no window to show a notification from.")
+
+    def set_taskbar_progress(self, state: str, value: float | None = None) -> None:
+        raise Unavailable("There is no window to show the taskbar in.")
+
+    def set_taskbar_badge(self, count: object) -> None:
+        raise Unavailable("There is no window to show the taskbar in.")
+
+    def set_jump_list(self, items: object) -> None:
+        raise Unavailable("There is no window to show the taskbar in.")
 
     def set_title(self, title: str) -> None:
         self._title = title

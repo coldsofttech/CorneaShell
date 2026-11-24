@@ -143,6 +143,9 @@ class Bridge:
     notifications: bool = False
     """Add the ``show_notification`` action, which shows a Windows toast. Off by default, so a
     page cannot raise alerts unless you allow it. Needs the ``notifications`` extra."""
+    taskbar: bool = False
+    """Add the ``set_taskbar_progress``, ``set_taskbar_badge``, ``set_jump_list`` and
+    ``jump_list_launch`` actions, which change the app's taskbar button. Off by default."""
     open_files: bool = False
     """Add the ``open_file`` and ``reveal`` actions, which open a file in the program Windows has
     for it and show a file in Explorer. Off by default. A page can name any path, so ``open_file``

@@ -45,6 +45,15 @@ class Recorder:
     ) -> None:
         self.calls.append(("show_notification", (title, message, notification_id)))
 
+    def set_taskbar_progress(self, state: str, value: float | None = None) -> None:
+        self.calls.append(("set_taskbar_progress", (state, value)))
+
+    def set_taskbar_badge(self, count: object) -> None:
+        self.calls.append(("set_taskbar_badge", count))
+
+    def set_jump_list(self, items: object) -> None:
+        self.calls.append(("set_jump_list", items))
+
     def set_title(self, title: str) -> None:
         self.calls.append(("set_title", title))
 

@@ -459,6 +459,23 @@ def test_releasing_is_safe_to_repeat() -> None:
     InstanceLock(unique_id()).release()
 
 
+def test_a_second_copy_started_from_a_jump_list_entry_tells_the_first() -> None:
+    app_id = unique_id()
+    first = InstanceLock(app_id)
+    first.acquire()
+    woken: list[int] = []
+    jumps: list[str] = []
+    first.serve(lambda: woken.append(1), jumps.append)
+    try:
+        assert activate_existing(app_id, "new-note") is True
+        assert activate_existing(app_id) is True
+    finally:
+        first.release()
+
+    assert woken == [1, 1]
+    assert jumps == ["new-note"]
+
+
 def test_a_second_copy_can_wake_the_first() -> None:
     app_id = unique_id()
     first = InstanceLock(app_id)

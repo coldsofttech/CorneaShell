@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 
 from cornea.core.config import DEV_CSP, App, Bridge, Loading, Security, Server, Window
 from cornea.core.logs import LOG_LEVELS, LogLevel, Logs
+from cornea.core.page.taskbar import JumpItem
 from cornea.core.preload import preload
 from cornea.core.sources.sources import Asgi, Process, Static, Url, WebSource, Wsgi
 
@@ -38,6 +39,7 @@ __all__ = [
     "AppFactory",
     "Asgi",
     "Bridge",
+    "JumpItem",
     "Loading",
     "LogLevel",
     "Process",

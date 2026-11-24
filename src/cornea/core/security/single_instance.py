@@ -59,15 +59,25 @@ class InstanceLock:
         self._handle = handle
         return True
 
-    def serve(self, on_activate: Callable[[], None]) -> None:
-        """Listen for a second copy asking this one to come to the front."""
+    def serve(
+        self,
+        on_activate: Callable[[], None],
+        on_jump: Callable[[str], None] | None = None,
+    ) -> None:
+        """Listen for a second copy asking this one to come to the front.
+
+        ``on_jump`` is also told the jump list entry that second copy was started from, if any.
+        """
         listener = socket.create_server(("127.0.0.1", 0))
         listener.settimeout(0.2)
         self._listener = listener
         info = {"port": listener.getsockname()[1], "secret": self._secret}
         (AppData.data_dir(self.app_id) / INFO_FILE).write_text(json.dumps(info), encoding="utf-8")
         self._thread = threading.Thread(
-            target=self._listen, args=(listener, on_activate), name="cornea-instance", daemon=True
+            target=self._listen,
+            args=(listener, on_activate, on_jump),
+            name="cornea-instance",
+            daemon=True,
         )
         self._thread.start()
 
@@ -90,7 +100,12 @@ class InstanceLock:
             kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
             kernel32.CloseHandle(handle)
 
-    def _listen(self, listener: socket.socket, on_activate: Callable[[], None]) -> None:
+    def _listen(
+        self,
+        listener: socket.socket,
+        on_activate: Callable[[], None],
+        on_jump: Callable[[str], None] | None = None,
+    ) -> None:
         expected = f"ACTIVATE {self._secret}".encode()
         while self._listener is listener:
             try:
@@ -105,19 +120,29 @@ class InstanceLock:
                     received = connection.makefile("rb").readline(MAX_LINE).strip()
                 except OSError:
                     continue
-                if secrets.compare_digest(received, expected):
+                parts = received.split(b" ", 2)
+                command = b" ".join(parts[:2])
+                jump = parts[2] if len(parts) == 3 else b""
+                if secrets.compare_digest(command, expected):
                     with contextlib.suppress(Exception):  # a failed focus must not stop the loop
                         on_activate()
+                    if jump and on_jump is not None:
+                        with contextlib.suppress(Exception):
+                            on_jump(jump.decode("ascii", "ignore"))
                     with contextlib.suppress(OSError):
                         connection.sendall(b"OK\n")
 
 
-def activate_existing(app_id: str) -> bool:
-    """Ask the running copy of ``app_id`` to come to the front. ``True`` if it did."""
+def activate_existing(app_id: str, jump: str | None = None) -> bool:
+    """Ask the running copy of ``app_id`` to come to the front. ``True`` if it did.
+
+    ``jump`` is the jump list entry this copy was started from, passed on to the running one.
+    """
     try:
         info: Any = json.loads((AppData.data_dir(app_id) / INFO_FILE).read_text(encoding="utf-8"))
         with socket.create_connection(("127.0.0.1", int(info["port"])), CONNECT_TIMEOUT) as client:
-            client.sendall(f"ACTIVATE {info['secret']}\n".encode())
+            suffix = f" {jump}" if jump else ""
+            client.sendall(f"ACTIVATE {info['secret']}{suffix}\n".encode())
             return client.makefile("r", encoding="utf-8").readline().strip() == "OK"
     except (OSError, ValueError, KeyError, TypeError):
         return False

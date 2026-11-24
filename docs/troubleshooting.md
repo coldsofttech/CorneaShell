@@ -40,6 +40,8 @@ Then turn on logging: run with `--debug` (or `--log-level debug --log-file corne
 | `Notifications need the extra: pip install "cornea-shell[notifications]"` | Install the extra. |
 | The page gets `available: false` from `show_notification` | There is no window (`serve`), the extra is missing, or this is not Windows. |
 | `Unknown action` for `show_notification`, `open_file` or `reveal` | They are off until you add `--notifications` or `--open-files`. |
+| `Unknown action` for `set_taskbar_progress`, `set_taskbar_badge` or `set_jump_list` | They are off until you add `--taskbar` (or `Bridge(taskbar=True)`). |
+| A jump list entry opens a second window, or your argument parser rejects `--cornea-jump` | Use `App(id=..., single_instance=True)` to reuse the running window, and create the `Shell` before parsing `sys.argv`, since Cornea removes that argument when the `Shell` is created. |
 | A download does nothing | Downloads are blocked until you start with `--downloads` (or `Window(downloads=True)`). |
 | `cornea:drop` never arrives | Start with `--drop-files`, and drop on the page, not on the title bar. |
 | `files of that type cannot be opened from a page` | `open_file` never opens programs, scripts or shortcuts. Use `reveal` to show them. |
