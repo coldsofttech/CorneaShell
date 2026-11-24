@@ -104,7 +104,7 @@ shell.run()
 const result = await cornea.call("shout", { text: "hello" });   // "HELLO"
 ```
 
-The command line cannot register actions, because they are Python code. From the command line you get the built-in ones: `choose_folder`, `choose_file`, `save_file`, `open_external` and `platform_info`. Switch one off with `--disable-action NAME`.
+The command line cannot register actions, because they are Python code. From the command line you get the built-in ones: `choose_folder`, `choose_file`, `save_file`, `save_as`, `show_message`, `confirm`, `open_external` and `platform_info`. Switch one off with `--disable-action NAME`.
 
 ### Notifications
 
@@ -147,6 +147,9 @@ def finished() -> dict[str, bool]:
 const folder = await cornea.call("choose_folder");               // a path, or null
 const files = await cornea.call("choose_file", { multiple: true, file_types: ["Images (*.png;*.jpg)"] });
 const target = await cornea.call("save_file", { filename: "report.pdf" });   // nothing is written
+const saved = await cornea.call("save_as", { content: "hello", filename: "note.txt" });  // { saved, path }
+await cornea.call("show_message", { title: "Done", message: "Export finished." });
+const ok = await cornea.call("confirm", { title: "Delete", message: "Delete this item?" });  // true or false
 await cornea.call("open_file", { path: target });               // needs open files on
 await cornea.call("reveal", { path: target });                  // show it in Explorer
 ```

@@ -301,7 +301,7 @@ prints one line of JSON with an address. Open that address in a browser to try t
 | Only your window can use the server | It listens on your own machine on a free port, and every request needs the session cookie |
 | The start-up link is one-time | It carries a token that the window exchanges for the cookie, and it expires |
 | Other sites are kept out | Requests with the wrong `Host`, or that change something without the right `Origin`, are refused |
-| The page gets a short list of native actions | The built-in ones never read or write files: a dialog only returns the path you chose |
+| The page gets a short list of native actions | The built-in ones never read files: a dialog returns the path you chose, and `save_as` writes only to a path the person picked in a save dialog (up to 64 MB) |
 | Risky features are opt-in | Opening files, notifications, dropped files, downloads and `--js-api` are all off until you turn them on |
 | Developer tools are off | Turn them on with `--devtools`, `--context-menu`, or `--debug` for both |
 

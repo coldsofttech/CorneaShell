@@ -4,6 +4,10 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- New built-in actions `show_message` and `confirm` show native message and OK / Cancel boxes, and `save_as` asks where to save and then writes the text or base64 data the page gives it.
+
 ## [0.1.1] - 2026-11-08
 
 ### Changed

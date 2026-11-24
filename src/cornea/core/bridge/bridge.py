@@ -1,5 +1,7 @@
 """The native bridge: a short allowlist of native actions the page can call."""
 
+import base64
+import binascii
 import inspect
 import logging
 import os
@@ -41,6 +43,10 @@ SAFE_SUFFIXES = frozenset(
 """The only types ``open_file`` opens: documents, images, audio and video. Anything else can run
 code or load active content, so it is refused."""
 MAX_PATH_LENGTH = 4096
+MAX_MESSAGE_TITLE = 200
+MAX_MESSAGE_LENGTH = 4000
+MAX_SAVE_BYTES = 64 * 1024 * 1024
+"""The most ``save_as`` writes in one call."""
 OPT_IN_FILES = frozenset({"open_file", "reveal"})
 """Built-in actions that are off until ``Bridge(open_files=True)``."""
 OPT_IN_NOTIFICATIONS = frozenset({"show_notification"})
@@ -80,6 +86,64 @@ class BuiltinActions:
             "save", directory=directory, filename=filename, file_types=file_types
         )
         return chosen[0] if chosen else None
+
+    @staticmethod
+    def _message_text(title: object, message: object) -> None:
+        if not isinstance(title, str) or not 1 <= len(title) <= MAX_MESSAGE_TITLE:
+            raise BadArguments(f"title must be 1 to {MAX_MESSAGE_TITLE} characters")
+        if not isinstance(message, str) or not 1 <= len(message) <= MAX_MESSAGE_LENGTH:
+            raise BadArguments(f"message must be 1 to {MAX_MESSAGE_LENGTH} characters")
+
+    @staticmethod
+    def show_message(window: WindowController | None, title: str, message: str) -> Any:
+        """Show a native message box with an OK button. Returns when it is closed."""
+        BuiltinActions._message_text(title, message)
+        BuiltinActions._window(window, "a message").message_box(title, message)
+        return {"shown": True}
+
+    @staticmethod
+    def confirm(window: WindowController | None, title: str, message: str) -> Any:
+        """Show a native OK / Cancel box. Returns ``True`` when the person chose OK."""
+        BuiltinActions._message_text(title, message)
+        return BuiltinActions._window(window, "a question").message_box(
+            title, message, confirm=True
+        )
+
+    @staticmethod
+    def save_as(
+        window: WindowController | None,
+        content: str,
+        filename: str | None = None,
+        directory: str | None = None,
+        file_types: Sequence[str] = (),
+        encoding: str = "utf-8",
+    ) -> Any:
+        """Ask where to save, then write ``content`` there.
+
+        ``encoding`` is ``utf-8`` (``content`` is text) or ``base64`` (``content`` is binary data
+        as base64). The person picks the path in a save dialog; nothing is written if they cancel.
+        Returns ``{"saved": true, "path": ...}`` or ``{"saved": false}``.
+        """
+        if not isinstance(content, str):
+            raise BadArguments("content must be a string")
+        if encoding == "utf-8":
+            data = content.encode("utf-8")
+        elif encoding == "base64":
+            try:
+                data = base64.b64decode(content, validate=True)
+            except (binascii.Error, ValueError) as exc:
+                raise BadArguments("content is not valid base64") from exc
+        else:
+            raise BadArguments("encoding must be 'utf-8' or 'base64'")
+        if len(data) > MAX_SAVE_BYTES:
+            raise BadArguments(f"content is larger than {MAX_SAVE_BYTES // (1024 * 1024)} MB")
+        chosen = BuiltinActions.save_file(window, directory, filename, file_types)
+        if not chosen:
+            return {"saved": False}
+        if not isinstance(chosen, str) or "\0" in chosen or chosen.startswith(("\\\\", "//")):
+            raise BadArguments("that location cannot be written to")
+        Path(chosen).write_bytes(data)
+        return {"saved": True, "path": chosen}
 
     @staticmethod
     def open_external(window: WindowController | None, url: str) -> Any:
@@ -189,6 +253,9 @@ class BuiltinActions:
             "choose_folder": BuiltinActions.choose_folder,
             "choose_file": BuiltinActions.choose_file,
             "save_file": BuiltinActions.save_file,
+            "save_as": BuiltinActions.save_as,
+            "show_message": BuiltinActions.show_message,
+            "confirm": BuiltinActions.confirm,
             "open_external": BuiltinActions.open_external,
             "platform_info": BuiltinActions.platform_info,
             "open_file": BuiltinActions.open_file,

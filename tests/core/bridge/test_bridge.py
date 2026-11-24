@@ -35,6 +35,11 @@ class FakeDialogs:
         self.asked.append({"kind": kind, **options})
         return self.answer
 
+    def message_box(self, title: str, message: str, *, confirm: bool = False) -> bool:
+        self.boxes = getattr(self, "boxes", [])
+        self.boxes.append((title, message, confirm))
+        return self.answer is not None
+
 
 COOKIES: dict[str, str] = {}
 
@@ -94,11 +99,14 @@ def run(registry: ActionRegistry, name: str, arguments: dict[str, Any] | None = 
     return asyncio.run(registry.call(name, arguments or {}, None))
 
 
-def test_the_five_built_in_actions_are_on_by_default() -> None:
+def test_the_default_built_in_actions_are_on() -> None:
     assert ActionRegistry().names() == [
         "choose_folder",
         "choose_file",
         "save_file",
+        "save_as",
+        "show_message",
+        "confirm",
         "open_external",
         "platform_info",
     ]
@@ -240,6 +248,58 @@ def test_save_file_only_chooses_a_path() -> None:
 def test_dialogs_without_a_window_are_unavailable(call_dialog: str) -> None:
     with pytest.raises(Unavailable, match="no window"):
         getattr(BuiltinActions, call_dialog)(None)
+
+
+def test_message_and_confirm_use_the_window() -> None:
+    window = FakeDialogs(["x"])
+
+    assert BuiltinActions.show_message(window, "Hi", "There") == {"shown": True}  # type: ignore[arg-type]
+    assert BuiltinActions.confirm(window, "Sure?", "Delete it") is True  # type: ignore[arg-type]
+    assert BuiltinActions.confirm(FakeDialogs(None), "Sure?", "Delete it") is False  # type: ignore[arg-type]
+    assert window.boxes == [("Hi", "There", False), ("Sure?", "Delete it", True)]
+
+
+def test_message_and_confirm_check_their_text_and_need_a_window() -> None:
+    with pytest.raises(BadArguments):
+        BuiltinActions.show_message(FakeDialogs(), "", "text")  # type: ignore[arg-type]
+    with pytest.raises(BadArguments):
+        BuiltinActions.confirm(FakeDialogs(), "t", "x" * 5000)  # type: ignore[arg-type]
+    with pytest.raises(Unavailable):
+        BuiltinActions.confirm(None, "t", "m")
+
+
+def test_save_as_writes_where_the_person_chose(tmp_path: Path) -> None:
+    target = tmp_path / "out.txt"
+    window = FakeDialogs([str(target)])
+
+    result = BuiltinActions.save_as(window, "hello", filename="out.txt")  # type: ignore[arg-type]
+
+    assert result == {"saved": True, "path": str(target)}
+    assert target.read_text(encoding="utf-8") == "hello"
+    assert window.asked[0]["kind"] == "save"
+
+
+def test_save_as_writes_base64_data(tmp_path: Path) -> None:
+    target = tmp_path / "out.bin"
+
+    BuiltinActions.save_as(FakeDialogs([str(target)]), "AAEC", encoding="base64")  # type: ignore[arg-type]
+
+    assert target.read_bytes() == b"\x00\x01\x02"
+
+
+def test_save_as_writes_nothing_when_cancelled() -> None:
+    assert BuiltinActions.save_as(FakeDialogs(None), "hello") == {"saved": False}  # type: ignore[arg-type]
+
+
+def test_save_as_rejects_bad_content() -> None:
+    window = FakeDialogs(["C:/x"])
+    with pytest.raises(BadArguments):
+        BuiltinActions.save_as(window, "!!!", encoding="base64")  # type: ignore[arg-type]
+    with pytest.raises(BadArguments):
+        BuiltinActions.save_as(window, "x", encoding="rot13")  # type: ignore[arg-type]
+    assert window.asked == []
+    with pytest.raises(Unavailable):
+        BuiltinActions.save_as(None, "x")
 
 
 def test_open_external_opens_only_safe_addresses(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -77,6 +77,10 @@ class WindowController(Protocol):
         """Show a Windows toast. Clicking it activates the window and tells the page."""
         ...
 
+    def message_box(self, title: str, message: str, *, confirm: bool = False) -> bool:
+        """Show a native message box; ``confirm`` adds Cancel and returns the choice."""
+        ...
+
     def set_title(self, title: str) -> None: ...
     def state(self) -> dict[str, Any]: ...
     def dialog(
@@ -272,6 +276,18 @@ class NativeWindow:
         threading.Timer(CLOSE_DELAY, self._window.destroy).start()
         return True
 
+    def message_box(self, title: str, message: str, *, confirm: bool = False) -> bool:
+        if self._webview is None:
+            raise Unavailable("There is no window to show a message in.")
+        import ctypes
+
+        mb_ok, mb_okcancel, mb_iconinformation, mb_iconquestion = 0x0, 0x1, 0x40, 0x20
+        mb_setforeground, mb_topmost, idok = 0x10000, 0x40000, 1
+        flags = mb_setforeground | mb_topmost
+        flags |= (mb_okcancel | mb_iconquestion) if confirm else (mb_ok | mb_iconinformation)
+        answer = int(ctypes.windll.user32.MessageBoxW(None, message, title, flags))
+        return answer == idok
+
     def set_title(self, title: str) -> None:
         self._title = title
         self._window.set_title(title)
@@ -351,6 +367,9 @@ class SimulatedWindow:
         self, title: str, message: str, notification_id: str | None = None
     ) -> None:
         raise Unavailable("There is no window to show a notification from.")
+
+    def message_box(self, title: str, message: str, *, confirm: bool = False) -> bool:
+        raise Unavailable("There is no window to show a message in.")
 
     def set_title(self, title: str) -> None:
         self._title = title
