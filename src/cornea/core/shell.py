@@ -21,6 +21,7 @@ from cornea.core.app.app import AppFactory
 from cornea.core.bridge.bridge import ActionRegistry
 from cornea.core.config import App, Bridge, Loading, Security, Server, Window
 from cornea.core.environment import Environment
+from cornea.core.extensions import Extension
 from cornea.core.logs import Logs
 from cornea.core.page.notifications import Notifier
 from cornea.core.security.close_guard import CloseGuard
@@ -157,8 +158,10 @@ class Shell:
         identity: App | None = None,
         measure: bool | Callable[[Timings], None] = False,
         loading: Loading | bool | None = True,
+        extensions: Iterable[Extension] = (),
     ) -> None:
-        self.security = security or Security()
+        self.extensions: tuple[Extension, ...] = tuple(extensions)
+        self.security = self._allow_framing(security or Security(), self.extensions)
         self.identity = identity or App()
         if window is None and (self.identity.single_instance or self.identity.remember_window):
             raise ValueError("single_instance and remember_window need a window")
@@ -186,9 +189,10 @@ class Shell:
             self._direct_url = web_source.url
         if self._direct_url is not None:
             self._check_direct_window(window)
+        extra_routers = [router for ext in self.extensions for router in ext.routers()]
         self.app: FastAPI = AppFactory.create(
             web_source,
-            routers=routers,
+            routers=[*routers, *extra_routers],
             security=self.security,
             bridge=bridge,
             app_id=self.identity.id,
@@ -204,6 +208,8 @@ class Shell:
         self._start_error: BaseException | None = None
         self._app_started = threading.Event()
         self._start_began = False
+        for extension in self.extensions:
+            extension.bind(self)
 
     # ----- what the server is ---------------------------------------------------------------
 
@@ -363,7 +369,15 @@ class Shell:
         """The first URL to open: with a token for the local server, or the direct address."""
         if self._direct_url is not None:
             return self._direct_url
-        return f"{self.base_url}/?cornea_token={self.app.state.bootstrap_token}"
+        return f"{self.base_url}{self._start_path()}?cornea_token={self.app.state.bootstrap_token}"
+
+    def _start_path(self) -> str:
+        """Where the window opens: the first extension that names a page other than ``/``."""
+        for extension in self.extensions:
+            path = extension.start_path(self.security.api_prefix)
+            if path != "/":
+                return path
+        return "/"
 
     # ----- lifecycle ------------------------------------------------------------------------
 
@@ -542,6 +556,19 @@ class Shell:
     # ----- internals ------------------------------------------------------------------------
 
     @staticmethod
+    def _allow_framing(security: Security, extensions: tuple[Extension, ...]) -> Security:
+        """Let the page frame its own address when an extension shows the app in a frame.
+
+        Only a ``frame-ancestors 'none'`` is changed, and only to ``'self'``: the default policy
+        has one. Any other ``frame-ancestors`` you set yourself is left alone.
+        """
+        if not any(extension.allows_framing for extension in extensions):
+            return security
+        return replace(
+            security, csp=security.csp.replace("frame-ancestors 'none'", "frame-ancestors 'self'")
+        )
+
+    @staticmethod
     def _check_icon(window: Window) -> None:
         """Fail before anything starts if the icon file is not there."""
         if window.icon is not None and not Path(window.icon).is_file():
@@ -695,6 +722,7 @@ def run(
     identity: App | None = None,
     measure: bool | Callable[[Timings], None] = False,
     loading: Loading | bool | None = True,
+    extensions: Iterable[Extension] = (),
     title: str | None = None,
     debug: bool | None = None,
     on_ready: Callable[[Shell], None] | None = None,
@@ -728,5 +756,6 @@ def run(
         identity=identity,
         measure=measure,
         loading=loading,
+        extensions=extensions,
     )
     shell.run(on_ready=on_ready)

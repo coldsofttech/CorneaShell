@@ -4,6 +4,11 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+### Added
+
+- Menu bars, context menus and title bars for your page, in Windows 11, Windows XP, Office, macOS and Ubuntu styles, from the new `cornea-menus` package (`pip install "cornea-shell[menus]"`). Python or the page says what the menus are; the page draws them and click events come back to Python handlers and to the page as `cornea:menu-click`. They also work in a frameless window.
+- `Shell(..., extensions=[...])` lets an optional package add routes and its own start page to a shell.
+
 ## [0.1.1] - 2026-11-08
 
 ### Changed

@@ -1,0 +1,27 @@
+/* Windows 11: Segoe UI Variable, rounded corners, light and dark follow the system. */
+:root[data-cm-theme="win11"] {
+  --cm-font: 12px/1.3 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --cm-bar-h: 32px; --cm-bar-pad: 0 4px; --cm-bar-gap: 2px; --cm-bar-item-radius: 4px; --cm-bar-item-pad: 10px;
+  --cm-bar-bg: #f3f3f3; --cm-bar-fg: #1b1b1b; --cm-bar-hover-bg: rgba(0,0,0,.055); --cm-bar-open-bg: rgba(0,0,0,.08);
+  --cm-menu-bg: #fcfcfc; --cm-menu-fg: #1b1b1b; --cm-menu-border: 1px solid rgba(0,0,0,.12); --cm-menu-radius: 8px; --cm-menu-pad: 4px;
+  --cm-menu-shadow: 0 8px 24px rgba(0,0,0,.18), 0 1px 3px rgba(0,0,0,.1); --cm-menu-blur: saturate(1.6) blur(24px);
+  --cm-item-h: 32px; --cm-item-radius: 4px; --cm-item-hover-bg: rgba(0,0,0,.055); --cm-gutter-w: 30px;
+  --cm-disabled-fg: rgba(0,0,0,.36); --cm-sep: rgba(0,0,0,.08); --cm-sep-margin: 4px 0; --cm-shortcut-fg: rgba(0,0,0,.6);
+  --cm-mnemonic-decoration: none;
+  --cm-title-h: 32px; --cm-title-bg: #f3f3f3; --cm-title-fg: #1b1b1b; --cm-title-icon-w: 14px; --cm-ctl-hover-bg: rgba(0,0,0,.06);
+  --cm-pop-ms: 90ms;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-cm-theme="win11"] {
+    --cm-bar-bg: #202020; --cm-bar-fg: #fff; --cm-bar-hover-bg: rgba(255,255,255,.06); --cm-bar-open-bg: rgba(255,255,255,.09);
+    --cm-menu-bg: #2c2c2c; --cm-menu-fg: #fff; --cm-menu-border: 1px solid rgba(255,255,255,.08);
+    --cm-menu-shadow: 0 8px 24px rgba(0,0,0,.5), 0 1px 3px rgba(0,0,0,.4); --cm-item-hover-bg: rgba(255,255,255,.08);
+    --cm-disabled-fg: rgba(255,255,255,.36); --cm-sep: rgba(255,255,255,.08); --cm-shortcut-fg: rgba(255,255,255,.65);
+    --cm-title-bg: #202020; --cm-title-fg: #fff; --cm-ctl-hover-bg: rgba(255,255,255,.08);
+  }
+}
+:root[data-cm-theme="win11"] .cm-title { padding-left: 4px; font-size: 12px; }
+:root[data-cm-theme="win11"] .cm-title-icon { margin-left: 12px; }
+:root[data-cm-theme="win11"] .cm-bar-item:focus-visible { outline: 2px solid #005fb8; outline-offset: -2px; }
+/* The accent bar on the chosen entry */
+:root[data-cm-theme="win11"] .cm-item.cm-checked[data-type="radio"] .cm-mark::before { background: #005fb8; }

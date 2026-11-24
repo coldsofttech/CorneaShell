@@ -34,6 +34,28 @@ jobs:
         env:
           SKIP: pytest # covered by the test job across all Python versions
 
+  # The menus script and styles are built from TypeScript and committed, so Python users need no Node.
+  # This keeps the committed files in step with the source.
+  menus-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: packages/cornea-menus/web
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: packages/cornea-menus/web/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Check the committed script and styles are up to date
+        working-directory: .
+        run: git diff --exit-code packages/cornea-menus/src/cornea_menus/static
+
   # Cornea shows a Windows window, so everything that runs it is tested on Windows.
   test:
     name: test (${{ matrix.python-version }})
@@ -77,7 +99,9 @@ jobs:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v10.3.3
       - run: uv build
-      - run: uvx twine check --strict dist/*
+      # A separate folder: the smoke test below picks up the one wheel in dist/.
+      - run: uv build --package cornea-menus --out-dir dist-menus
+      - run: uvx twine check --strict dist/* dist-menus/*
       - name: Smoke test the built wheel
         # bash expands the dist/*.whl glob; PowerShell would pass it on unexpanded.
         shell: bash
@@ -90,17 +114,19 @@ jobs:
   # Single required status check for the branch ruleset.
   ci:
     if: always()
-    needs: [lint, test, integration, build]
+    needs: [lint, menus-web, test, integration, build]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Check results
         run: |
           echo "lint:        ${{ needs.lint.result }}"
+          echo "menus-web:   ${{ needs.menus-web.result }}"
           echo "test:        ${{ needs.test.result }}"
           echo "integration: ${{ needs.integration.result }}"
           echo "build:       ${{ needs.build.result }}"
           [ "${{ needs.lint.result }}" = success ] &&
+          [ "${{ needs.menus-web.result }}" = success ] &&
           [ "${{ needs.test.result }}" = success ] &&
           [ "${{ needs.integration.result }}" = success ] &&
           [ "${{ needs.build.result }}" = success ]

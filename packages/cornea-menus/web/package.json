@@ -1,0 +1,18 @@
+{
+  "name": "cornea-menus",
+  "version": "0.1.0",
+  "description": "Menu bars, context menus and title bars for Cornea Shell pages. Framework-agnostic core with a React wrapper.",
+  "license": "MIT",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "node build.mjs"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "esbuild": "^0.25.0",
+    "react": "^19.0.0",
+    "typescript": "^5.7.0"
+  }
+}

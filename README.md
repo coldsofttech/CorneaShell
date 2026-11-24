@@ -25,6 +25,7 @@ You keep the UI you already have, and Cornea Shell adds the parts around it: the
 - **Your dev server, started for you.** Cornea runs `npm run dev` (or any command), shows it, and stops it when the window closes.
 - **Native actions your page can call:** choose a folder or file, choose where to save, open a link in the browser, read platform info, and your own.
 - **Opt-in native features:** Windows notifications, opening files, dropped files and downloads. Each one stays off until you allow it.
+- **Menu bars, context menus and title bars** in Windows 11, XP, Office, macOS and Ubuntu styles, drawn by your page and defined from Python (optional `menus` extra).
 - **A command line and a Python API** that do the same things.
 
 ## Requirements
@@ -46,7 +47,7 @@ Or with [uv](https://docs.astral.sh/uv/):
 uv add cornea-shell
 ```
 
-Two optional extras: `pip install "cornea-shell[wsgi]"` to run Flask or Django apps (WSGI), and `pip install "cornea-shell[proxy]"` to serve a page from another server through Cornea (see below).
+Optional extras: `pip install "cornea-shell[wsgi]"` to run Flask or Django apps (WSGI), `pip install "cornea-shell[proxy]"` to serve a page from another server through Cornea (see below), and `pip install "cornea-shell[menus]"` for menu bars and context menus (see below).
 
 ## Quick start
 
@@ -199,6 +200,30 @@ await fetch("/api/bridge/show_notification", {
 ```
 
 The title (up to 64 characters) and message (up to 256) are plain text. Clicking the notification brings the window to the front and sends the page a `cornea:notification-click` event whose `detail.id` is the `notification_id`. The notification appears under your app's name and icon: Cornea registers the app id (or `Cornea.Shell`), the window title and the window icon for the current user. For a toast drawn by your own page instead, use `shell.notify()` and draw it in HTML.
+
+## Menu bars and context menus
+
+Install the `menus` extra and say what the menus are. Your page draws them, so they look the same in every theme (`win11`, `xp`, `office`, `macos`, `ubuntu`) and work in a frameless window:
+
+```python
+from cornea import Shell, Static, Window
+from cornea_menus import Item, Menu, MenuBar, Menus, Separator
+
+menus = Menus(
+    MenuBar([Menu("&File", [Item("file.open", "&Open...", shortcut="Ctrl+O"), Separator(), Item("file.quit", "&Quit")])]),
+    theme="win11",
+    mode="frame",  # Cornea draws the title bar and menu bar around your app, and nothing in the app changes
+)
+
+
+@menus.on("file.quit")
+def quit_app() -> None: ...
+
+
+Shell(Static("web/dist"), window=Window(frameless=True), extensions=[menus]).run()
+```
+
+Your page hears every choice as a `cornea:menu-click` event. With `mode="component"` (the default) your page places the bars itself. See the [`cornea-menus` README](https://github.com/coldsofttech/CorneaShell/tree/main/packages/cornea-menus) for entries, shortcuts, context menus, updating menus while the app runs, React, and security.
 
 ## One small script for your page
 

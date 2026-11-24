@@ -1,0 +1,30 @@
+/* Ubuntu (Yaru): the Ubuntu font, warm greys, an orange accent, round window buttons on the right. */
+:root[data-cm-theme="ubuntu"] {
+  --cm-font: 14px/1.3 Ubuntu, "Cantarell", "Noto Sans", system-ui, sans-serif;
+  --cm-bar-h: 34px; --cm-bar-pad: 0 6px; --cm-bar-gap: 2px; --cm-bar-item-pad: 12px; --cm-bar-item-radius: 6px;
+  --cm-bar-bg: #ebebeb; --cm-bar-fg: #333; --cm-bar-hover-bg: rgba(0,0,0,.07); --cm-bar-open-bg: rgba(0,0,0,.12);
+  --cm-menu-bg: #fafafa; --cm-menu-fg: #333; --cm-menu-border: 1px solid #cdcdcd; --cm-menu-radius: 8px; --cm-menu-pad: 6px;
+  --cm-menu-shadow: 0 4px 14px rgba(0,0,0,.28);
+  --cm-item-h: 34px; --cm-item-radius: 6px; --cm-item-hover-bg: rgba(0,0,0,.08); --cm-gutter-w: 30px;
+  --cm-disabled-fg: #a6a6a6; --cm-sep: #dcdcdc; --cm-sep-margin: 6px 0; --cm-shortcut-fg: #707070;
+  --cm-mnemonic-decoration: none;
+  --cm-title-h: 38px; --cm-title-bg: #ebebeb; --cm-title-fg: #333; --cm-title-font: 700 14px/1 Ubuntu, "Cantarell", system-ui, sans-serif;
+  --cm-ctl-w: 28px; --cm-ctl-hover-bg: rgba(0,0,0,.1); --cm-pop-ms: 100ms;
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-cm-theme="ubuntu"] {
+    --cm-bar-bg: #2d2d2d; --cm-bar-fg: #f2f2f2; --cm-bar-hover-bg: rgba(255,255,255,.08); --cm-bar-open-bg: rgba(255,255,255,.14);
+    --cm-menu-bg: #383838; --cm-menu-fg: #f2f2f2; --cm-menu-border: 1px solid #1f1f1f; --cm-menu-shadow: 0 4px 14px rgba(0,0,0,.6);
+    --cm-item-hover-bg: rgba(255,255,255,.1); --cm-disabled-fg: #777; --cm-sep: #4a4a4a; --cm-shortcut-fg: #b5b5b5;
+    --cm-title-bg: #2d2d2d; --cm-title-fg: #f2f2f2; --cm-ctl-hover-bg: rgba(255,255,255,.12);
+  }
+}
+:root[data-cm-theme="ubuntu"] .cm-title { text-align: center; }
+:root[data-cm-theme="ubuntu"] .cm-title-icon { width: 28px; }
+:root[data-cm-theme="ubuntu"] .cm-controls { align-self: center; gap: 6px; padding-right: 10px; }
+:root[data-cm-theme="ubuntu"] .cm-control { width: 24px; height: 24px; border-radius: 50%; background: rgba(0,0,0,.07); }
+:root[data-cm-theme="ubuntu"] .cm-control:hover { background: rgba(0,0,0,.14); }
+:root[data-cm-theme="ubuntu"] .cm-control.cm-close:hover { background: #e95420; color: #fff; }
+:root[data-cm-theme="ubuntu"] .cm-item.cm-checked .cm-mark::before { border-color: #e95420; }
+:root[data-cm-theme="ubuntu"] .cm-item.cm-checked[data-type="radio"] .cm-mark::before { background: #e95420; }
+:root[data-cm-theme="ubuntu"] .cm-bar-item:focus-visible { outline: 2px solid #e95420; outline-offset: -2px; }

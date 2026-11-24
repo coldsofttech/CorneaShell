@@ -1,0 +1,27 @@
+/* Windows XP "Luna": Tahoma, beige menu bar, blue title bar and a blue selection. Always light. */
+:root[data-cm-theme="xp"] {
+  --cm-font: 11px/1.2 Tahoma, "Segoe UI", Verdana, sans-serif;
+  --cm-bar-h: 22px; --cm-bar-pad: 0 2px; --cm-bar-item-pad: 6px;
+  --cm-bar-bg: #ece9d8; --cm-bar-fg: #000; --cm-bar-border: 1px solid #aca899;
+  --cm-bar-hover-bg: #316ac5; --cm-bar-hover-fg: #fff; --cm-bar-open-bg: #316ac5; --cm-bar-open-fg: #fff;
+  --cm-menu-bg: #fff; --cm-menu-fg: #000; --cm-menu-border: 1px solid #aca899; --cm-menu-radius: 0; --cm-menu-pad: 2px;
+  --cm-menu-shadow: 2px 2px 3px rgba(0,0,0,.35);
+  --cm-item-h: 21px; --cm-item-hover-bg: #316ac5; --cm-item-hover-fg: #fff; --cm-gutter-w: 24px;
+  --cm-disabled-fg: #aca899; --cm-sep: #aca899; --cm-sep-margin: 2px 2px 2px 26px; --cm-shortcut-fg: inherit;
+  --cm-mnemonic-decoration: underline;
+  --cm-title-h: 30px; --cm-title-bg: linear-gradient(180deg, #0997ff 0%, #0053ee 8%, #0050ee 40%, #0066ff 88%, #0066ff 93%, #005bff 95%, #003dd7 96%, #003dd7 100%);
+  --cm-title-fg: #fff; --cm-title-font: bold 13px Trebuchet MS, Tahoma, sans-serif; --cm-title-icon-w: 6px;
+  --cm-ctl-w: 21px; --cm-glyph: 9px; --cm-ctl-hover-bg: rgba(255,255,255,.25);
+  --cm-close-hover-bg: #e0452a; --cm-close-hover-fg: #fff; --cm-pop-ms: 0ms;
+}
+:root[data-cm-theme="xp"] .cm-titlebar { border-radius: 8px 8px 0 0; padding: 0 5px 0 4px; text-shadow: 1px 1px #0f1089; }
+:root[data-cm-theme="xp"] .cm-controls { align-self: center; gap: 2px; }
+:root[data-cm-theme="xp"] .cm-control { height: 21px; width: 21px; border: 1px solid #fff; border-radius: 3px; background: radial-gradient(circle at 90% 90%, #0054e9 0%, #2263d5 55%, #4479e4 90%, #a3bbec 100%); box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); color: #fff; }
+:root[data-cm-theme="xp"] .cm-control:hover { filter: brightness(1.12); background: radial-gradient(circle at 90% 90%, #0054e9 0%, #2263d5 55%, #4479e4 90%, #a3bbec 100%); }
+:root[data-cm-theme="xp"] .cm-control.cm-close { background: radial-gradient(circle at 90% 90%, #cc4600 0%, #dc6527 55%, #cd7546 90%, #ffccb2 100%); }
+:root[data-cm-theme="xp"] .cm-control.cm-close:hover { background: radial-gradient(circle at 90% 90%, #cc4600 0%, #dc6527 55%, #cd7546 90%, #ffccb2 100%); filter: brightness(1.12); color: #fff; }
+:root[data-cm-theme="xp"] .cm-glyph path { stroke-width: 1.6; }
+:root[data-cm-theme="xp"] .cm-bar { box-shadow: inset 0 1px #fff; }
+:root[data-cm-theme="xp"] .cm-item.cm-checked .cm-gutter { background: #c1d2ee; border: 1px solid #316ac5; width: 20px; height: 18px; margin: 0 4px 0 2px; }
+:root[data-cm-theme="xp"] .cm-item.cm-checked.cm-active .cm-gutter { background: #fff; border-color: #fff; color: #000; }
+:root[data-cm-theme="xp"] .cm-bar-item:focus-visible { outline: 1px dotted #000; outline-offset: -3px; }

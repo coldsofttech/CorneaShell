@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cornea-menus"
+dynamic = ["version"]
+description = "Menu bars, context menus and title bars that Cornea Shell pages render themselves, in XP, Office, Windows 11, macOS and Ubuntu styles."
+keywords = ["webview", "desktop", "menu", "menubar", "context-menu", "cornea"]
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "coldsofttech" }]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Software Development :: User Interfaces",
+  "Typing :: Typed",
+]
+dependencies = ["cornea-shell>=0.1.1"]
+
+[project.urls]
+Homepage = "https://github.com/coldsofttech/CorneaShell"
+Issues = "https://github.com/coldsofttech/CorneaShell/issues"
+
+[tool.hatch.version]
+path = "src/cornea_menus/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cornea_menus"]
+# The built script and styles are committed, so building the wheel needs no Node.
+artifacts = ["src/cornea_menus/static/**"]
+
+[tool.uv.sources]
+cornea-shell = { workspace = true }

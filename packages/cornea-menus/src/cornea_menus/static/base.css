@@ -1,0 +1,61 @@
+/* Cornea menus: structure shared by every theme. A theme only sets the --cm-* tokens and a few details. */
+
+.cm-bar, .cm-bar *, .cm-menu, .cm-menu *, .cm-titlebar, .cm-titlebar * { box-sizing: border-box; }
+
+/* ----- frame mode page ----- */
+.cm-frame-body { margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; background: var(--cm-bar-bg); }
+.cm-frame-top { flex: none; }
+.cm-frame-bars { display: flex; flex-direction: column; }
+.cm-app-frame { flex: 1 1 auto; width: 100%; min-height: 0; border: 0; display: block; background: #fff; }
+
+/* ----- menu bar ----- */
+.cm-bar { display: flex; align-items: stretch; height: var(--cm-bar-h); padding: var(--cm-bar-pad, 0 4px); gap: var(--cm-bar-gap, 0);
+  background: var(--cm-bar-bg); color: var(--cm-bar-fg); border-bottom: var(--cm-bar-border, 0); font: var(--cm-font); user-select: none; cursor: default; }
+.cm-bar-item { display: flex; align-items: center; padding: 0 var(--cm-bar-item-pad, 9px); border-radius: var(--cm-bar-item-radius, 0); white-space: nowrap; outline: none; }
+.cm-bar-item:hover { background: var(--cm-bar-hover-bg); color: var(--cm-bar-hover-fg, inherit); }
+.cm-bar-item.cm-open, .cm-bar-item:focus-visible { background: var(--cm-bar-open-bg); color: var(--cm-bar-open-fg, inherit); }
+.cm-bar-item.cm-disabled { color: var(--cm-disabled-fg); }
+
+/* Underlined mnemonic letters appear while Alt is held, or always when the theme asks for it. */
+.cm-mnemonic { text-decoration: var(--cm-mnemonic-decoration, underline); text-underline-offset: 2px; }
+
+/* ----- popup menus ----- */
+.cm-layer { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; }
+.cm-menu { position: fixed; min-width: var(--cm-menu-min-w, 180px); max-width: 420px; overflow-y: auto; padding: var(--cm-menu-pad, 2px);
+  background: var(--cm-menu-bg); color: var(--cm-menu-fg); border: var(--cm-menu-border); border-radius: var(--cm-menu-radius, 0);
+  box-shadow: var(--cm-menu-shadow); font: var(--cm-font); user-select: none; cursor: default; pointer-events: auto; outline: none;
+  backdrop-filter: var(--cm-menu-blur, none); -webkit-backdrop-filter: var(--cm-menu-blur, none); }
+.cm-item { display: flex; align-items: center; min-height: var(--cm-item-h); padding: 0 var(--cm-item-pad, 4px) 0 0; border-radius: var(--cm-item-radius, 0); outline: none; white-space: nowrap; }
+.cm-gutter { flex: none; width: var(--cm-gutter-w, 26px); display: flex; align-items: center; justify-content: center; }
+.cm-icon { width: 16px; height: 16px; object-fit: contain; }
+.cm-label { flex: 1 1 auto; padding-right: 24px; overflow: hidden; text-overflow: ellipsis; }
+.cm-shortcut { flex: none; padding-left: 16px; color: var(--cm-shortcut-fg, inherit); opacity: var(--cm-shortcut-opacity, 1); }
+.cm-arrow { flex: none; width: 16px; height: 16px; position: relative; }
+.cm-arrow::before { content: ""; position: absolute; left: 5px; top: 50%; width: 6px; height: 6px; margin-top: -4px; border-top: 1.5px solid currentColor; border-right: 1.5px solid currentColor; transform: rotate(45deg) scale(.8); }
+.cm-item:focus, .cm-item:focus-visible { outline: none; }
+.cm-item.cm-active { background: var(--cm-item-hover-bg); color: var(--cm-item-hover-fg, inherit); }
+.cm-item.cm-active .cm-shortcut { color: inherit; }
+.cm-item.cm-disabled { color: var(--cm-disabled-fg); }
+.cm-item.cm-disabled.cm-active { background: transparent; color: var(--cm-disabled-fg); }
+.cm-sep { height: 1px; margin: var(--cm-sep-margin, 3px 2px); background: var(--cm-sep); }
+
+/* check and radio marks */
+.cm-mark { width: 14px; height: 14px; position: relative; display: block; }
+.cm-checked[data-type="check"] .cm-mark::before { content: ""; position: absolute; left: 4px; top: 1px; width: 4px; height: 8px; border: solid currentColor; border-width: 0 1.6px 1.6px 0; transform: rotate(40deg); }
+.cm-checked[data-type="radio"] .cm-mark::before { content: ""; position: absolute; left: 4px; top: 4px; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+/* ----- title bar of a frameless window ----- */
+.cm-titlebar { display: flex; align-items: center; height: var(--cm-title-h); background: var(--cm-title-bg); color: var(--cm-title-fg); font: var(--cm-title-font, var(--cm-font)); user-select: none; cursor: default; overflow: hidden; }
+.cm-title-icon { flex: none; width: var(--cm-title-icon-w, 12px); }
+.cm-title { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cm-controls { flex: none; display: flex; align-self: stretch; }
+.cm-control { appearance: none; border: 0; margin: 0; padding: 0; background: transparent; color: inherit; width: var(--cm-ctl-w, 46px); display: flex; align-items: center; justify-content: center; cursor: default; outline-offset: -2px; }
+.cm-control:hover { background: var(--cm-ctl-hover-bg); }
+.cm-control:active { background: var(--cm-ctl-active-bg, var(--cm-ctl-hover-bg)); }
+.cm-control.cm-close:hover { background: var(--cm-close-hover-bg, #c42b1c); color: var(--cm-close-hover-fg, #fff); }
+.cm-glyph { width: var(--cm-glyph, 10px); height: var(--cm-glyph, 10px); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .cm-menu { animation: cm-pop var(--cm-pop-ms, 0ms) ease-out; }
+  @keyframes cm-pop { from { opacity: 0; transform: translateY(-2px); } to { opacity: 1; transform: none; } }
+}

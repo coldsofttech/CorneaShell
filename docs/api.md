@@ -41,6 +41,7 @@ Shell(
     identity: App | None = None,
     measure: bool | Callable[[Timings], None] = False,
     loading: Loading | bool | None = True,
+    extensions: Iterable[Extension] = (),
 )
 ```
 
@@ -277,6 +278,7 @@ def run(
     identity: App | None = None,
     measure: bool | Callable[[Timings], None] = False,
     loading: Loading | bool | None = True,
+    extensions: Iterable[Extension] = (),
     title: str | None = None,
     debug: bool | None = None,
     on_ready: Callable[[Shell], None] | None = None,
