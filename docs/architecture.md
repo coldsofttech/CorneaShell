@@ -148,7 +148,7 @@ The failures are: the command exited early, the address did not answer in time, 
 
 ## js_api and its risk
 
-A directly opened address is not served by Cornea, so its page cannot call the window routes, and a frameless window would have no way to close. `Window(js_api=True)` offers another way: pywebview puts a `window.pywebview.api` object into the page with `minimize()`, `maximize()`, `restore()`, `close()`, `set_title(title)`, `state()`, `actions()` and `call_action(action, parameters)`. `call_action` returns the same shape as the HTTP bridge route.
+A directly opened address is not served by Cornea, so its page cannot call the window routes, and a frameless window would have no way to close. `Window(js_api=True)` offers another way: pywebview puts a `window.pywebview.api` object into the page with `minimize()`, `maximize()`, `restore()`, `close()`, `set_title(title)`, `set_always_on_top(enabled)`, `set_fullscreen(enabled)`, `set_size_limits(min_size, max_size)`, `bounds()`, `set_position(x, y)`, `set_size(width, height)`, `state()`, `actions()` and `call_action(action, parameters)`. `call_action` returns the same shape as the HTTP bridge route.
 
 It is off by default, and the rule that a directly opened address cannot be frameless holds unless it is on. The risk is the one the object brings: pywebview adds it to every page that loads in the window, including one the window navigates to. That page gets the window controls and the native actions (dialogs, opening a link, platform information). Use it only for pages you trust. Single actions can still be switched off with `--disable-action`. Proxy mode needs none of this: the page is served by Cornea and uses the HTTP routes behind the session.
 

@@ -167,6 +167,14 @@ def test_state_follows_the_window_events() -> None:
         "minimized": False,
         "closed": False,
         "frameless": False,
+        "always_on_top": False,
+        "fullscreen": False,
+        "min_size": (400, 300),
+        "max_size": None,
+        "x": None,
+        "y": None,
+        "width": 1024,
+        "height": 768,
     }
     assert controller.state() == idle
 
@@ -324,6 +332,14 @@ def test_the_page_can_control_the_window_over_http(webview: FakeWebview, bundle:
             "minimized": False,
             "closed": False,
             "frameless": False,
+            "always_on_top": False,
+            "fullscreen": False,
+            "min_size": (400, 300),
+            "max_size": None,
+            "x": None,
+            "y": None,
+            "width": 1024,
+            "height": 768,
         },
     )
     for action in ("minimize", "maximize", "restore", "title", "close"):

@@ -73,6 +73,47 @@ def check_window_path(path: object) -> str:
     return path
 
 
+MIN_SIDE, MAX_SIDE = 100, 10000
+MAX_COORDINATE = 20000
+
+
+def _whole(value: object, low: int, high: int, what: str) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or not low <= value <= high:
+        raise ValueError(f"{what} must be a whole number from {low} to {high}")
+    return value
+
+
+def check_side(value: object, what: str) -> int:
+    """A window width or height in pixels.
+
+    Example:
+        >>> check_side(640, "width")
+        640
+    """
+    return _whole(value, MIN_SIDE, MAX_SIDE, what)
+
+
+def check_coordinate(value: object, what: str) -> int:
+    """A window's left or top edge in pixels, which can be negative on a second screen."""
+    return _whole(value, -MAX_COORDINATE, MAX_COORDINATE, what)
+
+
+def check_limit(value: object, what: str) -> SizeSetting | None:
+    """A size limit: ``None`` to remove it, or a width and a height.
+
+    Example:
+        >>> check_limit([800, 600], "min_size")
+        (800, 600)
+        >>> check_limit(None, "max_size") is None
+        True
+    """
+    if value is None:
+        return None
+    if not isinstance(value, (tuple, list)) or len(value) != 2:
+        raise ValueError(f"{what} must be a width and a height, or none")
+    return (check_side(value[0], f"{what} width"), check_side(value[1], f"{what} height"))
+
+
 def child_settings(parent: Window, title: str | None, size: object) -> Window:
     """The parent's window settings for a child, with its own title and size if given."""
     if title is not None and (not isinstance(title, str) or not 1 <= len(title) <= 200):
@@ -137,6 +178,35 @@ class WindowController(Protocol):
         ...
 
     def set_title(self, title: str) -> None: ...
+    def set_always_on_top(self, enabled: bool) -> None:
+        """Keep the window above the others, or stop."""
+        ...
+
+    def set_fullscreen(self, enabled: bool) -> None:
+        """Fill the screen without a frame, or go back to the window."""
+        ...
+
+    def set_size_limits(self, min_size: SizeSetting | None, max_size: SizeSetting | None) -> None:
+        """Set the smallest and largest size the person can resize to. ``None`` removes a limit."""
+        ...
+
+    def bounds(self) -> dict[str, int | None]:
+        """Where the window is: ``x``, ``y``, ``width`` and ``height``. A maximized or minimized
+        window reports the place it returns to."""
+        ...
+
+    def set_bounds(
+        self,
+        *,
+        x: int | None = None,
+        y: int | None = None,
+        width: int | None = None,
+        height: int | None = None,
+    ) -> None:
+        """Move and/or resize the window. Give ``x`` and ``y`` together, ``width`` and ``height``
+        together."""
+        ...
+
     def state(self) -> dict[str, Any]: ...
     def dialog(
         self,
@@ -219,6 +289,10 @@ class NativeWindow:
         self._maximized = bool(start and start.maximized)
         self._minimized = False
         self._closed = False
+        self._on_top = settings.on_top
+        self._fullscreen = False
+        self._min_size: SizeSetting | None = settings.min_size
+        self._max_size: SizeSetting | None = None
         # The window's place when it is neither maximized nor minimized: what gets remembered.
         if start is not None:
             self._x, self._y = start.x, start.y
@@ -353,6 +427,50 @@ class NativeWindow:
         self._title = title
         self._window.set_title(title)
 
+    def set_always_on_top(self, enabled: bool) -> None:
+        self._on_top = bool(enabled)
+        self._window.on_top = self._on_top
+
+    def set_fullscreen(self, enabled: bool) -> None:
+        if bool(enabled) != self._fullscreen:
+            self._window.toggle_fullscreen()
+            self._fullscreen = bool(enabled)
+
+    def set_size_limits(self, min_size: SizeSetting | None, max_size: SizeSetting | None) -> None:
+        if min_size and max_size and (min_size[0] > max_size[0] or min_size[1] > max_size[1]):
+            raise ValueError("the smallest size cannot be larger than the largest")
+        apply_size_limits(self._window, min_size, max_size)
+        self._min_size, self._max_size = min_size, max_size
+
+    def bounds(self) -> dict[str, int | None]:
+        if (self._x is None or self._y is None) and not self._maximized and not self._minimized:
+            with contextlib.suppress(Exception):  # placed by the system and never moved
+                self._x, self._y = int(self._window.x), int(self._window.y)
+        return {"x": self._x, "y": self._y, "width": self._width, "height": self._height}
+
+    def set_bounds(
+        self,
+        *,
+        x: int | None = None,
+        y: int | None = None,
+        width: int | None = None,
+        height: int | None = None,
+    ) -> None:
+        if (x is None) != (y is None) or (width is None) != (height is None):
+            raise ValueError("give x and y together, and width and height together")
+        if x is None and width is None:
+            raise ValueError("give a position, a size, or both")
+        if width is not None and height is not None:
+            check_side(width, "width")
+            check_side(height, "height")
+            self._window.resize(width, height)
+            self._width, self._height = width, height
+        if x is not None and y is not None:
+            check_coordinate(x, "x")
+            check_coordinate(y, "y")
+            self._window.move(x, y)
+            self._x, self._y = x, y
+
     def state(self) -> dict[str, Any]:
         return {
             "title": self._title,
@@ -360,6 +478,11 @@ class NativeWindow:
             "minimized": self._minimized,
             "closed": self._closed,
             "frameless": self._frameless,
+            "always_on_top": self._on_top,
+            "fullscreen": self._fullscreen,
+            "min_size": self._min_size,
+            "max_size": self._max_size,
+            **self.bounds(),
         }
 
     def dialog(
@@ -403,10 +526,48 @@ class SimulatedWindow:
         self._maximized = False
         self._minimized = False
         self._closed = False
+        self._on_top = False
+        self._fullscreen = False
+        self._min_size: SizeSetting | None = None
+        self._max_size: SizeSetting | None = None
+        self._bounds: dict[str, int | None] = {"x": None, "y": None, "width": 1024, "height": 768}
 
     @property
     def headless(self) -> bool:
         return True
+
+    def set_always_on_top(self, enabled: bool) -> None:
+        self._on_top = bool(enabled)
+
+    def set_fullscreen(self, enabled: bool) -> None:
+        self._fullscreen = bool(enabled)
+
+    def set_size_limits(self, min_size: SizeSetting | None, max_size: SizeSetting | None) -> None:
+        if min_size and max_size and (min_size[0] > max_size[0] or min_size[1] > max_size[1]):
+            raise ValueError("the smallest size cannot be larger than the largest")
+        self._min_size, self._max_size = min_size, max_size
+
+    def bounds(self) -> dict[str, int | None]:
+        return dict(self._bounds)
+
+    def set_bounds(
+        self,
+        *,
+        x: int | None = None,
+        y: int | None = None,
+        width: int | None = None,
+        height: int | None = None,
+    ) -> None:
+        if (x is None) != (y is None) or (width is None) != (height is None):
+            raise ValueError("give x and y together, and width and height together")
+        if x is None and width is None:
+            raise ValueError("give a position, a size, or both")
+        if width is not None and height is not None:
+            self._bounds.update(
+                width=check_side(width, "width"), height=check_side(height, "height")
+            )
+        if x is not None and y is not None:
+            self._bounds.update(x=check_coordinate(x, "x"), y=check_coordinate(y, "y"))
 
     def minimize(self) -> None:
         self._minimized = True
@@ -449,6 +610,11 @@ class SimulatedWindow:
             "minimized": self._minimized,
             "closed": self._closed,
             "frameless": False,
+            "always_on_top": self._on_top,
+            "fullscreen": self._fullscreen,
+            "min_size": self._min_size,
+            "max_size": self._max_size,
+            **self.bounds(),
         }
 
     def dialog(
@@ -471,6 +637,21 @@ def _invoke(native: Any, function: Callable[[], None]) -> None:
     from System import Func, Type  # type: ignore[import-not-found]
 
     native.Invoke(Func[Type](function))
+
+
+def apply_size_limits(
+    window: Any, min_size: SizeSetting | None, max_size: SizeSetting | None
+) -> None:
+    """Set the smallest and largest size on the window itself. ``None`` removes a limit."""
+
+    def apply() -> None:
+        from System.Drawing import Size  # type: ignore[import-not-found]
+
+        form = window.native
+        form.MinimumSize = Size(*min_size) if min_size else Size(0, 0)
+        form.MaximumSize = Size(*max_size) if max_size else Size(0, 0)  # zero means no limit
+
+    _invoke(window.native, apply)
 
 
 def bring_to_front(window: Any) -> None:
@@ -507,7 +688,7 @@ def apply_icon(window: Any, path: Path) -> None:
     """Put the icon on the window and its taskbar button."""
 
     def set_icon() -> None:
-        from System.Drawing import Bitmap, Icon  # type: ignore[import-not-found]
+        from System.Drawing import Bitmap, Icon
 
         if path.suffix.lower() == ".ico":
             window.native.Icon = Icon(str(path))

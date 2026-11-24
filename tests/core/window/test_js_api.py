@@ -40,6 +40,30 @@ class Recorder:
     def notify(self, event: str, detail: object = None) -> None:
         self.calls.append((f"notify:{event}", detail))
 
+    def set_always_on_top(self, enabled: bool) -> None:
+        self.calls.append(("always_on_top", enabled))
+
+    def set_fullscreen(self, enabled: bool) -> None:
+        self.calls.append(("fullscreen", enabled))
+
+    def set_size_limits(
+        self, min_size: tuple[int, int] | None, max_size: tuple[int, int] | None
+    ) -> None:
+        self.calls.append(("size_limits", (min_size, max_size)))
+
+    def bounds(self) -> dict[str, int | None]:
+        return {"x": 1, "y": 2, "width": 300, "height": 200}
+
+    def set_bounds(
+        self,
+        *,
+        x: int | None = None,
+        y: int | None = None,
+        width: int | None = None,
+        height: int | None = None,
+    ) -> None:
+        self.calls.append(("bounds", (x, y, width, height)))
+
     def open_window(
         self,
         path: str = "/",
@@ -170,11 +194,17 @@ def test_only_the_intended_names_are_public() -> None:
 
     assert public == {
         "actions",
+        "bounds",
         "call_action",
         "close",
         "maximize",
         "minimize",
         "restore",
+        "set_always_on_top",
+        "set_fullscreen",
+        "set_position",
+        "set_size",
+        "set_size_limits",
         "set_title",
         "state",
     }

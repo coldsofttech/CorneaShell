@@ -1,11 +1,16 @@
 """HTTP routes that let a frameless UI control its window."""
 
+from collections.abc import Callable
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from cornea.core.window.window import WINDOW_HEADER, WindowController
+from cornea.core.window.window import (
+    WINDOW_HEADER,
+    WindowController,
+    check_limit,
+)
 
 
 class TitleBody(BaseModel):
@@ -24,6 +29,33 @@ class GuardBody(BaseModel):
     """Whether the page is busy and wants closing held back."""
 
     enabled: bool
+
+
+class EnabledBody(BaseModel):
+    """Switch something on or off."""
+
+    enabled: bool
+
+
+class SizeLimitsBody(BaseModel):
+    """The smallest and largest size, each ``[width, height]`` or null for no limit."""
+
+    min_size: tuple[int, int] | None = None
+    max_size: tuple[int, int] | None = None
+
+
+class PositionBody(BaseModel):
+    """Where to put the window's top-left corner."""
+
+    x: int
+    y: int
+
+
+class SizeBody(BaseModel):
+    """The window's new width and height."""
+
+    width: int
+    height: int
 
 
 def window_for(request: Request) -> WindowController | None:
@@ -93,3 +125,49 @@ def close_guard(body: GuardBody, request: Request) -> dict[str, bool]:
 def set_title(body: TitleBody, controller: Controller) -> dict[str, bool]:
     controller.set_title(body.title)
     return {"ok": True}
+
+
+def _checked(call: Callable[[], None]) -> dict[str, bool]:
+    try:
+        call()
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"ok": True}
+
+
+@router.get("/bounds")
+def bounds(controller: Controller) -> dict[str, int | None]:
+    """The window's ``x``, ``y``, ``width`` and ``height``."""
+    return controller.bounds()
+
+
+@router.post("/always-on-top")
+def always_on_top(body: EnabledBody, controller: Controller) -> dict[str, bool]:
+    controller.set_always_on_top(body.enabled)
+    return {"ok": True}
+
+
+@router.post("/fullscreen")
+def fullscreen(body: EnabledBody, controller: Controller) -> dict[str, bool]:
+    controller.set_fullscreen(body.enabled)
+    return {"ok": True}
+
+
+@router.post("/size-limits")
+def size_limits(body: SizeLimitsBody, controller: Controller) -> dict[str, bool]:
+    """Set the smallest and largest size. A missing or null limit is removed."""
+    return _checked(
+        lambda: controller.set_size_limits(
+            check_limit(body.min_size, "min_size"), check_limit(body.max_size, "max_size")
+        )
+    )
+
+
+@router.post("/position")
+def set_position(body: PositionBody, controller: Controller) -> dict[str, bool]:
+    return _checked(lambda: controller.set_bounds(x=body.x, y=body.y))
+
+
+@router.post("/size")
+def set_size(body: SizeBody, controller: Controller) -> dict[str, bool]:
+    return _checked(lambda: controller.set_bounds(width=body.width, height=body.height))

@@ -59,6 +59,14 @@ def test_simulated_window_starts_idle() -> None:
         "minimized": False,
         "closed": False,
         "frameless": False,
+        "always_on_top": False,
+        "fullscreen": False,
+        "min_size": None,
+        "max_size": None,
+        "x": None,
+        "y": None,
+        "width": 1024,
+        "height": 768,
     }
 
 
@@ -228,3 +236,29 @@ def test_run_passes_on_ready_to_the_shell(monkeypatch: pytest.MonkeyPatch) -> No
     run(window=None, on_ready=callback)
 
     assert calls == [callback]
+
+
+def test_the_window_control_routes_work_and_check_their_input(bundle: Path) -> None:
+    with Shell(Static(bundle), window=None) as shell:
+        cookie = sign_in(shell)
+
+        def post(path: str, body: dict[str, Any]) -> tuple[int, dict[str, Any]]:
+            return call(shell, "POST", f"/api/window/{path}", cookie=cookie, body=body)
+
+        assert post("always-on-top", {"enabled": True}) == (200, {"ok": True})
+        assert post("fullscreen", {"enabled": True}) == (200, {"ok": True})
+        assert post("size-limits", {"min_size": [300, 200], "max_size": None})[0] == 200
+        assert post("position", {"x": -40, "y": 25})[0] == 200
+        assert post("size", {"width": 640, "height": 480})[0] == 200
+        assert call(shell, "GET", "/api/window/bounds", cookie=cookie) == (
+            200,
+            {"x": -40, "y": 25, "width": 640, "height": 480},
+        )
+        state = call(shell, "GET", "/api/window", cookie=cookie)[1]
+        assert (state["always_on_top"], state["fullscreen"]) == (True, True)
+        assert state["min_size"] == [300, 200]
+        # Refused: too small, off the map, a smallest size above the largest, wrong types.
+        assert post("size", {"width": 10, "height": 480})[0] == 422
+        assert post("position", {"x": 10**6, "y": 0})[0] == 422
+        assert post("size-limits", {"min_size": [900, 900], "max_size": [500, 500]})[0] == 422
+        assert post("always-on-top", {"enabled": "maybe"})[0] == 422

@@ -91,6 +91,31 @@
     setTitle: function (title) {
       return request("/window/title", "POST", { title: title });
     },
+    /** Keep the window above the others (true) or not (false). */
+    setAlwaysOnTop: function (enabled) {
+      return request("/window/always-on-top", "POST", { enabled: Boolean(enabled) });
+    },
+    /** Fill the screen without a frame (true) or go back to the window (false). */
+    setFullscreen: function (enabled) {
+      return request("/window/fullscreen", "POST", { enabled: Boolean(enabled) });
+    },
+    /** Set the smallest and largest size as [width, height]; null or missing removes a limit. */
+    setSizeLimits: function (limits) {
+      return request("/window/size-limits", "POST", {
+        min_size: (limits && limits.min) || null,
+        max_size: (limits && limits.max) || null,
+      });
+    },
+    /** The window's {x, y, width, height}. */
+    bounds: function () {
+      return request("/window/bounds");
+    },
+    setPosition: function (x, y) {
+      return request("/window/position", "POST", { x: x, y: y });
+    },
+    setSize: function (width, height) {
+      return request("/window/size", "POST", { width: width, height: height });
+    },
   };
 
   var windows = {

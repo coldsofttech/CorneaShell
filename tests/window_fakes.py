@@ -35,6 +35,7 @@ class FakeWindow:
         self.url = url
         self.options = options
         self.calls: list[str] = []
+        self.on_top = False
         self.options_object = FakeWebViewOptions()
         self.events = SimpleNamespace(
             maximized=FakeEvent(),
@@ -72,6 +73,15 @@ class FakeWindow:
 
     def set_title(self, title: str) -> None:
         self.calls.append(f"title:{title}")
+
+    def toggle_fullscreen(self) -> None:
+        self.calls.append("toggle_fullscreen")
+
+    def resize(self, width: int, height: int) -> None:
+        self.calls.append(f"resize:{width}x{height}")
+
+    def move(self, x: int, y: int) -> None:
+        self.calls.append(f"move:{x},{y}")
 
 
 class FakeWebview(ModuleType):

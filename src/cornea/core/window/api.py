@@ -13,7 +13,12 @@ import asyncio
 from typing import Any
 
 from cornea.core.bridge.bridge import ActionRegistry
-from cornea.core.window.window import WindowController
+from cornea.core.window.window import (
+    WindowController,
+    check_coordinate,
+    check_limit,
+    check_side,
+)
 
 
 class WindowApi:
@@ -49,6 +54,41 @@ class WindowApi:
         if not isinstance(title, str) or not 1 <= len(title) <= 200:
             raise ValueError("title must be 1 to 200 characters")
         self._window().set_title(title)
+        return {"ok": True}
+
+    def set_always_on_top(self, enabled: bool) -> dict[str, bool]:
+        """Keep the window above the others (or stop)."""
+        self._window().set_always_on_top(bool(enabled))
+        return {"ok": True}
+
+    def set_fullscreen(self, enabled: bool) -> dict[str, bool]:
+        """Fill the screen without a frame (or go back)."""
+        self._window().set_fullscreen(bool(enabled))
+        return {"ok": True}
+
+    def set_size_limits(
+        self, min_size: list[int] | None = None, max_size: list[int] | None = None
+    ) -> dict[str, bool]:
+        """Set the smallest and largest size, each ``[width, height]`` or ``None``."""
+        self._window().set_size_limits(
+            check_limit(min_size, "min_size"), check_limit(max_size, "max_size")
+        )
+        return {"ok": True}
+
+    def bounds(self) -> dict[str, int | None]:
+        """The window's ``x``, ``y``, ``width`` and ``height``."""
+        return self._window().bounds()
+
+    def set_position(self, x: int, y: int) -> dict[str, bool]:
+        """Move the window's top-left corner."""
+        self._window().set_bounds(x=check_coordinate(x, "x"), y=check_coordinate(y, "y"))
+        return {"ok": True}
+
+    def set_size(self, width: int, height: int) -> dict[str, bool]:
+        """Resize the window."""
+        self._window().set_bounds(
+            width=check_side(width, "width"), height=check_side(height, "height")
+        )
         return {"ok": True}
 
     def state(self) -> dict[str, Any]:
